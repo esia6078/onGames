@@ -213,8 +213,6 @@ function renderGamePlayers(players) {
     `;
     if (isMe) {
       const wordDiv = card.querySelector('.player-word');
-      wordDiv.title = 'Kliknij żeby zobaczyć';
-      wordDiv.onclick = () => wordDiv.classList.toggle('revealed');
     }
     div.appendChild(card);
   });
