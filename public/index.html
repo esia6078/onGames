@@ -1,3 +1,205 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Czółko 🎮</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .screen { display: none; flex-direction: column; align-items: center; gap: 16px; width: 90%; max-width: 500px; }
+  .screen.active { display: flex; }
+  h1 { font-size: 2.5rem; color: #e94560; }
+  h2 { font-size: 1.4rem; color: #aaa; }
+  input { width: 100%; padding: 12px; border-radius: 8px; border: none; font-size: 1rem; background: #16213e; color: #eee; text-align: center; }
+  button { width: 100%; padding: 12px; border-radius: 8px; border: none; font-size: 1rem; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
+  button:hover { opacity: 0.85; }
+  .btn-main { background: #e94560; color: white; }
+  .btn-sec { background: #0f3460; color: white; }
+  .btn-vote { background: #533483; color: white; padding: 10px; font-size: 0.95rem; }
+  .code-box { background: #e94560; padding: 16px 32px; border-radius: 12px; font-size: 2rem; font-weight: bold; letter-spacing: 6px; }
+  .players-grid { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; width: 100%; }
+  .player-card { background: #16213e; border-radius: 12px; padding: 16px; text-align: center; min-width: 120px; flex: 1; }
+  .player-word { font-size: 1.3rem; font-weight: bold; color: #e94560; margin-bottom: 4px; }
+  .player-name { font-size: 0.9rem; color: #aaa; }
+  .player-card.me .player-word { color: #333; background: #333; border-radius: 4px; cursor: pointer; }
+  .player-card.me .player-word.revealed { color: #e94560; background: transparent; }
+  .vote-options { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .error { color: #e94560; font-size: 0.9rem; }
+  .words-list { background: #16213e; padding: 12px; border-radius: 8px; width: 100%; }
+  .hint { font-size: 0.8rem; color: #888; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- EKRAN STARTOWY -->
+<div class="screen active" id="screen-home">
+  <h1>🎮 Czółko</h1>
+  <input id="nickname" placeholder="Twój nick" maxlength="16">
+  <button class="btn-main" onclick="createLobby()">Stwórz lobby</button>
+  <button class="btn-sec" onclick="showJoin()">Dołącz do lobby</button>
+  <div id="join-form" style="display:none; width:100%; display:flex; flex-direction:column; gap:8px;">
+    <input id="join-code" placeholder="Kod lobby (np. ABC12)" maxlength="5" style="text-transform:uppercase">
+    <button class="btn-sec" onclick="joinLobby()">Dołącz</button>
+  </div>
+  <p class="error" id="home-error"></p>
+</div>
+
+<!-- EKRAN LOBBY (ADMIN) -->
+<div class="screen" id="screen-lobby-admin">
+  <h2>Twoje lobby</h2>
+  <div class="code-box" id="lobby-code-display"></div>
+  <p style="color:#888">Podaj ten kod innym graczom</p>
+  <h2>Lista słów (jedno na linię):</h2>
+  <textarea id="words-input" rows="6" style="width:100%;background:#16213e;color:#eee;border:none;border-radius:8px;padding:12px;font-size:1rem;" placeholder="pies&#10;samochód&#10;pizza&#10;..."></textarea>
+  <button class="btn-main" onclick="saveWords()">Zapisz słowa</button>
+  <div class="words-list" id="words-preview" style="display:none"></div>
+  <h2>Gracze w lobby:</h2>
+  <div class="players-grid" id="lobby-players"></div>
+  <button class="btn-main" onclick="startVoting()" id="btn-start" style="display:none">▶ Rozpocznij głosowanie</button>
+</div>
+
+<!-- EKRAN LOBBY (GRACZ) -->
+<div class="screen" id="screen-lobby-player">
+  <h2>Dołączyłeś do lobby</h2>
+  <div class="code-box" id="lobby-code-player"></div>
+  <h2>Gracze:</h2>
+  <div class="players-grid" id="lobby-players-p"></div>
+  <p style="color:#aaa">Czekaj na start gry...</p>
+</div>
+
+<!-- EKRAN GŁOSOWANIA -->
+<div class="screen" id="screen-voting">
+  <h2>Głosowanie 🗳️</h2>
+  <p>Jakie hasło pasuje do gracza:</p>
+  <h1 id="voting-target-name" style="font-size:1.8rem"></h1>
+  <p class="hint" id="voting-hint"></p>
+  <div class="vote-options" id="vote-options"></div>
+  <p style="color:#aaa; font-size:0.9rem" id="waiting-vote-msg" style="display:none"></p>
+</div>
+
+<!-- EKRAN GRY -->
+<div class="screen" id="screen-game">
+  <h1>🎮 Gra!</h1>
+  <p class="hint">Kliknij na swoje hasło żeby je zobaczyć</p>
+  <div class="players-grid" id="game-players"></div>
+</div>
+
+<script>
+const socket = io();
+let myId = null;
+let isAdmin = false;
+let myLobbyCode = null;
+
+socket.on('connect', () => { myId = socket.id; });
+
+function showJoin() {
+  document.getElementById('join-form').style.display = 'flex';
+}
+
+function getNick() {
+  const n = document.getElementById('nickname').value.trim();
+  if (!n) { document.getElementById('home-error').textContent = 'Wpisz nick!'; return null; }
+  return n;
+}
+
+function createLobby() {
+  const nickname = getNick(); if (!nickname) return;
+  isAdmin = true;
+  socket.emit('createLobby', { nickname });
+}
+
+function joinLobby() {
+  const nickname = getNick(); if (!nickname) return;
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  if (!code) { document.getElementById('home-error').textContent = 'Wpisz kod!'; return; }
+  socket.emit('joinLobby', { code, nickname });
+}
+
+function saveWords() {
+  const raw = document.getElementById('words-input').value;
+  const words = raw.split('\n').map(w => w.trim()).filter(w => w);
+  if (words.length < 2) { alert('Dodaj minimum 2 słowa!'); return; }
+  socket.emit('setWords', { words });
+}
+
+function startVoting() {
+  socket.emit('startVoting');
+}
+
+socket.on('lobbyCreated', ({ code }) => {
+  myLobbyCode = code;
+  document.getElementById('lobby-code-display').textContent = code;
+  showScreen('screen-lobby-admin');
+});
+
+socket.on('joinedLobby', ({ code }) => {
+  myLobbyCode = code;
+  document.getElementById('lobby-code-player').textContent = code;
+  showScreen('screen-lobby-player');
+});
+
+socket.on('updatePlayers', (players) => {
+  renderPlayers('lobby-players', players, false);
+  renderPlayers('lobby-players-p', players, false);
+  if (isAdmin && players.length >= 2) {
+    document.getElementById('btn-start').style.display = 'block';
+  }
+});
+
+socket.on('wordsSet', (words) => {
+  const box = document.getElementById('words-preview');
+  box.style.display = 'block';
+  box.innerHTML = '<b>Słowa:</b> ' + words.join(', ');
+});
+
+socket.on('votingFor', ({ targetId, targetNickname, words }) => {
+  showScreen('screen-voting');
+  document.getElementById('voting-target-name').textContent = targetNickname;
+  const optionsDiv = document.getElementById('vote-options');
+  const hintEl = document.getElementById('voting-hint');
+
+  if (targetId === myId) {
+    hintEl.textContent = 'To Twoje głosowanie — czekaj na innych!';
+    optionsDiv.innerHTML = '<p style="color:#aaa;text-align:center">Inni wybierają Twoje hasło...</p>';
+    return;
+  }
+
+  hintEl.textContent = 'Wybierz hasło dla tego gracza:';
+  optionsDiv.innerHTML = '';
+  words.forEach(word => {
+    const btn = document.createElement('button');
+    btn.className = 'btn-vote';
+    btn.textContent = word;
+    btn.onclick = () => {
+      socket.emit('vote', { word });
+      optionsDiv.innerHTML = '<p style="color:#aaa;text-align:center">✅ Zagłosowałeś! Czekam na pozostałych...</p>';
+    };
+    optionsDiv.appendChild(btn);
+  });
+});
+
+socket.on('gameStarted', (players) => {
+  showScreen('screen-game');
+  renderGamePlayers(players);
+});
+
+socket.on('error', (msg) => {
+  alert('❌ ' + msg);
+});
+
+function renderPlayers(containerId, players, showWords) {
+  const div = document.getElementById(containerId);
+  div.innerHTML = '';
+  players.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'player-card';
+    card.innerHTML = `<div class="player-name">${p.nickname}</div>`;
+    div.appendChild(card);
+  });
+}
+
 function renderGamePlayers(players) {
   const div = document.getElementById('game-players');
   div.innerHTML = '';
@@ -5,17 +207,23 @@ function renderGamePlayers(players) {
     const card = document.createElement('div');
     const isMe = p.id === myId;
     card.className = 'player-card' + (isMe ? ' me' : '');
+    card.innerHTML = `
+      <div class="player-word${isMe ? '' : ''}">${p.word || '?'}</div>
+      <div class="player-name">${p.nickname}${isMe ? ' (Ty)' : ''}</div>
+    `;
     if (isMe) {
-      card.innerHTML = `
-        <div class="player-word" style="color:#333;background:#333;border-radius:4px;">???</div>
-        <div class="player-name">${p.nickname} (Ty)</div>
-      `;
-    } else {
-      card.innerHTML = `
-        <div class="player-word">${p.word || '?'}</div>
-        <div class="player-name">${p.nickname}</div>
-      `;
+      const wordDiv = card.querySelector('.player-word');
+      wordDiv.title = 'Kliknij żeby zobaczyć';
+      wordDiv.onclick = () => wordDiv.classList.toggle('revealed');
     }
     div.appendChild(card);
   });
 }
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+</script>
+</body>
+</html>
