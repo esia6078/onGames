@@ -8,66 +8,34 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Poppins', sans-serif; background: #0d0d1a; color: #eee; min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  
-  /* TŁO ANIMOWANE */
-  body::before {
-    content: '';
-    position: fixed;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    background: radial-gradient(ellipse at 20% 50%, #1a0533 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 20%, #001a33 0%, transparent 50%),
-                radial-gradient(ellipse at 50% 80%, #0d1a00 0%, transparent 50%);
-    animation: bgPulse 8s ease-in-out infinite alternate;
-    z-index: -1;
-  }
-  @keyframes bgPulse {
-    0% { transform: scale(1) rotate(0deg); }
-    100% { transform: scale(1.1) rotate(3deg); }
-  }
-
+  body { font-family: 'Poppins', sans-serif; background: #0d0d1a; color: #eee; min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow-x: hidden; }
+  body::before { content: ''; position: fixed; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(ellipse at 20% 50%, #1a0533 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, #001a33 0%, transparent 50%), radial-gradient(ellipse at 50% 80%, #0d1a00 0%, transparent 50%); animation: bgPulse 8s ease-in-out infinite alternate; z-index: -1; }
+  @keyframes bgPulse { 0% { transform: scale(1) rotate(0deg); } 100% { transform: scale(1.1) rotate(3deg); } }
   .screen { display: none; flex-direction: column; align-items: center; gap: 20px; width: 90%; max-width: 520px; }
   .screen.active { display: flex; }
-
-  /* LOGO */
+  #screen-game { max-width: 100vw; width: 100%; flex-direction: row; align-items: flex-start; justify-content: center; gap: 24px; padding: 24px; min-height: 100vh; flex-wrap: wrap; }
   .logo { font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-align: center; line-height: 1; }
   .logo-sub { font-size: 0.9rem; color: #888; letter-spacing: 3px; text-transform: uppercase; }
-
-  /* KARTY */
   .card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px; width: 100%; backdrop-filter: blur(10px); }
-
   input, textarea { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); font-size: 1rem; background: rgba(255,255,255,0.07); color: #eee; font-family: 'Poppins', sans-serif; transition: border 0.2s; }
   input:focus, textarea:focus { outline: none; border-color: #ff6b6b; }
   input::placeholder, textarea::placeholder { color: #555; }
-
   button { width: 100%; padding: 14px; border-radius: 12px; border: none; font-size: 1rem; cursor: pointer; font-weight: 600; font-family: 'Poppins', sans-serif; transition: all 0.2s; position: relative; overflow: hidden; }
-  button::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0.1); opacity: 0; transition: opacity 0.2s; }
-  button:hover::after { opacity: 1; }
   button:active { transform: scale(0.97); }
-
   .btn-main { background: linear-gradient(135deg, #ff6b6b, #ee5a24); color: white; box-shadow: 0 4px 20px rgba(255,107,107,0.4); }
   .btn-sec { background: linear-gradient(135deg, #48dbfb, #0abde3); color: #0d0d1a; }
   .btn-green { background: linear-gradient(135deg, #1dd1a1, #10ac84); color: white; box-shadow: 0 4px 20px rgba(29,209,161,0.4); }
   .btn-purple { background: linear-gradient(135deg, #ff9ff3, #f368e0); color: white; }
-
-  /* KOD LOBBY */
   .code-box { background: linear-gradient(135deg, #ff6b6b, #ee5a24); padding: 16px 40px; border-radius: 16px; font-size: 2.5rem; font-weight: 800; letter-spacing: 8px; text-align: center; box-shadow: 0 8px 32px rgba(255,107,107,0.4); }
   .code-hint { font-size: 0.8rem; color: #888; text-align: center; }
-
-  /* GRACZE W LOBBY */
   .players-list { display: flex; flex-direction: column; gap: 8px; width: 100%; }
   .player-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
   .player-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 700; flex-shrink: 0; }
   .player-item-name { font-weight: 600; }
   .player-item-badge { font-size: 0.7rem; color: #feca57; background: rgba(254,202,87,0.15); padding: 2px 8px; border-radius: 20px; margin-left: auto; }
-
-  /* EKRAN PRZYPISYWANIA */
   .assign-box { background: rgba(255,255,255,0.05); border: 2px solid rgba(255,107,107,0.4); border-radius: 20px; padding: 32px; text-align: center; width: 100%; }
   .assign-target { font-size: 2rem; font-weight: 800; color: #feca57; margin: 8px 0; }
   .assign-label { font-size: 0.85rem; color: #888; }
-
-  /* POKAŻ HASŁO - OVERLAY */
   .word-reveal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; gap: 16px; backdrop-filter: blur(8px); animation: fadeIn 0.3s ease; }
   .word-reveal.hidden { display: none; }
   @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
@@ -77,8 +45,6 @@
   .reveal-timer { width: 120px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
   .reveal-timer-bar { height: 100%; background: linear-gradient(90deg, #ff6b6b, #feca57); border-radius: 2px; animation: timerBar 3s linear forwards; }
   @keyframes timerBar { from { width: 100%; } to { width: 0%; } }
-
-  /* GRA - KARTY GRACZY */
   .game-grid { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; width: 100%; }
   .game-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 20px 16px; text-align: center; min-width: 130px; flex: 1; position: relative; transition: transform 0.2s; }
   .game-card:hover { transform: translateY(-2px); }
@@ -87,19 +53,17 @@
   .game-word.hidden-word { color: #1a1a2e; background: #1a1a2e; border-radius: 6px; user-select: none; }
   .game-name { font-size: 0.85rem; color: #888; }
   .game-me-badge { position: absolute; top: 8px; right: 8px; font-size: 0.6rem; background: rgba(255,107,107,0.3); color: #ff6b6b; padding: 2px 6px; border-radius: 10px; }
-
   .section-title { font-size: 0.75rem; color: #666; text-transform: uppercase; letter-spacing: 2px; text-align: center; }
   .error { color: #ff6b6b; font-size: 0.85rem; text-align: center; }
   .waiting-text { color: #888; font-size: 0.9rem; text-align: center; }
-
-  /* EMOJI DEKORACJE */
   .deco { font-size: 3rem; text-align: center; }
-  .deco-small { font-size: 1.5rem; }
+  .nb-toolbar-btn { width: auto !important; padding: 6px 12px !important; font-size: 0.85rem !important; background: rgba(255,255,255,0.08); color: #eee; border-radius: 8px; }
+  #notatnik { min-height: 400px; max-height: 550px; overflow-y: auto; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; font-size: 0.9rem; line-height: 1.8; color: #ddd; outline: none; white-space: pre-wrap; word-break: break-word; }
+  #notatnik:empty:before { content: attr(placeholder); color: #444; }
 </style>
 </head>
 <body>
 
-<!-- OVERLAY POKAZYWANIA HASŁA -->
 <div class="word-reveal hidden" id="word-reveal">
   <div class="reveal-name" id="reveal-name"></div>
   <div id="reveal-content"></div>
@@ -148,7 +112,7 @@
   <p class="waiting-text">⏳ Czekaj na start gry...</p>
 </div>
 
-<!-- EKRAN PRZYPISYWANIA HASEL -->
+<!-- EKRAN PRZYPISYWANIA -->
 <div class="screen" id="screen-assigning">
   <div class="assign-box">
     <p class="assign-label">Wpisz hasło dla:</p>
@@ -159,21 +123,38 @@
     <input id="word-input" placeholder="Wpisz hasło..." maxlength="30">
     <button class="btn-main" onclick="submitWord()">✅ Zatwierdź</button>
   </div>
-  <p class="waiting-text hidden" id="assign-waiting">⏳ Czekaj na przypisanie hasła...</p>
+  <p class="waiting-text hidden" id="assign-waiting" style="display:none">⏳ Czekaj na przypisanie hasła...</p>
 </div>
 
 <!-- EKRAN GRY -->
-<div class="screen" id="screen-game" style="max-width:100%;flex-direction:row;align-items:flex-start;justify-content:center;gap:20px;padding:20px;">
-  <div style="display:flex;flex-direction:column;align-items:center;gap:16px;flex:1;max-width:520px;">
+<div class="screen" id="screen-game">
+  <!-- LEWA: gracze -->
+  <div style="display:flex;flex-direction:column;align-items:center;gap:16px;flex:1;min-width:280px;max-width:520px;">
     <div class="deco">🎯</div>
     <div class="logo" style="font-size:1.8rem;">Gra!</div>
     <p class="waiting-text">Twoje hasło jest ukryte 🙈</p>
     <div class="game-grid" id="game-players"></div>
   </div>
-  <div style="display:flex;flex-direction:column;gap:10px;width:220px;flex-shrink:0;position:sticky;top:20px;">
-    <div style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:2px;">📝 Mój notatnik</div>
-    <textarea id="notatnik" placeholder="Pisz tu notatki..." style="height:300px;resize:vertical;font-size:0.9rem;line-height:1.6;"></textarea>
-    <button class="btn-sec" onclick="document.getElementById('notatnik').value=''">🗑️ Wyczyść</button>
+
+  <!-- PRAWA: notatnik -->
+  <div style="display:flex;flex-direction:column;gap:12px;width:300px;flex-shrink:0;position:sticky;top:24px;">
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:0.75rem;color:#feca57;text-transform:uppercase;letter-spacing:2px;font-weight:600;">📝 Mój notatnik</div>
+        <div style="font-size:0.7rem;color:#1dd1a1;" id="autosave-status">✓ Zapisano</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="nb-toolbar-btn" onclick="formatText('bold')"><b>B</b></button>
+        <button class="nb-toolbar-btn" onclick="formatText('italic')"><i>I</i></button>
+        <button class="nb-toolbar-btn" onclick="addCheckbox()">☑️</button>
+        <button class="nb-toolbar-btn" onclick="addMark('✅')" style="background:rgba(29,209,161,0.15);color:#1dd1a1;">✅</button>
+        <button class="nb-toolbar-btn" onclick="addMark('❌')" style="background:rgba(255,107,107,0.15);color:#ff6b6b;">❌</button>
+        <button class="nb-toolbar-btn" onclick="addMark('❓')" style="background:rgba(254,202,87,0.15);color:#feca57;">❓</button>
+        <button class="nb-toolbar-btn" onclick="clearNotes()" style="background:rgba(255,107,107,0.1);color:#ff6b6b;">🗑️</button>
+      </div>
+      <div id="notatnik" contenteditable="true" placeholder="Zacznij pisać notatki..."></div>
+      <div style="font-size:0.7rem;color:#555;text-align:right;" id="char-count">0 znaków</div>
+    </div>
   </div>
 </div>
 
@@ -181,7 +162,6 @@
 const socket = io();
 let myId = null;
 let isAdmin = false;
-
 const COLORS = ['#ff6b6b','#feca57','#48dbfb','#ff9ff3','#1dd1a1','#ff9f43','#a29bfe','#fd79a8'];
 const EMOJIS = ['😎','🐱','🦊','🐸','🦁','🐼','🦄','🐙','🦋','🎃'];
 
@@ -191,30 +171,23 @@ function showJoin() {
   const f = document.getElementById('join-form');
   f.style.display = f.style.display === 'flex' ? 'none' : 'flex';
 }
-
 function getNick() {
   const n = document.getElementById('nickname').value.trim();
   if (!n) { document.getElementById('home-error').textContent = 'Wpisz nick!'; return null; }
   return n;
 }
-
 function createLobby() {
   const nickname = getNick(); if (!nickname) return;
   isAdmin = true;
   socket.emit('createLobby', { nickname });
 }
-
 function joinLobby() {
   const nickname = getNick(); if (!nickname) return;
   const code = document.getElementById('join-code').value.trim().toUpperCase();
   if (!code) { document.getElementById('home-error').textContent = 'Wpisz kod!'; return; }
   socket.emit('joinLobby', { code, nickname });
 }
-
-function startAssigning() {
-  socket.emit('startAssigning');
-}
-
+function startAssigning() { socket.emit('startAssigning'); }
 function submitWord() {
   const word = document.getElementById('word-input').value.trim();
   if (!word) return;
@@ -222,70 +195,95 @@ function submitWord() {
   document.getElementById('word-input').value = '';
 }
 
+// NOTATNIK
+function formatText(cmd) {
+  document.execCommand(cmd, false, null);
+  document.getElementById('notatnik').focus();
+  saveNotes();
+}
+function addMark(emoji) {
+  document.getElementById('notatnik').focus();
+  document.execCommand('insertText', false, ' ' + emoji + ' ');
+  saveNotes();
+}
+function addCheckbox() {
+  document.getElementById('notatnik').focus();
+  document.execCommand('insertText', false, '\n☐ ');
+  saveNotes();
+}
+function clearNotes() {
+  if (!confirm('Wyczyścić notatnik?')) return;
+  document.getElementById('notatnik').innerHTML = '';
+  localStorage.setItem('czolko_notes', '');
+  updateCharCount();
+}
+function saveNotes() {
+  const el = document.getElementById('notatnik');
+  if (!el) return;
+  localStorage.setItem('czolko_notes', el.innerHTML);
+  const s = document.getElementById('autosave-status');
+  if (s) { s.textContent = '✓ Zapisano'; s.style.color = '#1dd1a1'; }
+  updateCharCount();
+}
+function loadNotes() {
+  const saved = localStorage.getItem('czolko_notes');
+  const el = document.getElementById('notatnik');
+  if (saved && el) el.innerHTML = saved;
+  updateCharCount();
+}
+function updateCharCount() {
+  const el = document.getElementById('notatnik');
+  const c = document.getElementById('char-count');
+  if (el && c) c.textContent = (el.innerText ? el.innerText.length : 0) + ' znaków';
+}
+setInterval(() => { if (document.getElementById('notatnik')) saveNotes(); }, 2000);
+document.addEventListener('input', (e) => { if (e.target.id === 'notatnik') updateCharCount(); });
+
 socket.on('lobbyCreated', ({ code }) => {
   document.getElementById('lobby-code-display').textContent = code;
   showScreen('screen-lobby-admin');
 });
-
 socket.on('joinedLobby', ({ code }) => {
   document.getElementById('lobby-code-player').textContent = code;
   showScreen('screen-lobby-player');
 });
-
 socket.on('updatePlayers', (players) => {
   renderPlayersList('lobby-players', players);
   renderPlayersList('lobby-players-p', players);
   const btn = document.getElementById('btn-start');
   if (btn) btn.style.display = players.length >= 2 ? 'block' : 'none';
 });
-
 socket.on('assignTurn', ({ targetId, targetNickname, assignerId }) => {
   showScreen('screen-assigning');
   document.getElementById('assign-target-name').textContent = targetNickname;
   const inputArea = document.getElementById('assign-input-area');
   const waitingMsg = document.getElementById('assign-waiting');
-
   if (myId === assignerId) {
     inputArea.style.display = 'flex';
-    waitingMsg.classList.add('hidden');
+    waitingMsg.style.display = 'none';
     document.getElementById('assign-subtitle').textContent = 'Tylko Ty widzisz to pole 👇';
   } else {
     inputArea.style.display = 'none';
-    waitingMsg.classList.remove('hidden');
+    waitingMsg.style.display = 'block';
     document.getElementById('assign-subtitle').textContent = '';
   }
 });
-
 socket.on('showWord', ({ targetId, targetNickname, word }) => {
   const overlay = document.getElementById('word-reveal');
-  const nameEl = document.getElementById('reveal-name');
-  const contentEl = document.getElementById('reveal-content');
-  const timerBar = document.getElementById('reveal-timer-bar');
-
+  document.getElementById('reveal-name').textContent = targetNickname + ' dostaje hasło:';
+  document.getElementById('reveal-content').innerHTML = myId === targetId
+    ? '<div class="reveal-hidden">🙈 To Twoje hasło — nie patrz!</div>'
+    : `<div class="reveal-word">${word}</div>`;
+  const bar = document.getElementById('reveal-timer-bar');
+  bar.style.animation = 'none'; bar.offsetHeight; bar.style.animation = 'timerBar 3s linear forwards';
   overlay.classList.remove('hidden');
-  nameEl.textContent = targetNickname + ' dostaje hasło:';
-
-  if (myId === targetId) {
-    contentEl.innerHTML = '<div class="reveal-hidden">🙈 To Twoje hasło — nie patrz!</div>';
-  } else {
-    contentEl.innerHTML = `<div class="reveal-word">${word}</div>`;
-  }
-
-  // reset animacji timera
-  timerBar.style.animation = 'none';
-  timerBar.offsetHeight;
-  timerBar.style.animation = 'timerBar 3s linear forwards';
-
-  setTimeout(() => {
-    overlay.classList.add('hidden');
-  }, 3000);
+  setTimeout(() => overlay.classList.add('hidden'), 3000);
 });
-
 socket.on('gameStarted', (players) => {
   showScreen('screen-game');
   renderGamePlayers(players);
+  setTimeout(loadNotes, 100);
 });
-
 socket.on('error', (msg) => alert('❌ ' + msg));
 
 function renderPlayersList(containerId, players) {
@@ -297,15 +295,10 @@ function renderPlayersList(containerId, players) {
     const emoji = EMOJIS[i % EMOJIS.length];
     const item = document.createElement('div');
     item.className = 'player-item';
-    item.innerHTML = `
-      <div class="player-avatar" style="background:${color}22;color:${color}">${emoji}</div>
-      <div class="player-item-name">${p.nickname}</div>
-      ${p.id === myId ? '<div class="player-item-badge">TO TY</div>' : ''}
-    `;
+    item.innerHTML = `<div class="player-avatar" style="background:${color}22;color:${color}">${emoji}</div><div class="player-item-name">${p.nickname}</div>${p.id === myId ? '<div class="player-item-badge">TO TY</div>' : ''}`;
     div.appendChild(item);
   });
 }
-
 function renderGamePlayers(players) {
   const div = document.getElementById('game-players');
   div.innerHTML = '';
@@ -315,16 +308,10 @@ function renderGamePlayers(players) {
     const isMe = p.id === myId;
     const card = document.createElement('div');
     card.className = 'game-card' + (isMe ? ' me' : '');
-    card.innerHTML = `
-      <div style="font-size:2rem;margin-bottom:8px">${emoji}</div>
-      <div class="game-word ${isMe ? 'hidden-word' : ''}" style="${isMe ? '' : 'color:' + color}">${isMe ? '???' : (p.word || '?')}</div>
-      <div class="game-name">${p.nickname}</div>
-      ${isMe ? '<div class="game-me-badge">TY</div>' : ''}
-    `;
+    card.innerHTML = `<div style="font-size:2rem;margin-bottom:8px">${emoji}</div><div class="game-word ${isMe ? 'hidden-word' : ''}" style="${isMe ? '' : 'color:' + color}">${isMe ? '???' : (p.word || '?')}</div><div class="game-name">${p.nickname}</div>${isMe ? '<div class="game-me-badge">TY</div>' : ''}`;
     div.appendChild(card);
   });
 }
-
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
