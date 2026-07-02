@@ -10,7 +10,12 @@
 <style>
 /* ────────────────────────────────────────────────────────── BASE ── */
 *{box-sizing:border-box;margin:0;padding:0}
+/* Leave room under a focused field so the mobile keyboard never covers it */
+html{scroll-padding-bottom:320px;scroll-padding-top:70px}
 body{font-family:'Poppins',sans-serif;background:#07071a;color:#eee;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;overflow-x:hidden}
+/* Tall, input-heavy screens scroll from the top instead of being centred,
+   so every field (and the keyboard's headroom) stays reachable. */
+body.scroll-top{align-items:flex-start}
 
 /* Animated gradient background */
 body::before{content:'';position:fixed;inset:0;background:
@@ -25,6 +30,8 @@ body::before{content:'';position:fixed;inset:0;background:
 .screen.active{display:flex}
 #screen-game{max-width:100vw;width:100%;flex-direction:row;align-items:flex-start;justify-content:center;gap:24px;padding:24px;min-height:100vh;flex-wrap:wrap}
 #screen-pm-round,#screen-pm-review{max-width:900px}
+/* Big bottom padding = scroll room so the last category can rise above the keyboard */
+#screen-pm-round{padding-bottom:min(65vh,480px)}
 
 /* ──────────────────────────────────────────────────── TYPOGRAPHY ── */
 .logo{font-size:2.8rem;font-weight:800;background:linear-gradient(135deg,#d946ef,#818cf8,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center;line-height:1.1}
@@ -150,6 +157,24 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .ai-invalid  {background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)}
 .ai-reason   {font-size:.72rem;color:#9ca3af;font-style:italic;margin-left:4px}
 
+/* Voting buttons in review */
+.vote-cell{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.vote-btn{width:auto!important;padding:5px 10px!important;font-size:.8rem!important;border-radius:9px;background:rgba(255,255,255,.07);color:#cbd5e1;border:1px solid rgba(255,255,255,.12);font-weight:700}
+.vote-btn.vote-acc.on{background:rgba(52,211,153,.18);border-color:#34d399;color:#34d399}
+.vote-btn.vote-rej.on{background:rgba(248,113,113,.18);border-color:#f87171;color:#f87171}
+.vote-static{font-size:.8rem;color:#9ca3af;white-space:nowrap}
+.vote-own{font-size:.72rem;color:#6b7280;font-style:italic}
+.review-hint{font-size:.82rem;color:#a5b4fc;text-align:center;background:rgba(129,140,248,.08);border:1px solid rgba(129,140,248,.2);border-radius:10px;padding:8px 12px}
+
+/* End-of-game vote (Czółko) */
+.endvote-picker{display:flex;gap:10px;width:100%}
+.endvote-card{flex:1;border:2px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);border-radius:16px;padding:16px 10px;text-align:center;cursor:pointer;transition:all .15s}
+.endvote-card .ev-emoji{font-size:1.8rem}
+.endvote-card .ev-name{font-size:.9rem;font-weight:700;margin-top:6px}
+.endvote-card .ev-count{font-size:.8rem;color:#9ca3af;margin-top:4px}
+.endvote-card.selected{border-color:#818cf8;background:rgba(129,140,248,.14)}
+.endvote-card.ev-new.selected{border-color:#34d399;background:rgba(52,211,153,.14)}
+
 /* ──────────────────────────────────────────────── SCOREBOARD ── */
 .scoreboard{display:flex;flex-direction:column;gap:8px;width:100%}
 .score-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border-radius:10px;padding:10px 14px}
@@ -234,6 +259,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
     <div class="players-list" id="lobby-players"></div>
   </div>
   <button class="btn-green" onclick="startAssigning()" id="btn-start" style="display:none">🚀 Rozpocznij grę</button>
+  <button class="btn-ghost" onclick="leaveLobby()">⬅ Wyjdź z lobby</button>
 </div>
 
 <!-- ══════════════════════════════════════ CZÓŁKO: LOBBY GRACZ ══ -->
@@ -246,6 +272,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
     <div class="players-list" id="lobby-players-p"></div>
   </div>
   <p class="waiting-text">⏳ Czekaj na start gry...</p>
+  <button class="btn-ghost" onclick="leaveLobby()">⬅ Wyjdź z lobby</button>
 </div>
 
 <!-- ══════════════════════════════════════ CZÓŁKO: SIMULTANEOUS ASSIGN ══ -->
@@ -322,7 +349,22 @@ button:disabled{opacity:.45;cursor:not-allowed}
     <p class="section-title">Zwycięzca</p>
     <div class="assign-target" id="czolko-winner-name" style="font-size:1.7rem"></div>
   </div>
-  <button class="btn-main" onclick="location.reload()">🔄 Nowa gra</button>
+  <div class="card" style="display:flex;flex-direction:column;gap:12px">
+    <p class="section-title">Co dalej? Zagłosujcie 🗳️</p>
+    <div class="endvote-picker">
+      <div class="endvote-card ev-new" id="ev-card-new" onclick="czolkoVote('new')">
+        <div class="ev-emoji">🔄</div>
+        <div class="ev-name">Nowa gra</div>
+        <div class="ev-count" id="ev-count-new">0 głosów</div>
+      </div>
+      <div class="endvote-card ev-lobby" id="ev-card-lobby" onclick="czolkoVote('lobby')">
+        <div class="ev-emoji">🏠</div>
+        <div class="ev-name">Powrót do lobby</div>
+        <div class="ev-count" id="ev-count-lobby">0 głosów</div>
+      </div>
+    </div>
+    <p class="waiting-text" id="ev-status">Więcej głosów wygrywa • remis = powrót do lobby</p>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════ PAŃSTWA-MIASTA: LOBBY ══ -->
@@ -342,6 +384,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
   </div>
   <button class="btn-green" onclick="pmStartGame()" id="pm-btn-start" style="display:none">🚀 Rozpocznij grę</button>
   <p class="waiting-text" id="pm-lobby-waiting-text" style="display:none">⏳ Czekaj, aż admin rozpocznie grę...</p>
+  <button class="btn-ghost" onclick="leaveLobby()">⬅ Wyjdź z lobby</button>
 </div>
 
 <!-- ══════════════════════════════════════ PAŃSTWA-MIASTA: RUNDA ══ -->
@@ -357,12 +400,14 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <div class="screen" id="screen-pm-review">
   <div class="logo" style="font-size:1.6rem">Wyniki rundy</div>
   <p class="waiting-text" id="pm-review-letter-text"></p>
+  <p class="review-hint" id="pm-review-hint">🗳️ Zagłosuj przy każdej odpowiedzi, czy się zalicza. Jeśli większość odrzuci — słowo nie dostaje punktów.</p>
   <p class="waiting-text" id="pm-ai-status" style="color:#818cf8;display:none">🤖 AI sprawdza odpowiedzi...</p>
   <div id="pm-review-tables" style="width:100%;display:flex;flex-direction:column;gap:16px"></div>
   <div class="card" style="display:flex;flex-direction:column;gap:8px">
     <p class="section-title">Wynik ogólny</p>
     <div class="scoreboard" id="pm-review-scoreboard"></div>
   </div>
+  <button class="btn-main"  onclick="pmFinalize()" id="pm-btn-finalize"   style="display:none">✅ Zatwierdź wyniki (przyznaj punkty)</button>
   <button class="btn-green" onclick="pmNextRound()" id="pm-btn-next-round" style="display:none">▶ Kolejna runda</button>
   <button class="btn-stop"  onclick="pmEndGame()"   id="pm-btn-end-game"  style="display:none">🏁 Zakończ grę</button>
   <p class="waiting-text" id="pm-review-waiting-text" style="display:none">⏳ Czekaj na decyzję admina...</p>
@@ -397,7 +442,10 @@ let allCategories = [];
 let selectedCategories = [];
 let pmRoundTimerInterval = null;
 let czolkoPlayers = [];
-let aiValidations = {};   // key: `${playerId}:${category}` → {valid, reason}
+let currentCode = null;
+let myPmVotes = {};       // answerKey `${playerId}||${category}` → 'accept'|'reject'
+let pmReviewLetter = null;
+let myEndVote = null;     // 'new' | 'lobby' (Czółko end-game vote)
 
 const COLORS = ['#f87171','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6','#fb923c','#4ade80'];
 const EMOJIS = ['😎','🐱','🦊','🐸','🦁','🐼','🦄','🐙','🦋','🎃','🐵','🐧','🦖','🐢','🐝'];
@@ -425,6 +473,13 @@ function showHomeError(msg) { document.getElementById('home-error').textContent 
 function createLobby() { const n = getNick(); if (!n) return; socket.emit('createLobby', { nickname: n, playerId: myId, game: selectedGame }); }
 function joinLobby()   { const n = getNick(); if (!n) return; const c = document.getElementById('join-code').value.trim().toUpperCase(); if (!c) { showHomeError('Wpisz kod!'); return; } socket.emit('joinLobby', { code: c, nickname: n, playerId: myId }); }
 
+function leaveLobby() {
+  if (!confirm('Na pewno wyjść z lobby?')) return;
+  socket.emit('leaveLobby');
+  clearSession();
+}
+socket.on('leftLobby', () => { clearSession(); location.reload(); });
+
 function copyCode(txt) {
   navigator.clipboard?.writeText(txt).then(() => {
     const el = event.target; const orig = el.style.transform;
@@ -433,16 +488,25 @@ function copyCode(txt) {
 }
 
 // ─── MOBILE KEYBOARD SCROLL FIX ───────────────────────────────────────────────
-document.addEventListener('focusin', () => setTimeout(() => {
+// Keep the focused field in the visible area above the on-screen keyboard.
+function keepFieldVisible(smooth) {
   const el = document.activeElement;
-  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable))
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-}, 150));
-if (window.visualViewport) window.visualViewport.addEventListener('resize', () => setTimeout(() => {
-  const el = document.activeElement;
-  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable))
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-}, 50));
+  if (!el || !(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+  const vv        = window.visualViewport;
+  const viewTop   = vv ? vv.offsetTop : 0;
+  const viewH     = vv ? vv.height : window.innerHeight;   // area NOT covered by keyboard
+  const rect      = el.getBoundingClientRect();
+  const margin    = 24;
+  let delta = 0;
+  if (rect.bottom > viewTop + viewH - margin) delta = rect.bottom - (viewTop + viewH - margin); // hidden below keyboard
+  else if (rect.top < viewTop + margin)       delta = rect.top - (viewTop + margin);            // above the fold
+  if (Math.abs(delta) > 2) window.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'auto' });
+}
+document.addEventListener('focusin', () => setTimeout(() => keepFieldVisible(true), 150));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => setTimeout(() => keepFieldVisible(false), 50));
+  window.visualViewport.addEventListener('scroll', () => keepFieldVisible(false));
+}
 
 // ─── PLAYER RENDERING ──────────────────────────────────────────────────────────
 function renderPlayersList(containerId, players) {
@@ -561,10 +625,44 @@ function openCzolkoEndGame() {
   document.getElementById('czolko-end-modal').classList.remove('hidden');
 }
 function closeCzolkoEndGame() { document.getElementById('czolko-end-modal').classList.add('hidden'); }
-socket.on('czolkoGameEnded', ({ winner }) => {
-  clearSession();
+
+function renderEndVote(tally) {
+  document.getElementById('ev-count-new').textContent   = (tally?.new   || 0) + ' głosów';
+  document.getElementById('ev-count-lobby').textContent = (tally?.lobby || 0) + ' głosów';
+  document.getElementById('ev-card-new').classList.toggle('selected',   myEndVote === 'new');
+  document.getElementById('ev-card-lobby').classList.toggle('selected', myEndVote === 'lobby');
+  const voted = (tally?.voted || 0), total = (tally?.total || 0);
+  document.getElementById('ev-status').textContent = myEndVote
+    ? `Zagłosowano: ${voted} / ${total} • remis = powrót do lobby`
+    : 'Więcej głosów wygrywa • remis = powrót do lobby';
+}
+
+function czolkoVote(vote) {
+  myEndVote = vote;
+  socket.emit('czolkoEndVote', { vote });
+  renderEndVote(null);
+}
+
+socket.on('czolkoGameEnded', ({ winner, endVote }) => {
+  myEndVote = null;
   document.getElementById('czolko-winner-name').textContent = '🏆 ' + winner.nickname;
+  renderEndVote(endVote);
   showScreen('screen-czolko-finished');
+});
+
+socket.on('czolkoVoteUpdate', (tally) => renderEndVote(tally));
+
+socket.on('czolkoVoteResult', ({ decision }) => {
+  myEndVote = null;
+  if (decision === 'lobby') {
+    // Server reset the lobby to waiting; show the lobby screen again.
+    if (currentCode) {
+      document.getElementById('lobby-code-display').textContent = currentCode;
+      document.getElementById('lobby-code-player').textContent  = currentCode;
+    }
+    showScreen(isAdmin ? 'screen-lobby-admin' : 'screen-lobby-player');
+  }
+  // For 'new', the server emits simultaneousAssignStart which switches screens.
 });
 
 // ─── NOTEPAD ──────────────────────────────────────────────────────────────────
@@ -583,6 +681,14 @@ function pmStartGame() { socket.emit('startGame'); }
 function pmStopRound() { socket.emit('stopRound'); }
 function pmNextRound() { socket.emit('nextRound'); }
 function pmEndGame()   { socket.emit('endGame'); }
+function pmFinalize()  { socket.emit('finalizeRound'); }
+
+function pmVote(targetId, category, vote) {
+  const key = targetId + '||' + category;
+  if (myPmVotes[key] === vote) delete myPmVotes[key];   // toggle off (mirror server)
+  else myPmVotes[key] = vote;
+  socket.emit('castVote', { targetId, category, vote });
+}
 
 function renderPmCatPicker() {
   const div = document.getElementById('pm-cat-picker'); div.innerHTML = '';
@@ -637,49 +743,56 @@ function pmStartTimer(endsAt) {
   tick(); pmRoundTimerInterval = setInterval(tick, 250);
 }
 
-// ─── PM RESULTS + AI BADGES ───────────────────────────────────────────────────
-function aiBadgeHtml(playerId, category) {
-  const key = playerId + ':' + category;
-  const v   = aiValidations[key];
-  if (!v) return '<span class="ai-badge ai-checking">🤖 Sprawdzam...</span>';
-  return v.valid
-    ? `<span class="ai-badge ai-valid" title="${v.reason}">✅ OK</span><span class="ai-reason">${v.reason}</span>`
-    : `<span class="ai-badge ai-invalid" title="${v.reason}">❌ Błąd</span><span class="ai-reason">${v.reason}</span>`;
+// ─── PM REVIEW + VOTING + AI BADGES ───────────────────────────────────────────
+function escAttr(s) { return String(s || '').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function aiBadgeHtml(r) {
+  if (!r.ai) return '';
+  return r.ai.valid
+    ? `<span class="ai-badge ai-valid" title="${escAttr(r.ai.reason)}">🤖 OK</span>${r.ai.reason ? `<span class="ai-reason">${r.ai.reason}</span>` : ''}`
+    : `<span class="ai-badge ai-invalid" title="${escAttr(r.ai.reason)}">🤖 Błąd</span>${r.ai.reason ? `<span class="ai-reason">${r.ai.reason}</span>` : ''}`;
 }
 
-function renderPmResults(letter, categories, results) {
-  document.getElementById('pm-review-letter-text').textContent = 'Litera: ' + letter;
+function voteCellHtml(r, cat, finalized) {
+  if (!r.eligible) return '<span class="vote-static">—</span>';
+  if (finalized)   return `<span class="vote-static">👍 ${r.accept} · 👎 ${r.reject}</span>`;
+  if (r.playerId === myId) return `<span class="vote-own">Twoja odpowiedź<br>👍 ${r.accept} · 👎 ${r.reject}</span>`;
+  const key = r.key, mine = myPmVotes[key];
+  const tid = escAttr(r.playerId), tcat = escAttr(cat);
+  return `<div class="vote-cell">
+    <button class="vote-btn vote-acc${mine==='accept'?' on':''}" onclick="pmVote('${tid}','${tcat}','accept')">👍 ${r.accept}</button>
+    <button class="vote-btn vote-rej${mine==='reject'?' on':''}" onclick="pmVote('${tid}','${tcat}','reject')">👎 ${r.reject}</button>
+  </div>`;
+}
+
+function renderReview(p) {
+  if (p.letter !== pmReviewLetter) { pmReviewLetter = p.letter; myPmVotes = {}; }
+  document.getElementById('pm-review-letter-text').textContent = 'Litera: ' + p.letter;
+
   const container = document.getElementById('pm-review-tables'); container.innerHTML = '';
-  categories.forEach(cat => {
+  p.categories.forEach(cat => {
     const block = document.createElement('div'); block.className = 'cat-block';
-    const rows = results[cat].map(r => {
-      let cls = 'ans-invalid', text = r.answer || '(brak)';
-      if (!r.answer) { cls = 'ans-empty'; text = '(brak)'; }
-      else if (r.valid) { cls = 'ans-valid'; text = r.answer; }
-      const hasAnswer = r.answer && r.answer.trim().length > 0;
-      const aiBadge   = hasAnswer ? aiBadgeHtml(r.playerId, cat) : '';
-      return `<tr id="row-${r.playerId}-${cat.replace(/[^a-z]/gi,'_')}"><td>${r.nickname}</td><td class="${cls}">${text}${aiBadge}</td><td class="pts">${r.points}</td></tr>`;
+    const rows = p.results[cat].map(r => {
+      let cls = 'ans-empty', text = '(brak)';
+      if (r.answer && r.answer.trim()) {
+        text = r.answer;
+        cls  = r.valid ? 'ans-valid' : 'ans-invalid';
+      }
+      const aiBadge = (r.answer && r.answer.trim()) ? aiBadgeHtml(r) : '';
+      return `<tr><td>${r.nickname}</td><td class="${cls}">${text}${aiBadge}</td><td>${voteCellHtml(r, cat, p.finalized)}</td><td class="pts">${r.points}</td></tr>`;
     }).join('');
-    block.innerHTML = `<p class="section-title">${cat}</p><table class="results-table"><thead><tr><th>Gracz</th><th>Odpowiedź</th><th>Pkt</th></tr></thead><tbody>${rows}</tbody></table>`;
+    block.innerHTML = `<p class="section-title">${cat}</p><table class="results-table"><thead><tr><th>Gracz</th><th>Odpowiedź</th><th>Zalicza?</th><th>Pkt</th></tr></thead><tbody>${rows}</tbody></table>`;
     container.appendChild(block);
   });
-}
 
-function refreshAiBadges(categories, results) {
-  categories.forEach(cat => {
-    results[cat].forEach(r => {
-      if (!r.answer || !r.answer.trim()) return;
-      const rowId = 'row-' + r.playerId + '-' + cat.replace(/[^a-z]/gi,'_');
-      const row   = document.getElementById(rowId);
-      if (!row) return;
-      const td     = row.querySelector('td:nth-child(2)');
-      if (!td) return;
-      const text   = r.valid ? r.answer : (r.answer || '(brak)');
-      const cls    = r.valid ? 'ans-valid' : (r.answer ? 'ans-invalid' : 'ans-empty');
-      td.className = cls;
-      td.innerHTML = (r.valid ? text : `<span class="${cls}">${text}</span>`) + aiBadgeHtml(r.playerId, cat);
-    });
-  });
+  renderPmScoreboard('pm-review-scoreboard', p.scoreboard);
+
+  const finalized = p.finalized;
+  document.getElementById('pm-review-hint').style.display        = finalized ? 'none' : 'block';
+  document.getElementById('pm-btn-finalize').style.display       = (isAdmin && !finalized) ? 'block' : 'none';
+  document.getElementById('pm-btn-next-round').style.display     = (isAdmin && finalized)  ? 'block' : 'none';
+  document.getElementById('pm-btn-end-game').style.display       = isAdmin ? 'block' : 'none';
+  document.getElementById('pm-review-waiting-text').style.display = isAdmin ? 'none' : 'block';
 }
 
 function renderPmScoreboard(containerId, scoreboard) {
@@ -691,33 +804,23 @@ function renderPmScoreboard(containerId, scoreboard) {
   });
 }
 
-let lastRoundData = null;
-
-socket.on('roundResults', ({ letter, categories, results, scoreboard }) => {
+socket.on('reviewState', (p) => {
   if (pmRoundTimerInterval) clearInterval(pmRoundTimerInterval);
-  aiValidations = {};
-  lastRoundData  = { letter, categories, results };
-
-  renderPmResults(letter, categories, results);
-  renderPmScoreboard('pm-review-scoreboard', scoreboard);
-  document.getElementById('pm-btn-next-round').style.display  = isAdmin ? 'block' : 'none';
-  document.getElementById('pm-btn-end-game').style.display    = isAdmin ? 'block' : 'none';
-  document.getElementById('pm-review-waiting-text').style.display = isAdmin ? 'none' : 'block';
-  document.getElementById('pm-ai-status').style.display       = 'block';
+  renderReview(p);
   showScreen('screen-pm-review');
 });
 
-socket.on('aiValidation', ({ validations }) => {
-  validations.forEach(v => { aiValidations[v.playerId + ':' + v.category] = { valid: v.valid, reason: v.reason }; });
-  document.getElementById('pm-ai-status').style.display = 'none';
-  if (lastRoundData) refreshAiBadges(lastRoundData.categories, lastRoundData.results);
+socket.on('aiStatus', ({ checking }) => {
+  document.getElementById('pm-ai-status').style.display = checking ? 'block' : 'none';
 });
 
 socket.on('roundStarted', ({ round, letter, categories, endsAt }) => {
+  myPmVotes = {}; pmReviewLetter = null;
   document.getElementById('pm-round-letter').textContent = letter;
   document.getElementById('pm-btn-stop').disabled         = false;
   document.getElementById('pm-btn-stop').style.display    = 'block';
   document.getElementById('pm-round-stopping-text').style.display = 'none';
+  document.getElementById('pm-ai-status').style.display = 'none';
   renderPmRoundFields(categories, {});
   pmStartTimer(endsAt);
   showScreen('screen-pm-round');
@@ -738,7 +841,7 @@ socket.on('gameEnded', ({ scoreboard }) => {
 // ─── SHARED SOCKET EVENTS ─────────────────────────────────────────────────────
 socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats }) => {
   if (playerId) myId = playerId;
-  currentGame = game; isAdmin = true; saveSession({ code });
+  currentGame = game; isAdmin = true; currentCode = code; saveSession({ code });
 
   if (game === 'panstwa') {
     allCategories      = cats;
@@ -757,7 +860,7 @@ socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats }) => {
 
 socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats }) => {
   if (playerId) myId = playerId;
-  currentGame = game; isAdmin = false; saveSession({ code });
+  currentGame = game; isAdmin = false; currentCode = code; saveSession({ code });
 
   if (game === 'panstwa') {
     allCategories      = cats;
@@ -773,10 +876,16 @@ socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats }) => {
   }
 });
 
-socket.on('updateLobby', ({ game, players, categories }) => {
+socket.on('updateLobby', ({ game, admin, players, categories }) => {
   currentGame = game;
+  if (admin) isAdmin = (admin === myId);   // admin may have been reassigned
+  const onCzolkoLobby = document.getElementById('screen-lobby-admin').classList.contains('active') ||
+                        document.getElementById('screen-lobby-player').classList.contains('active');
+
   if (game === 'panstwa') {
     selectedCategories = (categories || []).slice();
+    document.getElementById('pm-lobby-deco').textContent = isAdmin ? '👑' : '⏳';
+    document.getElementById('pm-lobby-waiting-text').style.display = isAdmin ? 'none' : 'block';
     renderPmCatPicker();
     const btn = document.getElementById('pm-lobby-players');
     if (btn) {
@@ -798,15 +907,21 @@ socket.on('updateLobby', ({ game, players, categories }) => {
   } else {
     renderPlayersList('lobby-players',   players);
     renderPlayersList('lobby-players-p', players);
+    if (currentCode) {
+      document.getElementById('lobby-code-display').textContent = currentCode;
+      document.getElementById('lobby-code-player').textContent  = currentCode;
+    }
     const btn = document.getElementById('btn-start');
-    if (btn) btn.style.display = players.length >= 2 ? 'block' : 'none';
+    if (btn) btn.style.display = (isAdmin && players.length >= 2) ? 'block' : 'none';
+    // If the admin role moved to/from us, show the matching lobby screen.
+    if (onCzolkoLobby) showScreen(isAdmin ? 'screen-lobby-admin' : 'screen-lobby-player');
   }
 });
 
 socket.on('error', msg => alert('❌ ' + msg));
 
 socket.on('rejoinState', (state) => {
-  currentGame = state.game; isAdmin = !!state.isAdmin;
+  currentGame = state.game; isAdmin = !!state.isAdmin; currentCode = state.code;
 
   if (state.game === 'czolko') {
     if (state.phase === 'waiting') {
@@ -841,8 +956,9 @@ socket.on('rejoinState', (state) => {
       setTimeout(loadNotes, 100);
 
     } else if (state.phase === 'finished') {
-      clearSession();
+      myEndVote = state.myEndVote || null;
       document.getElementById('czolko-winner-name').textContent = '🏆 ' + (state.winner?.nickname || '?');
+      renderEndVote(state.endVote);
       showScreen('screen-czolko-finished');
     }
     return;
@@ -872,13 +988,10 @@ socket.on('rejoinState', (state) => {
     showScreen('screen-pm-round');
 
   } else if (state.phase === 'reviewing') {
-    aiValidations = {};
-    lastRoundData = state.lastResults;
-    if (state.lastResults) renderPmResults(state.lastResults.letter, state.lastResults.categories, state.lastResults.results);
-    renderPmScoreboard('pm-review-scoreboard', state.scoreboard);
-    document.getElementById('pm-btn-next-round').style.display  = isAdmin ? 'block' : 'none';
-    document.getElementById('pm-btn-end-game').style.display    = isAdmin ? 'block' : 'none';
-    document.getElementById('pm-review-waiting-text').style.display = isAdmin ? 'none' : 'block';
+    // Seed the letter + my prior votes first so renderReview keeps them.
+    pmReviewLetter = state.review ? state.review.letter : null;
+    myPmVotes = state.myVotes || {};
+    if (state.review) renderReview(state.review);
     document.getElementById('pm-ai-status').style.display = 'none';
     showScreen('screen-pm-review');
 
@@ -891,9 +1004,13 @@ socket.on('rejoinState', (state) => {
 socket.on('rejoinFailed', () => { clearSession(); showScreen('screen-home'); });
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
+const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game']);
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  // Top-align tall/input-heavy screens so nothing is trapped off-screen.
+  document.body.classList.toggle('scroll-top', SCROLL_TOP_SCREENS.has(id));
+  window.scrollTo(0, 0);
 }
 </script>
 </body>
