@@ -210,6 +210,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <div style="font-size:2.5rem">🔄</div>
   <div class="logo" style="font-size:1.6rem">Wracam do gry...</div>
   <p class="waiting-text">Łączenie z serwerem...</p>
+  <button class="btn-ghost" style="max-width:320px" onclick="backToHome()">⬅ Wróć do menu</button>
 </div>
 
 <!-- ══════════════════════════════════════ HOME ══ -->
@@ -449,14 +450,28 @@ let myEndVote = null;     // 'new' | 'lobby' (Czółko end-game vote)
 
 const COLORS = ['#f87171','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6','#fb923c','#4ade80'];
 const EMOJIS = ['😎','🐱','🦊','🐸','🦁','🐼','🦄','🐙','🦋','🎃','🐵','🐧','🦖','🐢','🐝'];
+// Screens that top-align + scroll (must be defined before any showScreen call).
+const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game']);
 
 // Attempt rejoin on load
+let reconnectTimer = null;
+function endReconnect() { if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; } }
+function backToHome() { endReconnect(); clearSession(); showScreen('screen-home'); }
+
 const savedSession = getSession();
-if (savedSession) showScreen('screen-reconnecting');
+if (savedSession && savedSession.code) {
+  showScreen('screen-reconnecting');
+  // Never trap the player here: if the server doesn't answer (e.g. a cold
+  // start after a redeploy wiped the lobby), fall back to the home screen.
+  reconnectTimer = setTimeout(backToHome, 7000);
+} else {
+  clearSession();
+}
 
 socket.on('connect', () => {
   const s = getSession();
   if (s && s.code) socket.emit('rejoin', { code: s.code, playerId: myId });
+  else backToHome();
 });
 
 // ─── HOME ─────────────────────────────────────────────────────────────────────
@@ -921,6 +936,7 @@ socket.on('updateLobby', ({ game, admin, players, categories }) => {
 socket.on('error', msg => alert('❌ ' + msg));
 
 socket.on('rejoinState', (state) => {
+  endReconnect();
   currentGame = state.game; isAdmin = !!state.isAdmin; currentCode = state.code;
 
   if (state.game === 'czolko') {
@@ -1001,10 +1017,9 @@ socket.on('rejoinState', (state) => {
   }
 });
 
-socket.on('rejoinFailed', () => { clearSession(); showScreen('screen-home'); });
+socket.on('rejoinFailed', () => { backToHome(); });
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
-const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game']);
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
