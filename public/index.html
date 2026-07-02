@@ -148,6 +148,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .ans-invalid{color:#f87171;text-decoration:line-through;opacity:.7}
 .ans-empty{color:#4b5563}
 .pts{font-weight:700;color:#fbbf24}
+.pts.pts-reduced{color:#fb923c}
+.pts.pts-zero{color:#6b7280}
 .cat-block{width:100%;overflow-x:auto}
 
 /* AI validation badges */
@@ -183,12 +185,30 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .score-name{font-weight:600;flex:1}
 .score-value{font-weight:800;color:#fbbf24}
 
+/* ──────────────────────────────────────────────── TOASTS ── */
+.toast-wrap{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:300;width:calc(100% - 24px);max-width:420px;pointer-events:none}
+.toast{background:rgba(20,20,40,.92);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:10px 14px;font-size:.82rem;color:#e5e7eb;box-shadow:0 6px 24px rgba(0,0,0,.4);backdrop-filter:blur(8px);animation:toastIn .2s ease;text-align:center}
+.toast b{color:#fff}
+.toast .t-up{color:#34d399;font-weight:700}
+.toast .t-down{color:#f87171;font-weight:700}
+.toast .t-cancel{color:#9ca3af;font-weight:700}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Highlighted category name in review summary */
+.cat-title{display:inline-block;font-size:.95rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:6px 16px;border-radius:20px;letter-spacing:.5px;box-shadow:0 3px 12px rgba(124,58,237,.35);margin-bottom:4px}
+.round-counter-pill{color:#a5b4fc}
+
+/* Rounds picker reuses .cat-chip styling from the category picker */
+
 /* ──────────────────────────────────────────────── MODAL ── */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(8px);animation:fadeIn .2s ease}
 .modal-overlay.hidden{display:none}
 </style>
 </head>
 <body>
+
+<!-- ══════════════════════════════════════ TOAST NOTIFICATIONS ══ -->
+<div class="toast-wrap" id="toast-wrap"></div>
 
 <!-- ══════════════════════════════════════ WORD REVEAL OVERLAY ══ -->
 <div class="word-reveal hidden" id="word-reveal">
@@ -381,7 +401,15 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <div class="card" style="display:flex;flex-direction:column;gap:12px">
     <p class="section-title">Kategorie</p>
     <div class="cat-picker" id="pm-cat-picker"></div>
+    <div id="pm-custom-cat-row" style="display:none;gap:8px">
+      <input id="pm-custom-cat" placeholder="Własna kategoria..." maxlength="24" style="text-align:center">
+      <button class="btn-sec" style="width:auto;padding:13px 18px;white-space:nowrap" onclick="pmAddCustomCat()">➕ Dodaj</button>
+    </div>
     <p class="error" id="pm-lobby-error"></p>
+  </div>
+  <div class="card" style="display:flex;flex-direction:column;gap:12px">
+    <p class="section-title">Liczba rund</p>
+    <div class="cat-picker" id="pm-rounds-picker"></div>
   </div>
   <button class="btn-green" onclick="pmStartGame()" id="pm-btn-start" style="display:none">🚀 Rozpocznij grę</button>
   <p class="waiting-text" id="pm-lobby-waiting-text" style="display:none">⏳ Czekaj, aż admin rozpocznie grę...</p>
@@ -390,6 +418,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
 <!-- ══════════════════════════════════════ PAŃSTWA-MIASTA: RUNDA ══ -->
 <div class="screen" id="screen-pm-round">
+  <p class="section-title" id="pm-round-counter"></p>
   <div class="letter-box" id="pm-round-letter">A</div>
   <div class="timer" id="pm-round-timer">02:00</div>
   <div class="card round-form" id="pm-round-fields"></div>
@@ -401,7 +430,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <div class="screen" id="screen-pm-review">
   <div class="logo" style="font-size:1.6rem">Wyniki rundy</div>
   <p class="waiting-text" id="pm-review-letter-text"></p>
-  <p class="review-hint" id="pm-review-hint">🗳️ Zagłosuj przy każdej odpowiedzi, czy się zalicza. Jeśli większość odrzuci — słowo nie dostaje punktów.</p>
+  <p class="review-hint" id="pm-review-hint">🗳️ Głosujcie przy odpowiedziach: 👎 obniża punkty (10 → 5 → 0), 👍 podnosi z powrotem. Liczy się przewaga głosów.</p>
   <p class="waiting-text" id="pm-ai-status" style="color:#818cf8;display:none">🤖 AI sprawdza odpowiedzi...</p>
   <div id="pm-review-tables" style="width:100%;display:flex;flex-direction:column;gap:16px"></div>
   <div class="card" style="display:flex;flex-direction:column;gap:8px">
@@ -447,9 +476,21 @@ let currentCode = null;
 let myPmVotes = {};       // answerKey `${playerId}||${category}` → 'accept'|'reject'
 let pmReviewLetter = null;
 let myEndVote = null;     // 'new' | 'lobby' (Czółko end-game vote)
+let selectedRounds = 5;   // chosen number of rounds (Państwa-Miasta)
+let roundOptions = [3, 5, 10, 999];
 
 const COLORS = ['#f87171','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6','#fb923c','#4ade80'];
 const EMOJIS = ['😎','🐱','🦊','🐸','🦁','🐼','🦄','🐙','🦋','🎃','🐵','🐧','🦖','🐢','🐝'];
+
+// ─── TOASTS ───────────────────────────────────────────────────────────────────
+function showToast(html) {
+  const wrap = document.getElementById('toast-wrap'); if (!wrap) return;
+  const el = document.createElement('div'); el.className = 'toast'; el.innerHTML = html;
+  wrap.appendChild(el);
+  // Keep at most 4 on screen.
+  while (wrap.children.length > 4) wrap.removeChild(wrap.firstChild);
+  setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
+}
 // Screens that top-align + scroll (must be defined before any showScreen call).
 const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game']);
 
@@ -720,6 +761,30 @@ function renderPmCatPicker() {
     };
     div.appendChild(chip);
   });
+  const customRow = document.getElementById('pm-custom-cat-row');
+  if (customRow) customRow.style.display = isAdmin ? 'flex' : 'none';
+  renderPmRoundsPicker();
+}
+
+function renderPmRoundsPicker() {
+  const div = document.getElementById('pm-rounds-picker'); if (!div) return;
+  div.innerHTML = '';
+  roundOptions.forEach(n => {
+    const chip = document.createElement('div');
+    const label = n >= 999 ? '∞ Bez limitu' : (n + ' rund');
+    chip.className = 'cat-chip' + (selectedRounds === n ? ' selected' : '') + (isAdmin ? '' : ' readonly');
+    chip.textContent = label;
+    if (isAdmin) chip.onclick = () => { selectedRounds = n; renderPmRoundsPicker(); socket.emit('setRoundCount', { count: n }); };
+    div.appendChild(chip);
+  });
+}
+
+function pmAddCustomCat() {
+  const input = document.getElementById('pm-custom-cat');
+  const name = (input.value || '').trim();
+  if (!name) return;
+  socket.emit('addCustomCategory', { name });
+  input.value = '';
 }
 
 function renderPmRoundFields(categories, myAnswers) {
@@ -768,6 +833,8 @@ function aiBadgeHtml(r) {
     : `<span class="ai-badge ai-invalid" title="${escAttr(r.ai.reason)}">🤖 Błąd</span>${r.ai.reason ? `<span class="ai-reason">${r.ai.reason}</span>` : ''}`;
 }
 
+function fmtRounds(n) { return n >= 999 ? '∞' : n; }
+
 function voteCellHtml(r, cat, finalized) {
   if (!r.eligible) return '<span class="vote-static">—</span>';
   if (finalized)   return `<span class="vote-static">👍 ${r.accept} · 👎 ${r.reject}</span>`;
@@ -775,14 +842,16 @@ function voteCellHtml(r, cat, finalized) {
   const key = r.key, mine = myPmVotes[key];
   const tid = escAttr(r.playerId), tcat = escAttr(cat);
   return `<div class="vote-cell">
-    <button class="vote-btn vote-acc${mine==='accept'?' on':''}" onclick="pmVote('${tid}','${tcat}','accept')">👍 ${r.accept}</button>
-    <button class="vote-btn vote-rej${mine==='reject'?' on':''}" onclick="pmVote('${tid}','${tcat}','reject')">👎 ${r.reject}</button>
+    <button class="vote-btn vote-acc${mine==='accept'?' on':''}" title="Podnieś punkty" onclick="pmVote('${tid}','${tcat}','accept')">👍 ${r.accept}</button>
+    <button class="vote-btn vote-rej${mine==='reject'?' on':''}" title="Obniż punkty" onclick="pmVote('${tid}','${tcat}','reject')">👎 ${r.reject}</button>
   </div>`;
 }
 
 function renderReview(p) {
   if (p.letter !== pmReviewLetter) { pmReviewLetter = p.letter; myPmVotes = {}; }
-  document.getElementById('pm-review-letter-text').textContent = 'Litera: ' + p.letter;
+  const roundTxt = p.round ? `Runda ${p.round}/${fmtRounds(p.maxRounds)} • ` : '';
+  document.getElementById('pm-review-letter-text').innerHTML =
+    `<span class="round-counter-pill">${roundTxt}</span>Litera: <b>${escAttr(p.letter)}</b>`;
 
   const container = document.getElementById('pm-review-tables'); container.innerHTML = '';
   p.categories.forEach(cat => {
@@ -790,23 +859,25 @@ function renderReview(p) {
     const rows = p.results[cat].map(r => {
       let cls = 'ans-empty', text = '(brak)';
       if (r.answer && r.answer.trim()) {
-        text = r.answer;
+        text = escAttr(r.answer);
         cls  = r.valid ? 'ans-valid' : 'ans-invalid';
       }
       const aiBadge = (r.answer && r.answer.trim()) ? aiBadgeHtml(r) : '';
-      return `<tr><td>${r.nickname}</td><td class="${cls}">${text}${aiBadge}</td><td>${voteCellHtml(r, cat, p.finalized)}</td><td class="pts">${r.points}</td></tr>`;
+      const ptCls = r.points === 0 ? 'pts pts-zero' : (r.eligible && r.points < r.cap ? 'pts pts-reduced' : 'pts');
+      return `<tr><td>${escAttr(r.nickname)}</td><td class="${cls}">${text}${aiBadge}</td><td>${voteCellHtml(r, cat, p.finalized)}</td><td class="${ptCls}">${r.points}</td></tr>`;
     }).join('');
-    block.innerHTML = `<p class="section-title">${cat}</p><table class="results-table"><thead><tr><th>Gracz</th><th>Odpowiedź</th><th>Zalicza?</th><th>Pkt</th></tr></thead><tbody>${rows}</tbody></table>`;
+    block.innerHTML = `<p><span class="cat-title">${escAttr(cat)}</span></p><table class="results-table"><thead><tr><th>Gracz</th><th>Odpowiedź</th><th>Głosy</th><th>Pkt</th></tr></thead><tbody>${rows}</tbody></table>`;
     container.appendChild(block);
   });
 
   renderPmScoreboard('pm-review-scoreboard', p.scoreboard);
 
-  const finalized = p.finalized;
+  const finalized = p.finalized, last = p.isLastRound;
   document.getElementById('pm-review-hint').style.display        = finalized ? 'none' : 'block';
   document.getElementById('pm-btn-finalize').style.display       = (isAdmin && !finalized) ? 'block' : 'none';
-  document.getElementById('pm-btn-next-round').style.display     = (isAdmin && finalized)  ? 'block' : 'none';
+  document.getElementById('pm-btn-next-round').style.display     = (isAdmin && finalized && !last) ? 'block' : 'none';
   document.getElementById('pm-btn-end-game').style.display       = isAdmin ? 'block' : 'none';
+  document.getElementById('pm-btn-end-game').textContent         = last ? '🏁 Zakończ grę (ostatnia runda)' : '🏁 Zakończ grę';
   document.getElementById('pm-review-waiting-text').style.display = isAdmin ? 'none' : 'block';
 }
 
@@ -821,16 +892,36 @@ function renderPmScoreboard(containerId, scoreboard) {
 
 socket.on('reviewState', (p) => {
   if (pmRoundTimerInterval) clearInterval(pmRoundTimerInterval);
+  // Only switch screens (and scroll to top) when first entering review – on
+  // vote updates keep everyone's current scroll position instead of yanking
+  // the page to the top.
+  const entering = !document.getElementById('screen-pm-review').classList.contains('active');
+  const y = window.scrollY;
   renderReview(p);
-  showScreen('screen-pm-review');
+  if (entering) showScreen('screen-pm-review');
+  else window.scrollTo(0, y);
 });
 
 socket.on('aiStatus', ({ checking }) => {
   document.getElementById('pm-ai-status').style.display = checking ? 'block' : 'none';
 });
 
-socket.on('roundStarted', ({ round, letter, categories, endsAt }) => {
+// Notify everyone when a player casts (or cancels) a vote.
+socket.on('voteNotice', ({ voterId, voter, target, category, answer, action }) => {
+  if (voterId === myId) return;   // no need to tell yourself
+  const who = `<b>${escAttr(voter)}</b>`;
+  const ans = `„${escAttr(answer)}" <span style="color:#9ca3af">(${escAttr(target)} • ${escAttr(category)})</span>`;
+  let verb;
+  if (action === 'accept')      verb = '<span class="t-up">👍 podniósł punkty</span>';
+  else if (action === 'reject') verb = '<span class="t-down">👎 obniżył punkty</span>';
+  else                          verb = '<span class="t-cancel">↩️ cofnął głos</span>';
+  showToast(`${who} ${verb} — ${ans}`);
+});
+
+socket.on('roundStarted', ({ round, maxRounds, letter, categories, endsAt }) => {
   myPmVotes = {}; pmReviewLetter = null;
+  const rc = document.getElementById('pm-round-counter');
+  if (rc) rc.textContent = round ? `Runda ${round} / ${fmtRounds(maxRounds)}` : '';
   document.getElementById('pm-round-letter').textContent = letter;
   document.getElementById('pm-btn-stop').disabled         = false;
   document.getElementById('pm-btn-stop').style.display    = 'block';
@@ -854,13 +945,15 @@ socket.on('gameEnded', ({ scoreboard }) => {
 });
 
 // ─── SHARED SOCKET EVENTS ─────────────────────────────────────────────────────
-socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats }) => {
+socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats, maxRounds, roundOptions: ropts }) => {
   if (playerId) myId = playerId;
   currentGame = game; isAdmin = true; currentCode = code; saveSession({ code });
 
   if (game === 'panstwa') {
     allCategories      = cats;
     selectedCategories = cats.slice(0, 6);
+    if (ropts) roundOptions = ropts;
+    if (maxRounds) selectedRounds = maxRounds;
     document.getElementById('pm-lobby-code-display').textContent = code;
     document.getElementById('pm-lobby-deco').textContent = '👑';
     document.getElementById('pm-btn-start').style.display        = 'none';
@@ -873,13 +966,15 @@ socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats }) => {
   }
 });
 
-socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats }) => {
+socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats, maxRounds, roundOptions: ropts }) => {
   if (playerId) myId = playerId;
   currentGame = game; isAdmin = false; currentCode = code; saveSession({ code });
 
   if (game === 'panstwa') {
     allCategories      = cats;
     selectedCategories = cats.slice(0, 6);
+    if (ropts) roundOptions = ropts;
+    if (maxRounds) selectedRounds = maxRounds;
     document.getElementById('pm-lobby-code-display').textContent = code;
     document.getElementById('pm-lobby-deco').textContent = '⏳';
     document.getElementById('pm-lobby-waiting-text').style.display = 'block';
@@ -891,14 +986,16 @@ socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats }) => {
   }
 });
 
-socket.on('updateLobby', ({ game, admin, players, categories }) => {
+socket.on('updateLobby', ({ game, admin, players, categories, availableCategories, maxRounds }) => {
   currentGame = game;
   if (admin) isAdmin = (admin === myId);   // admin may have been reassigned
   const onCzolkoLobby = document.getElementById('screen-lobby-admin').classList.contains('active') ||
                         document.getElementById('screen-lobby-player').classList.contains('active');
 
   if (game === 'panstwa') {
+    if (availableCategories) allCategories = availableCategories;
     selectedCategories = (categories || []).slice();
+    if (maxRounds) selectedRounds = maxRounds;
     document.getElementById('pm-lobby-deco').textContent = isAdmin ? '👑' : '⏳';
     document.getElementById('pm-lobby-waiting-text').style.display = isAdmin ? 'none' : 'block';
     renderPmCatPicker();
@@ -983,6 +1080,8 @@ socket.on('rejoinState', (state) => {
   // PAŃSTWA-MIASTA
   allCategories      = state.allCategories || [];
   selectedCategories = (state.categories   || []).slice();
+  if (state.roundOptions) roundOptions = state.roundOptions;
+  if (state.maxRounds)    selectedRounds = state.maxRounds;
 
   if (state.phase === 'waiting') {
     document.getElementById('pm-lobby-code-display').textContent = state.code;
@@ -995,6 +1094,8 @@ socket.on('rejoinState', (state) => {
     showScreen('screen-pm-lobby');
 
   } else if (state.phase === 'playing') {
+    const rc = document.getElementById('pm-round-counter');
+    if (rc) rc.textContent = state.round ? `Runda ${state.round} / ${fmtRounds(state.maxRounds ?? selectedRounds)}` : '';
     document.getElementById('pm-round-letter').textContent = state.letter;
     document.getElementById('pm-btn-stop').disabled         = false;
     document.getElementById('pm-btn-stop').style.display    = 'block';
