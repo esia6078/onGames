@@ -33,6 +33,11 @@ const ASSIGN_TIMEOUT_MS   = 90_000;            // 90 s max for assignment phase
 const LETTERS             = 'ABCDEFGHIJKLMNOPRSTUWZ'.split('');
 const DEFAULT_CATEGORIES  = ['Państwo','Miasto','Rzeka','Zwierzę','Roślina','Imię'];
 const ALL_CATEGORIES      = ['Państwo','Miasto','Rzeka','Zwierzę','Roślina','Imię','Zawód','Kolor','Jedzenie','Marka'];
+const DEFAULT_MAX_ROUNDS  = 5;
+const ROUND_OPTIONS       = [3, 5, 10, 999];   // 999 = "bez limitu"
+const MAX_CATEGORIES      = 12;
+const MAX_CUSTOM_CAT_LEN  = 24;
+const POINT_STEP          = 5;                  // each net downvote lowers points by 5
 
 const CATEGORY_DESCRIPTIONS = {
   'Państwo':  'sovereign country recognised internationally',
@@ -70,7 +75,9 @@ function broadcastLobby(code) {
     game: lobby.game,
     admin: lobby.admin,
     players: publicPlayers(lobby),
-    categories: lobby.game === 'panstwa' ? lobby.categories : undefined,
+    categories:          lobby.game === 'panstwa' ? lobby.categories : undefined,
+    availableCategories: lobby.game === 'panstwa' ? lobby.availableCategories : undefined,
+    maxRounds:           lobby.game === 'panstwa' ? lobby.maxRounds : undefined,
   });
 }
 
@@ -189,23 +196,29 @@ function answerKey(playerId, category) { return playerId + '||' + category; }
 // Number of connected players – used as the electorate size for vote majorities.
 function connectedCount(lobby) { return lobby.players.filter(p => p.connected).length; }
 
-// Decide whether a single answer counts, based on player votes (+ AI as fallback).
-// Rule (per the design): an answer counts unless a *majority of the players who
-// voted* reject it. A tie keeps the word (falls back to the AI verdict when the
-// tie is 0-0, i.e. nobody voted at all).
-function pmAnswerValid(lobby, entry) {
-  if (!entry.eligible) return false;                 // empty / wrong letter → never counts
-  const votes = lobby.reviewVotes[entry.key] || {};
+// Tally votes on an answer. Each voter contributes at most one accept or reject.
+function pmVoteCounts(lobby, key) {
+  const votes = lobby.reviewVotes[key] || {};
   let accept = 0, reject = 0;
   Object.values(votes).forEach(v => { if (v === 'accept') accept++; else if (v === 'reject') reject++; });
-  if (reject > accept) return false;                 // majority of voters rejected
-  if (accept > reject) return true;                  // majority accepted
-  // Tie. If somebody voted it's a real tie → keep. If nobody voted, defer to AI.
+  return { accept, reject };
+}
+
+// Graded scoring. A valid answer starts at a cap (10, or 5 when the same word
+// was given by more than one player). Every *net* downvote lowers it one step
+// of 5 (10→5→0); upvotes raise it back up to the cap. If nobody voted and the
+// AI flagged it invalid, that counts as a single downvote step.
+function pmAnswerPoints(lobby, entry, isDuplicate) {
+  if (!entry.eligible) return 0;
+  const { accept, reject } = pmVoteCounts(lobby, entry.key);
+  const cap = isDuplicate ? POINT_STEP : POINT_STEP * 2;   // 5 or 10
+  let effReject = reject;
   if (accept === 0 && reject === 0) {
     const ai = lobby.aiVerdicts[entry.key];
-    if (ai && typeof ai.valid === 'boolean') return ai.valid;
+    if (ai && ai.valid === false) effReject = 1;
   }
-  return true;
+  const steps = Math.max(0, effReject - accept);
+  return Math.max(0, cap - POINT_STEP * steps);
 }
 
 // Build the full results object from the current review state (no mutation).
@@ -213,19 +226,19 @@ function pmComputeResults(lobby) {
   const { categories } = lobby.reviewData;
   const results = {};
   categories.forEach(cat => {
-    const decided = lobby.reviewData.entries[cat].map(e => ({ ...e, valid: pmAnswerValid(lobby, e) }));
+    const entries = lobby.reviewData.entries[cat];
     const counts = {};
-    decided.forEach(e => { if (e.valid) counts[e.norm] = (counts[e.norm] || 0) + 1; });
-    results[cat] = decided.map(e => {
-      const votes = lobby.reviewVotes[e.key] || {};
-      let accept = 0, reject = 0;
-      Object.values(votes).forEach(v => { if (v === 'accept') accept++; else if (v === 'reject') reject++; });
+    entries.forEach(e => { if (e.eligible) counts[e.norm] = (counts[e.norm] || 0) + 1; });
+    results[cat] = entries.map(e => {
+      const duplicate = e.eligible && counts[e.norm] > 1;
+      const { accept, reject } = pmVoteCounts(lobby, e.key);
+      const points = pmAnswerPoints(lobby, e, duplicate);
+      const cap = duplicate ? POINT_STEP : POINT_STEP * 2;
       const ai = lobby.aiVerdicts[e.key] || null;
       return {
         key: e.key, playerId: e.playerId, nickname: e.nickname, answer: e.answer,
-        eligible: e.eligible, valid: e.valid,
-        points: e.valid ? (counts[e.norm] > 1 ? 5 : 10) : 0,
-        accept, reject,
+        eligible: e.eligible, duplicate, valid: points > 0,
+        points, cap, accept, reject,
         ai: ai ? { valid: ai.valid, reason: ai.reason } : null,
       };
     });
@@ -257,6 +270,9 @@ function pmReviewPayload(lobby) {
     scoreboard: pmReviewScoreboard(lobby, results),
     finalized: lobby.roundFinalized,
     connected: connectedCount(lobby),
+    round: lobby.round,
+    maxRounds: lobby.maxRounds,
+    isLastRound: lobby.round >= lobby.maxRounds,
   };
 }
 
@@ -387,7 +403,7 @@ function pmBeginRound(code) {
   lobby.roundTimeout  = setTimeout(() => pmEndRound(code), ROUND_MS);
 
   io.to(code).emit('roundStarted', {
-    round: lobby.round, letter: lobby.currentLetter,
+    round: lobby.round, maxRounds: lobby.maxRounds, letter: lobby.currentLetter,
     categories: lobby.categories, endsAt: lobby.roundEndsAt,
   });
 }
@@ -407,13 +423,18 @@ io.on('connection', socket => {
     if (gameType === 'czolko') {
       lobbies[code] = { game: 'czolko', admin: pid, players: [basePlayer], phase: 'waiting', assignments: [], assignTimeout: null, winner: null, endVotes: {}, endVoteTimeout: null };
     } else {
-      lobbies[code] = { game: 'panstwa', admin: pid, players: [basePlayer], phase: 'waiting', categories: DEFAULT_CATEGORIES.slice(), round: 0, currentLetter: null, answers: {}, roundTimeout: null, roundEndsAt: 0, stopping: false, lastResults: null, reviewData: null, reviewVotes: {}, aiVerdicts: {}, roundFinalized: false };
+      lobbies[code] = { game: 'panstwa', admin: pid, players: [basePlayer], phase: 'waiting', categories: DEFAULT_CATEGORIES.slice(), availableCategories: ALL_CATEGORIES.slice(), maxRounds: DEFAULT_MAX_ROUNDS, round: 0, currentLetter: null, answers: {}, roundTimeout: null, roundEndsAt: 0, stopping: false, lastResults: null, reviewData: null, reviewVotes: {}, aiVerdicts: {}, roundFinalized: false };
     }
 
     socket.join(code);
     socket.lobbyCode = code;
     socket.playerId  = pid;
-    socket.emit('lobbyCreated', { code, playerId: pid, game: gameType, allCategories: gameType === 'panstwa' ? ALL_CATEGORIES : undefined });
+    socket.emit('lobbyCreated', {
+      code, playerId: pid, game: gameType,
+      allCategories: gameType === 'panstwa' ? lobbies[code].availableCategories : undefined,
+      maxRounds:     gameType === 'panstwa' ? lobbies[code].maxRounds : undefined,
+      roundOptions:  gameType === 'panstwa' ? ROUND_OPTIONS : undefined,
+    });
     broadcastLobby(code);
   });
 
@@ -429,7 +450,12 @@ io.on('connection', socket => {
     socket.join(code);
     socket.lobbyCode = code;
     socket.playerId  = pid;
-    socket.emit('joinedLobby', { code, playerId: pid, game: lobby.game, allCategories: lobby.game === 'panstwa' ? ALL_CATEGORIES : undefined });
+    socket.emit('joinedLobby', {
+      code, playerId: pid, game: lobby.game,
+      allCategories: lobby.game === 'panstwa' ? lobby.availableCategories : undefined,
+      maxRounds:     lobby.game === 'panstwa' ? lobby.maxRounds : undefined,
+      roundOptions:  lobby.game === 'panstwa' ? ROUND_OPTIONS : undefined,
+    });
     broadcastLobby(code);
   });
 
@@ -472,7 +498,7 @@ io.on('connection', socket => {
         });
       }
     } else {
-      const extra = { allCategories: ALL_CATEGORIES, categories: lobby.categories, scoreboard: publicPlayers(lobby).sort((a,b) => b.score - a.score) };
+      const extra = { allCategories: lobby.availableCategories, categories: lobby.categories, maxRounds: lobby.maxRounds, roundOptions: ROUND_OPTIONS, scoreboard: publicPlayers(lobby).sort((a,b) => b.score - a.score) };
       if (lobby.phase === 'waiting') {
         socket.emit('rejoinState', { ...base, ...extra, phase: 'waiting' });
       } else if (lobby.phase === 'playing') {
@@ -550,9 +576,36 @@ io.on('connection', socket => {
     const code  = socket.lobbyCode;
     const lobby = lobbies[code];
     if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
-    const clean = (categories || []).filter(c => ALL_CATEGORIES.includes(c));
+    const clean = (categories || []).filter(c => lobby.availableCategories.includes(c));
     if (clean.length < 3) return socket.emit('error', 'Wybierz minimum 3 kategorie!');
     lobby.categories = clean;
+    broadcastLobby(code);
+  });
+
+  // Admin adds a custom category (auto-selected once created).
+  socket.on('addCustomCategory', ({ name }) => {
+    const code  = socket.lobbyCode;
+    const lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
+    let clean = (name || '').replace(/[^\p{L}\p{N} \-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, MAX_CUSTOM_CAT_LEN);
+    if (!clean) return socket.emit('error', 'Wpisz poprawną nazwę kategorii!');
+    // Case-insensitive duplicate check against existing categories.
+    if (lobby.availableCategories.some(c => c.toLowerCase() === clean.toLowerCase()))
+      return socket.emit('error', 'Taka kategoria już istnieje!');
+    if (lobby.availableCategories.length >= ALL_CATEGORIES.length + 12)
+      return socket.emit('error', 'Za dużo własnych kategorii!');
+    lobby.availableCategories.push(clean);
+    if (lobby.categories.length < MAX_CATEGORIES) lobby.categories.push(clean);
+    broadcastLobby(code);
+  });
+
+  // Admin picks how many rounds the game lasts.
+  socket.on('setRoundCount', ({ count }) => {
+    const code  = socket.lobbyCode;
+    const lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
+    if (!ROUND_OPTIONS.includes(count)) return;
+    lobby.maxRounds = count;
     broadcastLobby(code);
   });
 
@@ -598,10 +651,22 @@ io.on('connection', socket => {
     if (!lobby.reviewVotes[entry.key]) lobby.reviewVotes[entry.key] = {};
     const bucket = lobby.reviewVotes[entry.key];
     if (vote !== 'accept' && vote !== 'reject') return;
-    if (bucket[socket.playerId] === vote) delete bucket[socket.playerId];   // toggle off
-    else bucket[socket.playerId] = vote;
+    let action;
+    if (bucket[socket.playerId] === vote) { delete bucket[socket.playerId]; action = 'cancel'; }   // toggle off
+    else { bucket[socket.playerId] = vote; action = vote; }
 
     pmBroadcastReview(code);
+
+    // Notify everyone who voted on what.
+    const voter = lobby.players.find(p => p.playerId === socket.playerId);
+    io.to(code).emit('voteNotice', {
+      voterId: socket.playerId,
+      voter:   voter?.nickname ?? '?',
+      target:  entry.nickname,
+      category,
+      answer:  entry.answer,
+      action,   // 'accept' | 'reject' | 'cancel'
+    });
   });
 
   // Admin locks in the voting results and applies the points for this round.
@@ -617,6 +682,12 @@ io.on('connection', socket => {
     const lobby = lobbies[code];
     if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId || lobby.phase !== 'reviewing') return;
     pmFinalizeRound(code);   // make sure this round's points are applied
+    // Stop automatically once the configured number of rounds has been played.
+    if (lobby.round >= lobby.maxRounds) {
+      lobby.phase = 'finished';
+      io.to(code).emit('gameEnded', { scoreboard: publicPlayers(lobby).sort((a,b) => b.score - a.score) });
+      return;
+    }
     pmBeginRound(code);
   });
 
