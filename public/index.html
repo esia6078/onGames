@@ -2,30 +2,33 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Czółko 🎮</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+<title>Czółko / Państwa-Miasta 🎮</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Poppins', sans-serif; background: #0d0d1a; color: #eee; min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow-x: hidden; }
+  body { font-family: 'Poppins', sans-serif; background: #0d0d1a; color: #eee; min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; overflow-x: hidden; }
   body::before { content: ''; position: fixed; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(ellipse at 20% 50%, #1a0533 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, #001a33 0%, transparent 50%), radial-gradient(ellipse at 50% 80%, #0d1a00 0%, transparent 50%); animation: bgPulse 8s ease-in-out infinite alternate; z-index: -1; }
   @keyframes bgPulse { 0% { transform: scale(1) rotate(0deg); } 100% { transform: scale(1.1) rotate(3deg); } }
-  .screen { display: none; flex-direction: column; align-items: center; gap: 20px; width: 90%; max-width: 520px; }
+  .screen { display: none; flex-direction: column; align-items: center; gap: 20px; width: 90%; max-width: 520px; padding: 24px 0; }
   .screen.active { display: flex; }
-  #screen-game { max-width: 100vw; width: 100%; flex-direction: row; align-items: flex-start; justify-content: center; gap: 24px; padding: 24px; min-height: 100vh; flex-wrap: wrap; }
+  #screen-game { max-width: 100vw; width: 100%; flex-direction: row; align-items: flex-start; justify-content: center; gap: 24px; padding: 24px; min-height: 100vh; min-height: 100dvh; flex-wrap: wrap; }
+  #screen-pm-round, #screen-pm-review { max-width: 900px; }
   .logo { font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-align: center; line-height: 1; }
   .logo-sub { font-size: 0.9rem; color: #888; letter-spacing: 3px; text-transform: uppercase; }
   .card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px; width: 100%; backdrop-filter: blur(10px); }
-  input, textarea { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); font-size: 1rem; background: rgba(255,255,255,0.07); color: #eee; font-family: 'Poppins', sans-serif; transition: border 0.2s; }
+  input, textarea { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); font-size: 1rem; background: rgba(255,255,255,0.07); color: #eee; font-family: 'Poppins', sans-serif; transition: border 0.2s; scroll-margin-bottom: 220px; scroll-margin-top: 80px; }
   input:focus, textarea:focus { outline: none; border-color: #ff6b6b; }
   input::placeholder, textarea::placeholder { color: #555; }
   button { width: 100%; padding: 14px; border-radius: 12px; border: none; font-size: 1rem; cursor: pointer; font-weight: 600; font-family: 'Poppins', sans-serif; transition: all 0.2s; position: relative; overflow: hidden; }
   button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-main { background: linear-gradient(135deg, #ff6b6b, #ee5a24); color: white; box-shadow: 0 4px 20px rgba(255,107,107,0.4); }
   .btn-sec { background: linear-gradient(135deg, #48dbfb, #0abde3); color: #0d0d1a; }
   .btn-green { background: linear-gradient(135deg, #1dd1a1, #10ac84); color: white; box-shadow: 0 4px 20px rgba(29,209,161,0.4); }
   .btn-purple { background: linear-gradient(135deg, #ff9ff3, #f368e0); color: white; }
+  .btn-stop { background: linear-gradient(135deg, #ff6b6b, #ee5a24); color: white; box-shadow: 0 4px 20px rgba(255,107,107,0.4); }
   .code-box { background: linear-gradient(135deg, #ff6b6b, #ee5a24); padding: 16px 40px; border-radius: 16px; font-size: 2.5rem; font-weight: 800; letter-spacing: 8px; text-align: center; box-shadow: 0 8px 32px rgba(255,107,107,0.4); }
   .code-hint { font-size: 0.8rem; color: #888; text-align: center; }
   .players-list { display: flex; flex-direction: column; gap: 8px; width: 100%; }
@@ -33,6 +36,7 @@
   .player-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 700; flex-shrink: 0; }
   .player-item-name { font-weight: 600; }
   .player-item-badge { font-size: 0.7rem; color: #feca57; background: rgba(254,202,87,0.15); padding: 2px 8px; border-radius: 20px; margin-left: auto; }
+  .player-item-offline { font-size: 0.7rem; color: #888; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 20px; margin-left: auto; }
   .assign-box { background: rgba(255,255,255,0.05); border: 2px solid rgba(255,107,107,0.4); border-radius: 20px; padding: 32px; text-align: center; width: 100%; }
   .assign-target { font-size: 2rem; font-weight: 800; color: #feca57; margin: 8px 0; }
   .assign-label { font-size: 0.85rem; color: #888; }
@@ -58,8 +62,40 @@
   .waiting-text { color: #888; font-size: 0.9rem; text-align: center; }
   .deco { font-size: 3rem; text-align: center; }
   .nb-toolbar-btn { width: auto !important; padding: 6px 12px !important; font-size: 0.85rem !important; background: rgba(255,255,255,0.08); color: #eee; border-radius: 8px; }
-  #notatnik { min-height: 400px; max-height: 550px; overflow-y: auto; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; font-size: 0.9rem; line-height: 1.8; color: #ddd; outline: none; white-space: pre-wrap; word-break: break-word; }
+  #notatnik { min-height: 400px; max-height: 550px; overflow-y: auto; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; font-size: 0.9rem; line-height: 1.8; color: #ddd; outline: none; white-space: pre-wrap; word-break: break-word; scroll-margin-bottom: 220px; }
   #notatnik:empty:before { content: attr(placeholder); color: #444; }
+
+  /* Wybór gry na ekranie startowym */
+  .game-picker { display: flex; gap: 10px; width: 100%; }
+  .game-pick-card { flex: 1; border: 2px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); border-radius: 14px; padding: 16px 10px; text-align: center; cursor: pointer; transition: all 0.15s; }
+  .game-pick-card .gp-emoji { font-size: 1.8rem; }
+  .game-pick-card .gp-name { font-size: 0.85rem; font-weight: 600; margin-top: 4px; }
+  .game-pick-card.selected { border-color: #ff6b6b; background: rgba(255,107,107,0.1); }
+
+  /* Państwa-Miasta */
+  .cat-picker { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .cat-chip { padding: 8px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); font-size: 0.85rem; cursor: pointer; transition: all 0.15s; user-select: none; }
+  .cat-chip.selected { background: rgba(72,219,251,0.2); border-color: #48dbfb; color: #48dbfb; font-weight: 600; }
+  .cat-chip.readonly { cursor: default; }
+  .letter-box { font-size: 5rem; font-weight: 800; color: #feca57; text-align: center; line-height: 1; }
+  .timer { font-size: 1.5rem; font-weight: 700; text-align: center; color: #48dbfb; }
+  .timer.low { color: #ff6b6b; }
+  .round-form { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+  .round-field label { font-size: 0.8rem; color: #888; display: block; margin-bottom: 4px; }
+  .results-table { width: 100%; border-collapse: collapse; }
+  .results-table th, .results-table td { padding: 8px 10px; text-align: left; font-size: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .results-table th { color: #888; font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px; }
+  .ans-valid { color: #1dd1a1; }
+  .ans-invalid { color: #ff6b6b; text-decoration: line-through; opacity: 0.7; }
+  .ans-empty { color: #555; }
+  .pts { font-weight: 700; color: #feca57; }
+  .cat-block { width: 100%; overflow-x: auto; }
+  .scoreboard { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .score-row { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px 14px; }
+  .score-row.rank1 { border: 1px solid rgba(254,202,87,0.5); background: rgba(254,202,87,0.08); }
+  .score-rank { font-weight: 800; color: #666; width: 24px; }
+  .score-name { font-weight: 600; flex: 1; }
+  .score-value { font-weight: 800; color: #feca57; }
 </style>
 </head>
 <body>
@@ -70,14 +106,35 @@
   <div class="reveal-timer"><div class="reveal-timer-bar" id="reveal-timer-bar"></div></div>
 </div>
 
+<!-- EKRAN WCZYTYWANIA / POWROTU DO GRY -->
+<div class="screen" id="screen-reconnecting">
+  <div class="deco">🔄</div>
+  <div class="logo" style="font-size:1.8rem;">Wracam do gry...</div>
+  <p class="waiting-text">Łączenie z serwerem, chwila...</p>
+</div>
+
 <!-- EKRAN STARTOWY -->
 <div class="screen active" id="screen-home">
   <div class="deco">🎮</div>
-  <div class="logo">Czółko</div>
-  <div class="logo-sub">Gra towarzyska</div>
+  <div class="logo">Gry towarzyskie</div>
+  <div class="logo-sub">Czółko • Państwa-Miasta</div>
   <div class="card" style="display:flex;flex-direction:column;gap:12px;">
     <input id="nickname" placeholder="✏️ Twój nick" maxlength="16">
+
+    <p class="section-title">Stwórz nowe lobby</p>
+    <div class="game-picker" id="game-picker">
+      <div class="game-pick-card selected" data-game="czolko" onclick="selectGame('czolko')">
+        <div class="gp-emoji">🎯</div>
+        <div class="gp-name">Czółko</div>
+      </div>
+      <div class="game-pick-card" data-game="panstwa" onclick="selectGame('panstwa')">
+        <div class="gp-emoji">🌍</div>
+        <div class="gp-name">Państwa-Miasta</div>
+      </div>
+    </div>
     <button class="btn-main" onclick="createLobby()">🏠 Stwórz lobby</button>
+
+    <p class="section-title" style="margin-top:6px;">Masz kod od znajomych?</p>
     <button class="btn-sec" onclick="showJoin()">🔗 Dołącz do lobby</button>
     <div id="join-form" style="display:none;flex-direction:column;gap:8px;">
       <input id="join-code" placeholder="Kod lobby (np. ABC12)" maxlength="5" style="text-transform:uppercase;letter-spacing:4px;text-align:center;">
@@ -86,6 +143,8 @@
   </div>
   <p class="error" id="home-error"></p>
 </div>
+
+<!-- ============== CZÓŁKO ============== -->
 
 <!-- EKRAN LOBBY ADMIN -->
 <div class="screen" id="screen-lobby-admin">
@@ -128,15 +187,12 @@
 
 <!-- EKRAN GRY -->
 <div class="screen" id="screen-game">
-  <!-- LEWA: gracze -->
   <div style="display:flex;flex-direction:column;align-items:center;gap:16px;flex:1;min-width:280px;max-width:520px;">
     <div class="deco">🎯</div>
     <div class="logo" style="font-size:1.8rem;">Gra!</div>
     <p class="waiting-text">Twoje hasło jest ukryte 🙈</p>
     <div class="game-grid" id="game-players"></div>
   </div>
-
-  <!-- PRAWA: notatnik -->
   <div style="display:flex;flex-direction:column;gap:12px;width:300px;flex-shrink:0;position:sticky;top:24px;">
     <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -158,15 +214,106 @@
   </div>
 </div>
 
+<!-- ============== PAŃSTWA-MIASTA ============== -->
+
+<!-- EKRAN LOBBY -->
+<div class="screen" id="screen-pm-lobby">
+  <div class="deco" id="pm-lobby-deco">⏳</div>
+  <div class="logo" style="font-size:1.8rem;">Lobby</div>
+  <div class="code-box" id="pm-lobby-code-display"></div>
+  <p class="code-hint">Podaj ten kod znajomym 👆 (max 15 graczy)</p>
+  <div class="card" style="display:flex;flex-direction:column;gap:10px;">
+    <p class="section-title">Gracze w lobby</p>
+    <div class="players-list" id="pm-lobby-players"></div>
+  </div>
+  <div class="card" style="display:flex;flex-direction:column;gap:12px;">
+    <p class="section-title">Kategorie</p>
+    <div class="cat-picker" id="pm-cat-picker"></div>
+    <p class="error" id="pm-lobby-error"></p>
+  </div>
+  <button class="btn-green" onclick="pmStartGame()" id="pm-btn-start" style="display:none">🚀 Rozpocznij grę</button>
+  <p class="waiting-text" id="pm-lobby-waiting-text" style="display:none">⏳ Czekaj, aż admin rozpocznie grę...</p>
+</div>
+
+<!-- EKRAN RUNDY -->
+<div class="screen" id="screen-pm-round">
+  <div class="letter-box" id="pm-round-letter">A</div>
+  <div class="timer" id="pm-round-timer">02:00</div>
+  <div class="card round-form" id="pm-round-fields"></div>
+  <button class="btn-stop" onclick="pmStopRound()" id="pm-btn-stop">🛑 STOP! (zatrzymaj rundę)</button>
+  <p class="waiting-text" id="pm-round-stopping-text" style="display:none"></p>
+</div>
+
+<!-- EKRAN WYNIKÓW RUNDY -->
+<div class="screen" id="screen-pm-review">
+  <div class="logo" style="font-size:1.8rem;">Wyniki rundy</div>
+  <p class="waiting-text" id="pm-review-letter-text"></p>
+  <div id="pm-review-tables" style="width:100%;display:flex;flex-direction:column;gap:16px;"></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px;">
+    <p class="section-title">Wynik ogólny</p>
+    <div class="scoreboard" id="pm-review-scoreboard"></div>
+  </div>
+  <button class="btn-green" onclick="pmNextRound()" id="pm-btn-next-round" style="display:none">▶ Kolejna runda</button>
+  <button class="btn-stop" onclick="pmEndGame()" id="pm-btn-end-game" style="display:none">🏁 Zakończ grę</button>
+  <p class="waiting-text" id="pm-review-waiting-text" style="display:none">⏳ Czekaj na decyzję admina...</p>
+</div>
+
+<!-- EKRAN KOŃCOWY -->
+<div class="screen" id="screen-pm-finished">
+  <div class="deco">🏆</div>
+  <div class="logo" style="font-size:1.8rem;">Koniec gry!</div>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px;">
+    <p class="section-title">Ranking końcowy</p>
+    <div class="scoreboard" id="pm-final-scoreboard"></div>
+  </div>
+  <button class="btn-main" onclick="location.reload()">🔄 Nowa gra</button>
+</div>
+
 <script>
 const socket = io();
-let myId = null;
+
+// ===== TRWAŁA SESJA =====
+function getOrCreatePlayerId() {
+  let id = localStorage.getItem('app_player_id');
+  if (!id) {
+    id = Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+    localStorage.setItem('app_player_id', id);
+  }
+  return id;
+}
+function saveSession(session) { localStorage.setItem('app_session', JSON.stringify(session)); }
+function getSession() {
+  try { const raw = localStorage.getItem('app_session'); return raw ? JSON.parse(raw) : null; }
+  catch (e) { return null; }
+}
+function clearSession() { localStorage.removeItem('app_session'); }
+
+let myId = getOrCreatePlayerId();
 let isAdmin = false;
+let currentGame = null; // 'czolko' | 'panstwa'
+let selectedGame = 'czolko'; // wybór na ekranie startowym (tylko przy tworzeniu)
+let allCategories = [];
+let selectedCategories = [];
+let pmRoundTimerInterval = null;
 const COLORS = ['#ff6b6b','#feca57','#48dbfb','#ff9ff3','#1dd1a1','#ff9f43','#a29bfe','#fd79a8'];
-const EMOJIS = ['😎','🐱','🦊','🐸','🦁','🐼','🦄','🐙','🦋','🎃'];
+const EMOJIS = ['😎','🐱','🦊','🐸','🦁','🐼','🦄','🐙','🦋','🎃','🐵','🐧','🦖','🐢','🐝'];
 
-socket.on('connect', () => { myId = socket.id; });
+const savedSession = getSession();
+if (savedSession) showScreen('screen-reconnecting');
 
+socket.on('connect', () => {
+  const session = getSession();
+  if (session && session.code) {
+    socket.emit('rejoin', { code: session.code, playerId: myId });
+  }
+});
+
+function selectGame(game) {
+  selectedGame = game;
+  document.querySelectorAll('.game-pick-card').forEach(el => {
+    el.classList.toggle('selected', el.dataset.game === game);
+  });
+}
 function showJoin() {
   const f = document.getElementById('join-form');
   f.style.display = f.style.display === 'flex' ? 'none' : 'flex';
@@ -178,15 +325,33 @@ function getNick() {
 }
 function createLobby() {
   const nickname = getNick(); if (!nickname) return;
-  isAdmin = true;
-  socket.emit('createLobby', { nickname });
+  socket.emit('createLobby', { nickname, playerId: myId, game: selectedGame });
 }
 function joinLobby() {
   const nickname = getNick(); if (!nickname) return;
   const code = document.getElementById('join-code').value.trim().toUpperCase();
   if (!code) { document.getElementById('home-error').textContent = 'Wpisz kod!'; return; }
-  socket.emit('joinLobby', { code, nickname });
+  socket.emit('joinLobby', { code, nickname, playerId: myId });
 }
+
+// ===== Poprawka: widoczność pola przy otwartej klawiaturze mobilnej =====
+function scrollActiveFieldIntoView() {
+  const el = document.activeElement;
+  if (!el) return;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable) {
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+document.addEventListener('focusin', () => setTimeout(scrollActiveFieldIntoView, 150));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => setTimeout(scrollActiveFieldIntoView, 50));
+}
+
+/* =========================================================================
+   CZÓŁKO
+   ========================================================================= */
+
 function startAssigning() { socket.emit('startAssigning'); }
 function submitWord() {
   const word = document.getElementById('word-input').value.trim();
@@ -195,7 +360,6 @@ function submitWord() {
   document.getElementById('word-input').value = '';
 }
 
-// NOTATNIK
 function formatText(cmd) {
   document.execCommand(cmd, false, null);
   document.getElementById('notatnik').focus();
@@ -236,23 +400,39 @@ function updateCharCount() {
   const c = document.getElementById('char-count');
   if (el && c) c.textContent = (el.innerText ? el.innerText.length : 0) + ' znaków';
 }
-setInterval(() => { if (document.getElementById('notatnik')) saveNotes(); }, 2000);
+setInterval(() => { if (currentGame === 'czolko' && document.getElementById('notatnik')) saveNotes(); }, 2000);
 document.addEventListener('input', (e) => { if (e.target.id === 'notatnik') updateCharCount(); });
 
-socket.on('lobbyCreated', ({ code }) => {
-  document.getElementById('lobby-code-display').textContent = code;
-  showScreen('screen-lobby-admin');
-});
-socket.on('joinedLobby', ({ code }) => {
-  document.getElementById('lobby-code-player').textContent = code;
-  showScreen('screen-lobby-player');
-});
-socket.on('updatePlayers', (players) => {
-  renderPlayersList('lobby-players', players);
-  renderPlayersList('lobby-players-p', players);
-  const btn = document.getElementById('btn-start');
-  if (btn) btn.style.display = players.length >= 2 ? 'block' : 'none';
-});
+function renderPlayersList(containerId, players) {
+  const div = document.getElementById(containerId);
+  if (!div) return;
+  div.innerHTML = '';
+  players.forEach((p, i) => {
+    const color = COLORS[i % COLORS.length];
+    const emoji = EMOJIS[i % EMOJIS.length];
+    const item = document.createElement('div');
+    item.className = 'player-item';
+    let badge = '';
+    if (p.id === myId) badge = '<div class="player-item-badge">TO TY</div>';
+    else if (p.connected === false) badge = '<div class="player-item-offline">rozłączony</div>';
+    item.innerHTML = `<div class="player-avatar" style="background:${color}22;color:${color}">${emoji}</div><div class="player-item-name">${p.nickname}</div>${badge}`;
+    div.appendChild(item);
+  });
+}
+function renderGamePlayers(players) {
+  const div = document.getElementById('game-players');
+  div.innerHTML = '';
+  players.forEach((p, i) => {
+    const color = COLORS[i % COLORS.length];
+    const emoji = EMOJIS[i % EMOJIS.length];
+    const isMe = p.id === myId;
+    const card = document.createElement('div');
+    card.className = 'game-card' + (isMe ? ' me' : '');
+    card.innerHTML = `<div style="font-size:2rem;margin-bottom:8px">${emoji}</div><div class="game-word ${isMe ? 'hidden-word' : ''}" style="${isMe ? '' : 'color:' + color}">${isMe ? '???' : (p.word || '?')}</div><div class="game-name">${p.nickname}</div>${isMe ? '<div class="game-me-badge">TY</div>' : ''}`;
+    div.appendChild(card);
+  });
+}
+
 socket.on('assignTurn', ({ targetId, targetNickname, assignerId }) => {
   showScreen('screen-assigning');
   document.getElementById('assign-target-name').textContent = targetNickname;
@@ -284,10 +464,40 @@ socket.on('gameStarted', (players) => {
   renderGamePlayers(players);
   setTimeout(loadNotes, 100);
 });
-socket.on('error', (msg) => alert('❌ ' + msg));
 
-function renderPlayersList(containerId, players) {
-  const div = document.getElementById(containerId);
+/* =========================================================================
+   PAŃSTWA-MIASTA
+   ========================================================================= */
+
+function pmStartGame() { socket.emit('startGame'); }
+function pmStopRound() { socket.emit('stopRound'); }
+function pmNextRound() { socket.emit('nextRound'); }
+function pmEndGame() { socket.emit('endGame'); }
+
+function renderPmCatPicker() {
+  const div = document.getElementById('pm-cat-picker');
+  div.innerHTML = '';
+  allCategories.forEach(cat => {
+    const chip = document.createElement('div');
+    const isSel = selectedCategories.includes(cat);
+    chip.className = 'cat-chip' + (isSel ? ' selected' : '') + (isAdmin ? '' : ' readonly');
+    chip.textContent = cat;
+    if (isAdmin) {
+      chip.onclick = () => {
+        if (selectedCategories.includes(cat)) {
+          selectedCategories = selectedCategories.filter(c => c !== cat);
+        } else {
+          selectedCategories.push(cat);
+        }
+        renderPmCatPicker();
+        socket.emit('updateCategories', { categories: selectedCategories });
+      };
+    }
+    div.appendChild(chip);
+  });
+}
+function renderPmPlayersList(players) {
+  const div = document.getElementById('pm-lobby-players');
   if (!div) return;
   div.innerHTML = '';
   players.forEach((p, i) => {
@@ -295,23 +505,249 @@ function renderPlayersList(containerId, players) {
     const emoji = EMOJIS[i % EMOJIS.length];
     const item = document.createElement('div');
     item.className = 'player-item';
-    item.innerHTML = `<div class="player-avatar" style="background:${color}22;color:${color}">${emoji}</div><div class="player-item-name">${p.nickname}</div>${p.id === myId ? '<div class="player-item-badge">TO TY</div>' : ''}`;
+    let badge = '';
+    if (p.id === myId) badge = '<div class="player-item-badge">TO TY</div>';
+    else if (p.connected === false) badge = '<div class="player-item-offline">rozłączony</div>';
+    item.innerHTML = `<div class="player-avatar" style="background:${color}22;color:${color}">${emoji}</div><div class="player-item-name">${p.nickname}</div>${badge}`;
     div.appendChild(item);
   });
+  const errEl = document.getElementById('pm-lobby-error');
+  if (errEl) errEl.textContent = (isAdmin && players.length < 2) ? 'Potrzeba minimum 2 graczy.' : '';
 }
-function renderGamePlayers(players) {
-  const div = document.getElementById('game-players');
+function renderPmRoundFields(categories, myAnswers) {
+  const div = document.getElementById('pm-round-fields');
   div.innerHTML = '';
-  players.forEach((p, i) => {
-    const color = COLORS[i % COLORS.length];
-    const emoji = EMOJIS[i % EMOJIS.length];
-    const isMe = p.id === myId;
-    const card = document.createElement('div');
-    card.className = 'game-card' + (isMe ? ' me' : '');
-    card.innerHTML = `<div style="font-size:2rem;margin-bottom:8px">${emoji}</div><div class="game-word ${isMe ? 'hidden-word' : ''}" style="${isMe ? '' : 'color:' + color}">${isMe ? '???' : (p.word || '?')}</div><div class="game-name">${p.nickname}</div>${isMe ? '<div class="game-me-badge">TY</div>' : ''}`;
-    div.appendChild(card);
+  categories.forEach(cat => {
+    const field = document.createElement('div');
+    field.className = 'round-field';
+    const safeId = 'pm-field-' + cat.replace(/[^a-zA-Z0-9]/g, '');
+    field.innerHTML = `<label>${cat}</label><input type="text" id="${safeId}" data-cat="${cat}" autocomplete="off">`;
+    div.appendChild(field);
+    const input = field.querySelector('input');
+    if (myAnswers && myAnswers[cat]) input.value = myAnswers[cat];
+    input.addEventListener('input', pmDebounceSendAnswers);
   });
 }
+let pmSendAnswersTimeout = null;
+function pmDebounceSendAnswers() {
+  if (pmSendAnswersTimeout) clearTimeout(pmSendAnswersTimeout);
+  pmSendAnswersTimeout = setTimeout(pmSendAnswers, 400);
+}
+function pmSendAnswers() {
+  const inputs = document.querySelectorAll('#pm-round-fields input');
+  const answers = {};
+  inputs.forEach(i => { answers[i.dataset.cat] = i.value; });
+  socket.emit('updateAnswers', { answers });
+}
+function pmStartTimer(endsAt) {
+  if (pmRoundTimerInterval) clearInterval(pmRoundTimerInterval);
+  const el = document.getElementById('pm-round-timer');
+  function tick() {
+    const msLeft = Math.max(0, endsAt - Date.now());
+    const s = Math.ceil(msLeft / 1000);
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    el.textContent = `${mm}:${ss}`;
+    el.classList.toggle('low', s <= 15);
+    if (msLeft <= 0) clearInterval(pmRoundTimerInterval);
+  }
+  tick();
+  pmRoundTimerInterval = setInterval(tick, 250);
+}
+function renderPmResults(letter, categories, results) {
+  document.getElementById('pm-review-letter-text').textContent = `Litera: ${letter}`;
+  const container = document.getElementById('pm-review-tables');
+  container.innerHTML = '';
+  categories.forEach(cat => {
+    const block = document.createElement('div');
+    block.className = 'cat-block';
+    let rows = results[cat].map(r => {
+      let cls = 'ans-invalid', text = r.answer || '(brak)';
+      if (!r.answer) { cls = 'ans-empty'; text = '(brak)'; }
+      else if (r.valid) { cls = 'ans-valid'; text = r.answer; }
+      return `<tr><td>${r.nickname}</td><td class="${cls}">${text}</td><td class="pts">${r.points}</td></tr>`;
+    }).join('');
+    block.innerHTML = `<p class="section-title">${cat}</p><table class="results-table"><thead><tr><th>Gracz</th><th>Odpowiedź</th><th>Pkt</th></tr></thead><tbody>${rows}</tbody></table>`;
+    container.appendChild(block);
+  });
+}
+function renderPmScoreboard(containerId, scoreboard) {
+  const div = document.getElementById(containerId);
+  div.innerHTML = '';
+  scoreboard.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'score-row' + (i === 0 ? ' rank1' : '');
+    row.innerHTML = `<div class="score-rank">${i + 1}</div><div class="score-name">${p.nickname}${p.id === myId ? ' (Ty)' : ''}</div><div class="score-value">${p.score}</div>`;
+    div.appendChild(row);
+  });
+}
+
+socket.on('roundStarted', ({ round, letter, categories, endsAt }) => {
+  document.getElementById('pm-round-letter').textContent = letter;
+  document.getElementById('pm-btn-stop').disabled = false;
+  document.getElementById('pm-btn-stop').style.display = 'block';
+  document.getElementById('pm-round-stopping-text').style.display = 'none';
+  renderPmRoundFields(categories, {});
+  pmStartTimer(endsAt);
+  showScreen('screen-pm-round');
+});
+socket.on('roundStopping', ({ by, gracePeriodMs }) => {
+  document.getElementById('pm-btn-stop').disabled = true;
+  const t = document.getElementById('pm-round-stopping-text');
+  t.style.display = 'block';
+  t.textContent = `🛑 ${by} zakończył(a) rundę! Ostatnie ${Math.round(gracePeriodMs / 1000)}s na dokończenie...`;
+});
+socket.on('roundResults', ({ letter, categories, results, scoreboard }) => {
+  if (pmRoundTimerInterval) clearInterval(pmRoundTimerInterval);
+  renderPmResults(letter, categories, results);
+  renderPmScoreboard('pm-review-scoreboard', scoreboard);
+  document.getElementById('pm-btn-next-round').style.display = isAdmin ? 'block' : 'none';
+  document.getElementById('pm-btn-end-game').style.display = isAdmin ? 'block' : 'none';
+  document.getElementById('pm-review-waiting-text').style.display = isAdmin ? 'none' : 'block';
+  showScreen('screen-pm-review');
+});
+socket.on('gameEnded', ({ scoreboard }) => {
+  renderPmScoreboard('pm-final-scoreboard', scoreboard);
+  clearSession();
+  showScreen('screen-pm-finished');
+});
+
+/* =========================================================================
+   WSPÓLNE
+   ========================================================================= */
+
+socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats }) => {
+  if (playerId) myId = playerId;
+  currentGame = game;
+  isAdmin = true;
+  saveSession({ code });
+
+  if (game === 'panstwa') {
+    allCategories = cats;
+    selectedCategories = cats.slice(0, 6);
+    document.getElementById('pm-lobby-code-display').textContent = code;
+    document.getElementById('pm-lobby-deco').textContent = '👑';
+    document.getElementById('pm-btn-start').style.display = 'none';
+    document.getElementById('pm-lobby-waiting-text').style.display = 'none';
+    renderPmCatPicker();
+    showScreen('screen-pm-lobby');
+  } else {
+    document.getElementById('lobby-code-display').textContent = code;
+    showScreen('screen-lobby-admin');
+  }
+});
+socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats }) => {
+  if (playerId) myId = playerId;
+  currentGame = game;
+  isAdmin = false;
+  saveSession({ code });
+
+  if (game === 'panstwa') {
+    allCategories = cats;
+    document.getElementById('pm-lobby-code-display').textContent = code;
+    document.getElementById('pm-lobby-deco').textContent = '⏳';
+    document.getElementById('pm-lobby-waiting-text').style.display = 'block';
+    showScreen('screen-pm-lobby');
+  } else {
+    document.getElementById('lobby-code-player').textContent = code;
+    showScreen('screen-lobby-player');
+  }
+});
+socket.on('updateLobby', ({ game, players, categories }) => {
+  currentGame = game;
+  if (game === 'panstwa') {
+    selectedCategories = (categories || []).slice();
+    renderPmPlayersList(players);
+    renderPmCatPicker();
+    const btn = document.getElementById('pm-btn-start');
+    if (btn) btn.style.display = (isAdmin && players.length >= 2) ? 'block' : 'none';
+  } else {
+    renderPlayersList('lobby-players', players);
+    renderPlayersList('lobby-players-p', players);
+    const btn = document.getElementById('btn-start');
+    if (btn) btn.style.display = players.length >= 2 ? 'block' : 'none';
+  }
+});
+socket.on('error', (msg) => alert('❌ ' + msg));
+
+socket.on('rejoinState', (state) => {
+  currentGame = state.game;
+  isAdmin = !!state.isAdmin;
+
+  if (state.game === 'czolko') {
+    if (state.phase === 'waiting') {
+      document.getElementById('lobby-code-display').textContent = state.code;
+      document.getElementById('lobby-code-player').textContent = state.code;
+      renderPlayersList('lobby-players', state.players);
+      renderPlayersList('lobby-players-p', state.players);
+      const btn = document.getElementById('btn-start');
+      if (btn) btn.style.display = state.players.length >= 2 ? 'block' : 'none';
+      showScreen(isAdmin ? 'screen-lobby-admin' : 'screen-lobby-player');
+    } else if (state.phase === 'assigning') {
+      showScreen('screen-assigning');
+      if (state.assignment) {
+        document.getElementById('assign-target-name').textContent = state.assignment.targetNickname;
+        const inputArea = document.getElementById('assign-input-area');
+        const waitingMsg = document.getElementById('assign-waiting');
+        if (myId === state.assignment.assignerId) {
+          inputArea.style.display = 'flex';
+          waitingMsg.style.display = 'none';
+          document.getElementById('assign-subtitle').textContent = 'Tylko Ty widzisz to pole 👇';
+        } else {
+          inputArea.style.display = 'none';
+          waitingMsg.style.display = 'block';
+          document.getElementById('assign-subtitle').textContent = '';
+        }
+      }
+    } else if (state.phase === 'playing') {
+      showScreen('screen-game');
+      renderGamePlayers(state.players);
+      setTimeout(loadNotes, 100);
+    }
+    return;
+  }
+
+  // Państwa-Miasta
+  allCategories = state.allCategories;
+  selectedCategories = state.categories.slice();
+
+  if (state.phase === 'waiting') {
+    document.getElementById('pm-lobby-code-display').textContent = state.code;
+    document.getElementById('pm-lobby-deco').textContent = isAdmin ? '👑' : '⏳';
+    document.getElementById('pm-lobby-waiting-text').style.display = isAdmin ? 'none' : 'block';
+    renderPmPlayersList(state.players);
+    renderPmCatPicker();
+    const btn = document.getElementById('pm-btn-start');
+    if (btn) btn.style.display = (isAdmin && state.players.length >= 2) ? 'block' : 'none';
+    showScreen('screen-pm-lobby');
+  } else if (state.phase === 'playing') {
+    document.getElementById('pm-round-letter').textContent = state.letter;
+    document.getElementById('pm-btn-stop').disabled = false;
+    document.getElementById('pm-btn-stop').style.display = 'block';
+    document.getElementById('pm-round-stopping-text').style.display = 'none';
+    renderPmRoundFields(state.categories, state.myAnswers || {});
+    pmStartTimer(state.endsAt);
+    showScreen('screen-pm-round');
+  } else if (state.phase === 'reviewing') {
+    if (state.lastResults) {
+      renderPmResults(state.lastResults.letter, state.lastResults.categories, state.lastResults.results);
+    }
+    renderPmScoreboard('pm-review-scoreboard', state.scoreboard);
+    document.getElementById('pm-btn-next-round').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('pm-btn-end-game').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('pm-review-waiting-text').style.display = isAdmin ? 'none' : 'block';
+    showScreen('screen-pm-review');
+  } else if (state.phase === 'finished') {
+    renderPmScoreboard('pm-final-scoreboard', state.scoreboard);
+    clearSession();
+    showScreen('screen-pm-finished');
+  }
+});
+socket.on('rejoinFailed', () => {
+  clearSession();
+  showScreen('screen-home');
+});
+
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
