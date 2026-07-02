@@ -1,33 +1,55 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const OpenAI = require('openai').default || require('openai');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+app.use(express.json());
 app.use(express.static('public'));
 
-const DISCONNECT_GRACE_MS = 10 * 60 * 1000; // 10 minut na powrót do gry po zerwaniu połączenia
-const MAX_PM_PLAYERS = 15;
-const ROUND_MS = 120000; // 2 minuty na rundę Państw-Miast
-const STOP_GRACE_MS = 3000; // 3 sekundy na dokończenie po kliknięciu "STOP!"
-const LETTERS = 'ABCDEFGHIJKLMNOPRSTUWZ'.split('');
-const DEFAULT_CATEGORIES = ['Państwo', 'Miasto', 'Rzeka', 'Zwierzę', 'Roślina', 'Imię'];
-const ALL_CATEGORIES = ['Państwo', 'Miasto', 'Rzeka', 'Zwierzę', 'Roślina', 'Imię', 'Zawód', 'Kolor', 'Jedzenie', 'Marka'];
+// ─── OpenAI client (optional – needed only for Państwa-Miasta AI validation) ──
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
-}
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const DISCONNECT_GRACE_MS = 10 * 60 * 1000;   // 10 min
+const MAX_PM_PLAYERS      = 15;
+const ROUND_MS            = 120_000;           // 2 min
+const STOP_GRACE_MS       = 3_000;             // 3 s after STOP
+const WORD_REVEAL_MS      = 4_000;             // 4 s reveal screen
+const ASSIGN_TIMEOUT_MS   = 90_000;            // 90 s max for assignment phase
+const LETTERS             = 'ABCDEFGHIJKLMNOPRSTUWZ'.split('');
+const DEFAULT_CATEGORIES  = ['Państwo','Miasto','Rzeka','Zwierzę','Roślina','Imię'];
+const ALL_CATEGORIES      = ['Państwo','Miasto','Rzeka','Zwierzę','Roślina','Imię','Zawód','Kolor','Jedzenie','Marka'];
 
-// Wszystkie lobby (obu gier) trzymane w jednym słowniku po kodzie.
-// lobby.game === 'czolko' | 'panstwa'
-const lobbies = {};
+const CATEGORY_DESCRIPTIONS = {
+  'Państwo':  'sovereign country recognised internationally',
+  'Miasto':   'real city or town',
+  'Rzeka':    'real river',
+  'Zwierzę':  'real animal species',
+  'Roślina':  'real plant, tree or flower',
+  'Imię':     'real human first name (any language)',
+  'Zawód':    'real profession or job',
+  'Kolor':    'recognised colour name',
+  'Jedzenie': 'real food or drink',
+  'Marka':    'real brand or company',
+};
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const lobbies = {};   // code → lobby
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function generateId()   { return Date.now().toString(36) + Math.random().toString(36).substring(2,10); }
+function generateCode() { return Math.random().toString(36).substring(2,7).toUpperCase(); }
 
 function publicPlayers(lobby) {
   return lobby.players.map(p => {
     const base = { id: p.playerId, nickname: p.nickname, connected: p.connected };
-    if (lobby.game === 'czolko') base.word = p.word;
+    if (lobby.game === 'czolko')  base.word  = p.word;
     if (lobby.game === 'panstwa') base.score = p.score;
     return base;
   });
@@ -39,38 +61,79 @@ function broadcastLobby(code) {
   io.to(code).emit('updateLobby', {
     game: lobby.game,
     players: publicPlayers(lobby),
-    categories: lobby.game === 'panstwa' ? lobby.categories : undefined
+    categories: lobby.game === 'panstwa' ? lobby.categories : undefined,
   });
 }
 
-/* =========================================================================
-   CZÓŁKO
-   ========================================================================= */
+// ─── CZÓŁKO – SIMULTANEOUS ASSIGNMENT ───────────────────────────────────────
 
-function startNextAssignment(code) {
+function buildAssignments(players) {
+  // Shuffle, then circular chain: shuffled[i] → shuffled[(i+1) % n]
+  const shuffled = [...players].sort(() => Math.random() - 0.5);
+  return shuffled.map((p, i) => {
+    const target = shuffled[(i + 1) % shuffled.length];
+    return { assignerId: p.playerId, targetId: target.playerId, targetNickname: target.nickname, word: null };
+  });
+}
+
+function pendingNicknames(lobby) {
+  return lobby.assignments
+    .filter(a => a.word === null)
+    .map(a => lobby.players.find(p => p.playerId === a.assignerId)?.nickname ?? '?');
+}
+
+function startSimultaneousAssign(code) {
   const lobby = lobbies[code];
-  const target = lobby.players[lobby.wordAssignIndex];
-  let assignerId;
-  if (target.playerId === lobby.admin) {
-    assignerId = lobby.adminAssigner;
-  } else {
-    assignerId = lobby.admin;
-  }
-  lobby.currentAssignment = {
-    targetId: target.playerId,
-    targetNickname: target.nickname,
-    assignerId: assignerId
-  };
-  io.to(code).emit('assignTurn', lobby.currentAssignment);
+  lobby.phase       = 'assigning';
+  lobby.assignments = buildAssignments(lobby.players);
+
+  const totalCount = lobby.players.length;
+
+  // Send personalised event to each player
+  lobby.players.forEach(player => {
+    const assignment = lobby.assignments.find(a => a.assignerId === player.playerId);
+    if (!assignment) return;
+    io.to(player.socketId).emit('simultaneousAssignStart', {
+      myTarget:         { targetId: assignment.targetId, targetNickname: assignment.targetNickname },
+      submittedCount:   0,
+      totalCount,
+      pendingNicknames: pendingNicknames(lobby),
+    });
+  });
+
+  // Safety timeout
+  lobby.assignTimeout = setTimeout(() => {
+    lobby.assignments.forEach(a => { if (a.word === null) a.word = '???'; });
+    doWordReveal(code);
+  }, ASSIGN_TIMEOUT_MS);
 }
 
-/* =========================================================================
-   PAŃSTWA-MIASTA
-   ========================================================================= */
+function doWordReveal(code) {
+  const lobby = lobbies[code];
+  if (lobby.assignTimeout) { clearTimeout(lobby.assignTimeout); lobby.assignTimeout = null; }
 
-function normalizeAnswer(str) {
-  return (str || '').trim().toLowerCase();
+  // Apply words to players
+  lobby.assignments.forEach(a => {
+    const target = lobby.players.find(p => p.playerId === a.targetId);
+    if (target) target.word = a.word ?? '???';
+  });
+
+  io.to(code).emit('wordReveal', {
+    assignments: lobby.assignments.map(a => {
+      const assigner = lobby.players.find(p => p.playerId === a.assignerId);
+      return { assignerId: a.assignerId, assignerNickname: assigner?.nickname ?? '?', targetId: a.targetId, targetNickname: a.targetNickname, word: a.word ?? '???' };
+    }),
+  });
+
+  setTimeout(() => {
+    lobby.phase = 'playing';
+    io.to(code).emit('gameStarted', publicPlayers(lobby));
+  }, WORD_REVEAL_MS);
 }
+
+// ─── PAŃSTWA-MIASTA ───────────────────────────────────────────────────────────
+
+function normalizeAnswer(str) { return (str || '').trim().toLowerCase(); }
 
 function pmEndRound(code) {
   const lobby = lobbies[code];
@@ -78,180 +141,197 @@ function pmEndRound(code) {
   if (lobby.roundTimeout) { clearTimeout(lobby.roundTimeout); lobby.roundTimeout = null; }
   lobby.phase = 'reviewing';
 
-  const letter = lobby.currentLetter;
+  const letter  = lobby.currentLetter;
   const results = {};
 
   lobby.categories.forEach(cat => {
     const entries = lobby.players.map(p => {
-      const raw = (lobby.answers[p.playerId] && lobby.answers[p.playerId][cat]) || '';
+      const raw  = (lobby.answers[p.playerId] || {})[cat] || '';
       const norm = normalizeAnswer(raw);
       const valid = norm.length > 0 && norm[0].toUpperCase() === letter;
       return { playerId: p.playerId, nickname: p.nickname, answer: raw, norm, valid };
     });
-
     const counts = {};
     entries.forEach(e => { if (e.valid) counts[e.norm] = (counts[e.norm] || 0) + 1; });
-
-    results[cat] = entries.map(e => {
-      let points = 0;
-      if (e.valid) points = counts[e.norm] > 1 ? 5 : 10;
-      return { playerId: e.playerId, nickname: e.nickname, answer: e.answer, valid: e.valid, points };
-    });
+    results[cat] = entries.map(e => ({
+      playerId: e.playerId, nickname: e.nickname, answer: e.answer,
+      valid: e.valid, points: e.valid ? (counts[e.norm] > 1 ? 5 : 10) : 0,
+    }));
   });
 
   lobby.players.forEach(p => {
-    let roundPoints = 0;
     lobby.categories.forEach(cat => {
-      const entry = results[cat].find(r => r.playerId === p.playerId);
-      if (entry) roundPoints += entry.points;
+      const entry = (results[cat] || []).find(r => r.playerId === p.playerId);
+      if (entry) p.score += entry.points;
     });
-    p.score += roundPoints;
   });
 
   lobby.lastResults = { letter, categories: lobby.categories, results };
 
-  io.to(code).emit('roundResults', {
-    letter,
-    categories: lobby.categories,
-    results,
-    scoreboard: publicPlayers(lobby).sort((a, b) => b.score - a.score)
-  });
+  const roundResultsPayload = {
+    letter, categories: lobby.categories, results,
+    scoreboard: publicPlayers(lobby).sort((a,b) => b.score - a.score),
+  };
+
+  io.to(code).emit('roundResults', roundResultsPayload);
+
+  // ── AI VALIDATION (fire-and-forget, send separately) ──────────────────────
+  if (openai) {
+    const nonEmpty = [];
+    lobby.categories.forEach(cat => {
+      (results[cat] || []).forEach(r => {
+        if (r.answer && r.answer.trim().length > 0) {
+          nonEmpty.push({ playerId: r.playerId, nickname: r.nickname, answer: r.answer, category: cat });
+        }
+      });
+    });
+
+    if (nonEmpty.length > 0) {
+      const entriesText = nonEmpty.map((e, i) =>
+        `${i+1}. Category: "${e.category}" (${CATEGORY_DESCRIPTIONS[e.category] || e.category}), Answer: "${e.answer}" by ${e.nickname}`
+      ).join('\n');
+
+      openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        temperature: 0,
+        max_tokens: 1200,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: `You are a strict but fair judge for the Polish word game "Państwa i Miasta". 
+Validate whether each answer is a legitimate entry for its category, starting with the letter "${letter}".
+Rules:
+- Answer must start with "${letter}" (case-insensitive; Polish Ą/Ę/Ó/Ź/Ż/Ś/Ć/Ń count as their base letter for the game)
+- Must be a real, widely-recognised example of the category
+- Common knowledge entries are valid even if somewhat obscure; obvious nonsense is not
+- Minor typos that are clearly identifiable are acceptable
+Respond ONLY with JSON: { "validations": [ { "index": 1, "valid": true, "reason": "brief Polish explanation" }, ... ] }`,
+          },
+          {
+            role: 'user',
+            content: `Validate these answers for letter "${letter}":\n${entriesText}`,
+          },
+        ],
+      }).then(completion => {
+        try {
+          const raw = completion.choices[0]?.message?.content || '{}';
+          const obj = JSON.parse(raw);
+          const list = Array.isArray(obj) ? obj : (Array.isArray(obj.validations) ? obj.validations : []);
+          const validations = nonEmpty.map((entry, i) => {
+            const r = list.find(x => x.index === i + 1);
+            return { playerId: entry.playerId, category: entry.category, valid: r?.valid ?? true, reason: r?.reason ?? '' };
+          });
+          io.to(code).emit('aiValidation', { letter, validations });
+        } catch (err) {
+          console.error('AI parse error', err.message);
+        }
+      }).catch(err => {
+        console.error('AI request error', err.message);
+      });
+    }
+  }
 }
 
 function pmBeginRound(code) {
   const lobby = lobbies[code];
-  lobby.phase = 'playing';
-  lobby.round += 1;
+  lobby.phase         = 'playing';
+  lobby.round        += 1;
   lobby.currentLetter = LETTERS[Math.floor(Math.random() * LETTERS.length)];
-  lobby.answers = {};
+  lobby.answers       = {};
   lobby.players.forEach(p => { lobby.answers[p.playerId] = {}; });
-  lobby.roundEndsAt = Date.now() + ROUND_MS;
-  lobby.stopping = false;
-  lobby.roundTimeout = setTimeout(() => pmEndRound(code), ROUND_MS);
+  lobby.roundEndsAt   = Date.now() + ROUND_MS;
+  lobby.stopping      = false;
+  lobby.roundTimeout  = setTimeout(() => pmEndRound(code), ROUND_MS);
+
   io.to(code).emit('roundStarted', {
-    round: lobby.round,
-    letter: lobby.currentLetter,
-    categories: lobby.categories,
-    endsAt: lobby.roundEndsAt
+    round: lobby.round, letter: lobby.currentLetter,
+    categories: lobby.categories, endsAt: lobby.roundEndsAt,
   });
 }
 
-/* =========================================================================
-   WSPÓLNA OBSŁUGA POŁĄCZEŃ
-   ========================================================================= */
+// ─── SOCKET EVENTS ───────────────────────────────────────────────────────────
 
-io.on('connection', (socket) => {
+io.on('connection', socket => {
 
+  // CREATE LOBBY
   socket.on('createLobby', ({ nickname, playerId, game }) => {
-    const pid = playerId || generateId();
-    const code = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const pid      = playerId || generateId();
+    const code     = generateCode();
     const gameType = game === 'panstwa' ? 'panstwa' : 'czolko';
 
+    const basePlayer = { playerId: pid, socketId: socket.id, nickname, connected: true, disconnectTimer: null, word: null, score: 0 };
+
     if (gameType === 'czolko') {
-      lobbies[code] = {
-        game: 'czolko',
-        admin: pid,
-        players: [{ playerId: pid, socketId: socket.id, nickname, word: null, connected: true, disconnectTimer: null }],
-        phase: 'waiting',
-        wordAssignIndex: 0,
-        adminAssigner: null,
-        currentAssignment: null
-      };
+      lobbies[code] = { game: 'czolko', admin: pid, players: [basePlayer], phase: 'waiting', assignments: [], assignTimeout: null, winner: null };
     } else {
-      lobbies[code] = {
-        game: 'panstwa',
-        admin: pid,
-        players: [{ playerId: pid, socketId: socket.id, nickname, connected: true, disconnectTimer: null, score: 0 }],
-        phase: 'waiting',
-        categories: DEFAULT_CATEGORIES.slice(),
-        round: 0,
-        currentLetter: null,
-        answers: {},
-        roundTimeout: null,
-        stopping: false,
-        lastResults: null
-      };
+      lobbies[code] = { game: 'panstwa', admin: pid, players: [basePlayer], phase: 'waiting', categories: DEFAULT_CATEGORIES.slice(), round: 0, currentLetter: null, answers: {}, roundTimeout: null, roundEndsAt: 0, stopping: false, lastResults: null };
     }
 
     socket.join(code);
     socket.lobbyCode = code;
-    socket.playerId = pid;
-    socket.emit('lobbyCreated', {
-      code, playerId: pid, game: gameType,
-      allCategories: gameType === 'panstwa' ? ALL_CATEGORIES : undefined
-    });
+    socket.playerId  = pid;
+    socket.emit('lobbyCreated', { code, playerId: pid, game: gameType, allCategories: gameType === 'panstwa' ? ALL_CATEGORIES : undefined });
     broadcastLobby(code);
   });
 
+  // JOIN LOBBY
   socket.on('joinLobby', ({ code, nickname, playerId }) => {
     const lobby = lobbies[code];
-    if (!lobby) return socket.emit('error', 'Nie ma takiego lobby!');
-    if (lobby.phase !== 'waiting') return socket.emit('error', 'Gra już trwa!');
-    if (lobby.game === 'panstwa' && lobby.players.length >= MAX_PM_PLAYERS) {
-      return socket.emit('error', 'Lobby jest pełne (max 15 graczy)!');
-    }
+    if (!lobby)                                              return socket.emit('error', 'Nie ma takiego lobby!');
+    if (lobby.phase !== 'waiting')                           return socket.emit('error', 'Gra już trwa!');
+    if (lobby.game === 'panstwa' && lobby.players.length >= MAX_PM_PLAYERS) return socket.emit('error', 'Lobby jest pełne (max 15 graczy)!');
+
     const pid = playerId || generateId();
-    if (lobby.game === 'czolko') {
-      lobby.players.push({ playerId: pid, socketId: socket.id, nickname, word: null, connected: true, disconnectTimer: null });
-    } else {
-      lobby.players.push({ playerId: pid, socketId: socket.id, nickname, connected: true, disconnectTimer: null, score: 0 });
-    }
+    lobby.players.push({ playerId: pid, socketId: socket.id, nickname, connected: true, disconnectTimer: null, word: null, score: 0 });
     socket.join(code);
     socket.lobbyCode = code;
-    socket.playerId = pid;
-    socket.emit('joinedLobby', {
-      code, playerId: pid, game: lobby.game,
-      allCategories: lobby.game === 'panstwa' ? ALL_CATEGORIES : undefined
-    });
+    socket.playerId  = pid;
+    socket.emit('joinedLobby', { code, playerId: pid, game: lobby.game, allCategories: lobby.game === 'panstwa' ? ALL_CATEGORIES : undefined });
     broadcastLobby(code);
   });
 
+  // REJOIN
   socket.on('rejoin', ({ code, playerId }) => {
-    const lobby = lobbies[code];
+    const lobby  = lobbies[code];
     if (!lobby || !playerId) return socket.emit('rejoinFailed');
     const player = lobby.players.find(p => p.playerId === playerId);
     if (!player) return socket.emit('rejoinFailed');
 
-    if (player.disconnectTimer) {
-      clearTimeout(player.disconnectTimer);
-      player.disconnectTimer = null;
-    }
-    player.socketId = socket.id;
+    if (player.disconnectTimer) { clearTimeout(player.disconnectTimer); player.disconnectTimer = null; }
+    player.socketId  = socket.id;
     player.connected = true;
     socket.join(code);
     socket.lobbyCode = code;
-    socket.playerId = playerId;
+    socket.playerId  = playerId;
 
     const isAdmin = lobby.admin === playerId;
-    const base = {
-      game: lobby.game, code, isAdmin,
-      players: publicPlayers(lobby)
-    };
+    const base    = { game: lobby.game, code, isAdmin, players: publicPlayers(lobby) };
 
     if (lobby.game === 'czolko') {
       if (lobby.phase === 'waiting') {
         socket.emit('rejoinState', { ...base, phase: 'waiting' });
       } else if (lobby.phase === 'assigning') {
-        socket.emit('rejoinState', { ...base, phase: 'assigning', assignment: lobby.currentAssignment });
+        const myAssignment = lobby.assignments.find(a => a.assignerId === playerId);
+        socket.emit('rejoinState', {
+          ...base, phase: 'assigning',
+          myTarget:          myAssignment ? { targetId: myAssignment.targetId, targetNickname: myAssignment.targetNickname } : null,
+          alreadySubmitted:  myAssignment?.word !== null,
+          submittedCount:    lobby.assignments.filter(a => a.word !== null).length,
+          totalCount:        lobby.players.length,
+          pendingNicknames:  pendingNicknames(lobby),
+        });
       } else if (lobby.phase === 'playing') {
         socket.emit('rejoinState', { ...base, phase: 'playing' });
       } else if (lobby.phase === 'finished') {
         socket.emit('rejoinState', { ...base, phase: 'finished', winner: lobby.winner });
       }
     } else {
-      const extra = {
-        allCategories: ALL_CATEGORIES,
-        categories: lobby.categories,
-        scoreboard: publicPlayers(lobby).sort((a, b) => b.score - a.score)
-      };
+      const extra = { allCategories: ALL_CATEGORIES, categories: lobby.categories, scoreboard: publicPlayers(lobby).sort((a,b) => b.score - a.score) };
       if (lobby.phase === 'waiting') {
         socket.emit('rejoinState', { ...base, ...extra, phase: 'waiting' });
       } else if (lobby.phase === 'playing') {
-        socket.emit('rejoinState', {
-          ...base, ...extra, phase: 'playing',
-          letter: lobby.currentLetter, round: lobby.round,
-          myAnswers: lobby.answers[playerId] || {}, endsAt: lobby.roundEndsAt
-        });
+        socket.emit('rejoinState', { ...base, ...extra, phase: 'playing', letter: lobby.currentLetter, round: lobby.round, myAnswers: lobby.answers[playerId] || {}, endsAt: lobby.roundEndsAt });
       } else if (lobby.phase === 'reviewing') {
         socket.emit('rejoinState', { ...base, ...extra, phase: 'reviewing', letter: lobby.currentLetter, round: lobby.round, lastResults: lobby.lastResults });
       } else if (lobby.phase === 'finished') {
@@ -261,61 +341,49 @@ io.on('connection', (socket) => {
     broadcastLobby(code);
   });
 
-  // ---- CZÓŁKO ----
+  // ── CZÓŁKO ──────────────────────────────────────────────────────────────────
 
-  socket.on('startAssigning', () => {
-    const code = socket.lobbyCode;
+  socket.on('startSimultaneousAssign', () => {
+    const code  = socket.lobbyCode;
     const lobby = lobbies[code];
     if (!lobby || lobby.game !== 'czolko' || lobby.admin !== socket.playerId) return;
     if (lobby.players.length < 2) return socket.emit('error', 'Potrzeba minimum 2 graczy!');
-    lobby.phase = 'assigning';
-    lobby.wordAssignIndex = 0;
-    const others = lobby.players.filter(p => p.playerId !== lobby.admin);
-    lobby.adminAssigner = others[Math.floor(Math.random() * others.length)].playerId;
-    startNextAssignment(code);
+    if (lobby.phase !== 'waiting') return;
+    startSimultaneousAssign(code);
   });
 
-  socket.on('assignWord', ({ word }) => {
-    const code = socket.lobbyCode;
+  socket.on('submitSimultaneousWord', ({ word }) => {
+    const code  = socket.lobbyCode;
     const lobby = lobbies[code];
     if (!lobby || lobby.game !== 'czolko' || lobby.phase !== 'assigning') return;
-    const target = lobby.players[lobby.wordAssignIndex];
-    target.word = word;
-    lobby.wordAssignIndex++;
-    lobby.currentAssignment = null;
+    const assignment = lobby.assignments.find(a => a.assignerId === socket.playerId);
+    if (!assignment || assignment.word !== null) return;
 
-    io.to(code).emit('showWord', {
-      targetId: target.playerId,
-      targetNickname: target.nickname,
-      word: word
-    });
+    assignment.word = (word || '').trim() || '???';
 
-    setTimeout(() => {
-      if (lobby.wordAssignIndex >= lobby.players.length) {
-        lobby.phase = 'playing';
-        io.to(code).emit('gameStarted', publicPlayers(lobby));
-      } else {
-        startNextAssignment(code);
-      }
-    }, 3000);
+    const submittedCount = lobby.assignments.filter(a => a.word !== null).length;
+    const totalCount     = lobby.players.length;
+
+    io.to(code).emit('simultaneousAssignProgress', { submittedCount, totalCount, pendingNicknames: pendingNicknames(lobby) });
+
+    if (submittedCount === totalCount) doWordReveal(code);
   });
 
   socket.on('czolkoEndGame', ({ winnerId }) => {
-    const code = socket.lobbyCode;
+    const code  = socket.lobbyCode;
     const lobby = lobbies[code];
-    if (!lobby || lobby.game !== 'czolko' || lobby.admin !== socket.playerId) return;
-    if (lobby.phase !== 'playing') return;
+    if (!lobby || lobby.game !== 'czolko' || lobby.admin !== socket.playerId || lobby.phase !== 'playing') return;
     const winner = lobby.players.find(p => p.playerId === winnerId);
     if (!winner) return socket.emit('error', 'Nie znaleziono gracza!');
-    lobby.phase = 'finished';
+    lobby.phase  = 'finished';
     lobby.winner = { id: winner.playerId, nickname: winner.nickname };
     io.to(code).emit('czolkoGameEnded', { winner: lobby.winner, players: publicPlayers(lobby) });
   });
 
-  // ---- PAŃSTWA-MIASTA ----
+  // ── PAŃSTWA-MIASTA ───────────────────────────────────────────────────────────
 
   socket.on('updateCategories', ({ categories }) => {
-    const code = socket.lobbyCode;
+    const code  = socket.lobbyCode;
     const lobby = lobbies[code];
     if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
     const clean = (categories || []).filter(c => ALL_CATEGORIES.includes(c));
@@ -325,61 +393,56 @@ io.on('connection', (socket) => {
   });
 
   socket.on('startGame', () => {
-    const code = socket.lobbyCode;
+    const code  = socket.lobbyCode;
     const lobby = lobbies[code];
     if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
-    if (lobby.players.length < 2) return socket.emit('error', 'Potrzeba minimum 2 graczy!');
+    if (lobby.players.length < 2)   return socket.emit('error', 'Potrzeba minimum 2 graczy!');
     if (lobby.categories.length < 3) return socket.emit('error', 'Wybierz minimum 3 kategorie!');
     pmBeginRound(code);
   });
 
   socket.on('updateAnswers', ({ answers }) => {
-    const code = socket.lobbyCode;
+    const code  = socket.lobbyCode;
     const lobby = lobbies[code];
     if (!lobby || lobby.game !== 'panstwa' || lobby.phase !== 'playing' || !socket.playerId) return;
     lobby.answers[socket.playerId] = answers || {};
   });
 
   socket.on('stopRound', () => {
-    const code = socket.lobbyCode;
+    const code  = socket.lobbyCode;
     const lobby = lobbies[code];
     if (!lobby || lobby.game !== 'panstwa' || lobby.phase !== 'playing' || lobby.stopping) return;
     lobby.stopping = true;
-    const stopper = lobby.players.find(p => p.playerId === socket.playerId);
-    io.to(code).emit('roundStopping', { by: stopper ? stopper.nickname : '???', gracePeriodMs: STOP_GRACE_MS });
+    const stopper  = lobby.players.find(p => p.playerId === socket.playerId);
+    io.to(code).emit('roundStopping', { by: stopper?.nickname ?? '???', gracePeriodMs: STOP_GRACE_MS });
     if (lobby.roundTimeout) clearTimeout(lobby.roundTimeout);
-    lobby.roundTimeout = setTimeout(() => {
-      lobby.stopping = false;
-      pmEndRound(code);
-    }, STOP_GRACE_MS);
+    lobby.roundTimeout = setTimeout(() => { lobby.stopping = false; pmEndRound(code); }, STOP_GRACE_MS);
   });
 
   socket.on('nextRound', () => {
-    const code = socket.lobbyCode;
+    const code  = socket.lobbyCode;
     const lobby = lobbies[code];
     if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId || lobby.phase !== 'reviewing') return;
     pmBeginRound(code);
   });
 
   socket.on('endGame', () => {
-    const code = socket.lobbyCode;
+    const code  = socket.lobbyCode;
     const lobby = lobbies[code];
     if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId) return;
     if (lobby.roundTimeout) { clearTimeout(lobby.roundTimeout); lobby.roundTimeout = null; }
     lobby.phase = 'finished';
-    io.to(code).emit('gameEnded', { scoreboard: publicPlayers(lobby).sort((a, b) => b.score - a.score) });
+    io.to(code).emit('gameEnded', { scoreboard: publicPlayers(lobby).sort((a,b) => b.score - a.score) });
   });
 
-  // ---- WSPÓLNE: ROZŁĄCZENIE ----
+  // ── DISCONNECT ───────────────────────────────────────────────────────────────
 
   socket.on('disconnect', () => {
-    const code = socket.lobbyCode;
-    const playerId = socket.playerId;
+    const { lobbyCode: code, playerId } = socket;
     if (!code || !lobbies[code] || !playerId) return;
-    const lobby = lobbies[code];
+    const lobby  = lobbies[code];
     const player = lobby.players.find(p => p.playerId === playerId);
-    if (!player) return;
-    if (player.socketId !== socket.id) return;
+    if (!player || player.socketId !== socket.id) return;
 
     player.connected = false;
     broadcastLobby(code);
@@ -387,7 +450,8 @@ io.on('connection', (socket) => {
     player.disconnectTimer = setTimeout(() => {
       lobby.players = lobby.players.filter(p => p.playerId !== playerId);
       if (lobby.players.length === 0) {
-        if (lobby.roundTimeout) clearTimeout(lobby.roundTimeout);
+        if (lobby.roundTimeout)  clearTimeout(lobby.roundTimeout);
+        if (lobby.assignTimeout) clearTimeout(lobby.assignTimeout);
         delete lobbies[code];
       } else {
         broadcastLobby(code);
