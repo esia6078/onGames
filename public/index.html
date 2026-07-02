@@ -10,7 +10,12 @@
 <style>
 /* ────────────────────────────────────────────────────────── BASE ── */
 *{box-sizing:border-box;margin:0;padding:0}
+/* Leave room under a focused field so the mobile keyboard never covers it */
+html{scroll-padding-bottom:320px;scroll-padding-top:70px}
 body{font-family:'Poppins',sans-serif;background:#07071a;color:#eee;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;overflow-x:hidden}
+/* Tall, input-heavy screens scroll from the top instead of being centred,
+   so every field (and the keyboard's headroom) stays reachable. */
+body.scroll-top{align-items:flex-start}
 
 /* Animated gradient background */
 body::before{content:'';position:fixed;inset:0;background:
@@ -25,6 +30,8 @@ body::before{content:'';position:fixed;inset:0;background:
 .screen.active{display:flex}
 #screen-game{max-width:100vw;width:100%;flex-direction:row;align-items:flex-start;justify-content:center;gap:24px;padding:24px;min-height:100vh;flex-wrap:wrap}
 #screen-pm-round,#screen-pm-review{max-width:900px}
+/* Big bottom padding = scroll room so the last category can rise above the keyboard */
+#screen-pm-round{padding-bottom:min(65vh,480px)}
 
 /* ──────────────────────────────────────────────────── TYPOGRAPHY ── */
 .logo{font-size:2.8rem;font-weight:800;background:linear-gradient(135deg,#d946ef,#818cf8,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center;line-height:1.1}
@@ -481,16 +488,25 @@ function copyCode(txt) {
 }
 
 // ─── MOBILE KEYBOARD SCROLL FIX ───────────────────────────────────────────────
-document.addEventListener('focusin', () => setTimeout(() => {
+// Keep the focused field in the visible area above the on-screen keyboard.
+function keepFieldVisible(smooth) {
   const el = document.activeElement;
-  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable))
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-}, 150));
-if (window.visualViewport) window.visualViewport.addEventListener('resize', () => setTimeout(() => {
-  const el = document.activeElement;
-  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable))
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-}, 50));
+  if (!el || !(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+  const vv        = window.visualViewport;
+  const viewTop   = vv ? vv.offsetTop : 0;
+  const viewH     = vv ? vv.height : window.innerHeight;   // area NOT covered by keyboard
+  const rect      = el.getBoundingClientRect();
+  const margin    = 24;
+  let delta = 0;
+  if (rect.bottom > viewTop + viewH - margin) delta = rect.bottom - (viewTop + viewH - margin); // hidden below keyboard
+  else if (rect.top < viewTop + margin)       delta = rect.top - (viewTop + margin);            // above the fold
+  if (Math.abs(delta) > 2) window.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'auto' });
+}
+document.addEventListener('focusin', () => setTimeout(() => keepFieldVisible(true), 150));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => setTimeout(() => keepFieldVisible(false), 50));
+  window.visualViewport.addEventListener('scroll', () => keepFieldVisible(false));
+}
 
 // ─── PLAYER RENDERING ──────────────────────────────────────────────────────────
 function renderPlayersList(containerId, players) {
@@ -988,9 +1004,13 @@ socket.on('rejoinState', (state) => {
 socket.on('rejoinFailed', () => { clearSession(); showScreen('screen-home'); });
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
+const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game']);
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  // Top-align tall/input-heavy screens so nothing is trapped off-screen.
+  document.body.classList.toggle('scroll-top', SCROLL_TOP_SCREENS.has(id));
+  window.scrollTo(0, 0);
 }
 </script>
 </body>
