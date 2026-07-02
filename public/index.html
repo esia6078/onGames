@@ -192,6 +192,7 @@
     <div class="logo" style="font-size:1.8rem;">Gra!</div>
     <p class="waiting-text">Twoje hasło jest ukryte 🙈</p>
     <div class="game-grid" id="game-players"></div>
+    <button class="btn-stop" onclick="openCzolkoEndGame()" id="btn-czolko-end" style="display:none;max-width:320px;">🏁 Zakończ grę</button>
   </div>
   <div style="display:flex;flex-direction:column;gap:12px;width:300px;flex-shrink:0;position:sticky;top:24px;">
     <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;">
@@ -212,6 +213,27 @@
       <div style="font-size:0.7rem;color:#555;text-align:right;" id="char-count">0 znaków</div>
     </div>
   </div>
+</div>
+
+<!-- MODAL: WYBÓR ZWYCIĘZCY CZÓŁKA -->
+<div class="word-reveal hidden" id="czolko-end-modal" style="z-index:200;">
+  <div class="card" style="max-width:340px;display:flex;flex-direction:column;gap:14px;">
+    <div class="logo" style="font-size:1.4rem;">🏆 Kto wygrał?</div>
+    <p class="waiting-text" style="margin:0;">Wybierz zwycięzcę, żeby zakończyć grę</p>
+    <div class="players-list" id="czolko-end-players"></div>
+    <button class="btn-sec" onclick="closeCzolkoEndGame()">⬅ Anuluj</button>
+  </div>
+</div>
+
+<!-- EKRAN KOŃCOWY CZÓŁKA -->
+<div class="screen" id="screen-czolko-finished">
+  <div class="deco">🏆</div>
+  <div class="logo" style="font-size:1.8rem;">Koniec gry!</div>
+  <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+    <p class="section-title">Zwycięzca</p>
+    <div class="assign-target" id="czolko-winner-name" style="font-size:1.8rem;"></div>
+  </div>
+  <button class="btn-main" onclick="location.reload()">🔄 Nowa gra</button>
 </div>
 
 <!-- ============== PAŃSTWA-MIASTA ============== -->
@@ -364,16 +386,19 @@ function formatText(cmd) {
   document.execCommand(cmd, false, null);
   document.getElementById('notatnik').focus();
   saveNotes();
+  scrollNotatnikToCaret();
 }
 function addMark(emoji) {
   document.getElementById('notatnik').focus();
   document.execCommand('insertText', false, ' ' + emoji + ' ');
   saveNotes();
+  scrollNotatnikToCaret();
 }
 function addCheckbox() {
   document.getElementById('notatnik').focus();
   document.execCommand('insertText', false, '\n☐ ');
   saveNotes();
+  scrollNotatnikToCaret();
 }
 function clearNotes() {
   if (!confirm('Wyczyścić notatnik?')) return;
@@ -394,14 +419,55 @@ function loadNotes() {
   const el = document.getElementById('notatnik');
   if (saved && el) el.innerHTML = saved;
   updateCharCount();
+  if (el) el.scrollTop = el.scrollHeight;
 }
 function updateCharCount() {
   const el = document.getElementById('notatnik');
   const c = document.getElementById('char-count');
   if (el && c) c.textContent = (el.innerText ? el.innerText.length : 0) + ' znaków';
 }
+// Automatyczne przewijanie notatnika tak, żeby kursor (miejsce pisania) było zawsze widoczne.
+function scrollNotatnikToCaret() {
+  const el = document.getElementById('notatnik');
+  if (!el) return;
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return;
+  if (!el.contains(sel.anchorNode)) return;
+  const range = sel.getRangeAt(0).cloneRange();
+  range.collapse(false);
+  let rect = range.getClientRects()[0];
+  if (!rect) {
+    const marker = document.createElement('span');
+    marker.textContent = '\u200b';
+    range.insertNode(marker);
+    rect = marker.getBoundingClientRect();
+    const parent = marker.parentNode;
+    parent.removeChild(marker);
+    parent.normalize();
+  }
+  if (!rect || (rect.top === 0 && rect.bottom === 0)) {
+    el.scrollTop = el.scrollHeight;
+    return;
+  }
+  const elRect = el.getBoundingClientRect();
+  if (rect.bottom > elRect.bottom) {
+    el.scrollTop += (rect.bottom - elRect.bottom) + 16;
+  } else if (rect.top < elRect.top) {
+    el.scrollTop -= (elRect.top - rect.top) + 16;
+  }
+}
 setInterval(() => { if (currentGame === 'czolko' && document.getElementById('notatnik')) saveNotes(); }, 2000);
-document.addEventListener('input', (e) => { if (e.target.id === 'notatnik') updateCharCount(); });
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'notatnik') {
+    updateCharCount();
+    scrollNotatnikToCaret();
+  }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.target.id === 'notatnik' && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    scrollNotatnikToCaret();
+  }
+});
 
 function renderPlayersList(containerId, players) {
   const div = document.getElementById(containerId);
@@ -461,8 +527,39 @@ socket.on('showWord', ({ targetId, targetNickname, word }) => {
 });
 socket.on('gameStarted', (players) => {
   showScreen('screen-game');
+  czolkoPlayers = players;
   renderGamePlayers(players);
+  document.getElementById('btn-czolko-end').style.display = isAdmin ? 'block' : 'none';
   setTimeout(loadNotes, 100);
+});
+
+let czolkoPlayers = [];
+function openCzolkoEndGame() {
+  const div = document.getElementById('czolko-end-players');
+  div.innerHTML = '';
+  czolkoPlayers.forEach((p, i) => {
+    const color = COLORS[i % COLORS.length];
+    const emoji = EMOJIS[i % EMOJIS.length];
+    const item = document.createElement('div');
+    item.className = 'player-item';
+    item.style.cursor = 'pointer';
+    item.innerHTML = `<div class="player-avatar" style="background:${color}22;color:${color}">${emoji}</div><div class="player-item-name">${p.nickname}</div>`;
+    item.onclick = () => {
+      if (!confirm(`Zakończyć grę? Zwycięzca: ${p.nickname}`)) return;
+      socket.emit('czolkoEndGame', { winnerId: p.id });
+      closeCzolkoEndGame();
+    };
+    div.appendChild(item);
+  });
+  document.getElementById('czolko-end-modal').classList.remove('hidden');
+}
+function closeCzolkoEndGame() {
+  document.getElementById('czolko-end-modal').classList.add('hidden');
+}
+socket.on('czolkoGameEnded', ({ winner }) => {
+  clearSession();
+  document.getElementById('czolko-winner-name').textContent = '🏆 ' + winner.nickname;
+  showScreen('screen-czolko-finished');
 });
 
 /* =========================================================================
@@ -701,8 +798,14 @@ socket.on('rejoinState', (state) => {
       }
     } else if (state.phase === 'playing') {
       showScreen('screen-game');
+      czolkoPlayers = state.players;
       renderGamePlayers(state.players);
+      document.getElementById('btn-czolko-end').style.display = isAdmin ? 'block' : 'none';
       setTimeout(loadNotes, 100);
+    } else if (state.phase === 'finished') {
+      clearSession();
+      document.getElementById('czolko-winner-name').textContent = '🏆 ' + (state.winner ? state.winner.nickname : '?');
+      showScreen('screen-czolko-finished');
     }
     return;
   }
