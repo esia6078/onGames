@@ -1,7 +1,6 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const OpenAI = require('openai').default || require('openai');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,9 +10,18 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // ─── OpenAI client (optional – needed only for Państwa-Miasta AI validation) ──
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+// The module is optional: the game must run fine even when it isn't installed
+// or no API key is provided. In that case AI validation is simply skipped and
+// players decide everything by voting.
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+  try {
+    const OpenAI = require('openai').default || require('openai');
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  } catch (err) {
+    console.warn('OpenAI module unavailable – AI validation disabled:', err.message);
+  }
+}
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const DISCONNECT_GRACE_MS = 10 * 60 * 1000;   // 10 min
@@ -60,6 +68,7 @@ function broadcastLobby(code) {
   if (!lobby) return;
   io.to(code).emit('updateLobby', {
     game: lobby.game,
+    admin: lobby.admin,
     players: publicPlayers(lobby),
     categories: lobby.game === 'panstwa' ? lobby.categories : undefined,
   });
@@ -131,9 +140,149 @@ function doWordReveal(code) {
   }, WORD_REVEAL_MS);
 }
 
+// ─── CZÓŁKO – END-GAME VOTE (new game vs back to lobby) ─────────────────────
+
+const CZOLKO_VOTE_MS = 30_000;   // auto-resolve if not everyone votes in time
+
+function czolkoVoteTally(lobby) {
+  let neu = 0, lob = 0;
+  Object.values(lobby.endVotes).forEach(v => { if (v === 'new') neu++; else if (v === 'lobby') lob++; });
+  return { new: neu, lobby: lob, total: connectedCount(lobby), voted: neu + lob };
+}
+
+function resetCzolkoToWaiting(lobby) {
+  lobby.phase       = 'waiting';
+  lobby.assignments = [];
+  lobby.winner      = null;
+  lobby.endVotes    = {};
+  if (lobby.endVoteTimeout) { clearTimeout(lobby.endVoteTimeout); lobby.endVoteTimeout = null; }
+  if (lobby.assignTimeout)  { clearTimeout(lobby.assignTimeout);  lobby.assignTimeout  = null; }
+  lobby.players.forEach(p => { p.word = null; });
+}
+
+function resolveCzolkoVote(code) {
+  const lobby = lobbies[code];
+  if (!lobby || lobby.game !== 'czolko' || lobby.phase !== 'finished') return;
+  if (lobby.endVoteTimeout) { clearTimeout(lobby.endVoteTimeout); lobby.endVoteTimeout = null; }
+
+  const tally = czolkoVoteTally(lobby);
+  // More votes wins; a tie (or nobody voting) means "back to lobby".
+  const startNewGame = tally.new > tally.lobby;
+
+  resetCzolkoToWaiting(lobby);
+
+  if (startNewGame && connectedCount(lobby) >= 2) {
+    io.to(code).emit('czolkoVoteResult', { decision: 'new' });
+    startSimultaneousAssign(code);
+  } else {
+    io.to(code).emit('czolkoVoteResult', { decision: 'lobby' });
+    broadcastLobby(code);
+  }
+}
+
 // ─── PAŃSTWA-MIASTA ───────────────────────────────────────────────────────────
 
 function normalizeAnswer(str) { return (str || '').trim().toLowerCase(); }
+
+function answerKey(playerId, category) { return playerId + '||' + category; }
+
+// Number of connected players – used as the electorate size for vote majorities.
+function connectedCount(lobby) { return lobby.players.filter(p => p.connected).length; }
+
+// Decide whether a single answer counts, based on player votes (+ AI as fallback).
+// Rule (per the design): an answer counts unless a *majority of the players who
+// voted* reject it. A tie keeps the word (falls back to the AI verdict when the
+// tie is 0-0, i.e. nobody voted at all).
+function pmAnswerValid(lobby, entry) {
+  if (!entry.eligible) return false;                 // empty / wrong letter → never counts
+  const votes = lobby.reviewVotes[entry.key] || {};
+  let accept = 0, reject = 0;
+  Object.values(votes).forEach(v => { if (v === 'accept') accept++; else if (v === 'reject') reject++; });
+  if (reject > accept) return false;                 // majority of voters rejected
+  if (accept > reject) return true;                  // majority accepted
+  // Tie. If somebody voted it's a real tie → keep. If nobody voted, defer to AI.
+  if (accept === 0 && reject === 0) {
+    const ai = lobby.aiVerdicts[entry.key];
+    if (ai && typeof ai.valid === 'boolean') return ai.valid;
+  }
+  return true;
+}
+
+// Build the full results object from the current review state (no mutation).
+function pmComputeResults(lobby) {
+  const { categories } = lobby.reviewData;
+  const results = {};
+  categories.forEach(cat => {
+    const decided = lobby.reviewData.entries[cat].map(e => ({ ...e, valid: pmAnswerValid(lobby, e) }));
+    const counts = {};
+    decided.forEach(e => { if (e.valid) counts[e.norm] = (counts[e.norm] || 0) + 1; });
+    results[cat] = decided.map(e => {
+      const votes = lobby.reviewVotes[e.key] || {};
+      let accept = 0, reject = 0;
+      Object.values(votes).forEach(v => { if (v === 'accept') accept++; else if (v === 'reject') reject++; });
+      const ai = lobby.aiVerdicts[e.key] || null;
+      return {
+        key: e.key, playerId: e.playerId, nickname: e.nickname, answer: e.answer,
+        eligible: e.eligible, valid: e.valid,
+        points: e.valid ? (counts[e.norm] > 1 ? 5 : 10) : 0,
+        accept, reject,
+        ai: ai ? { valid: ai.valid, reason: ai.reason } : null,
+      };
+    });
+  });
+  return results;
+}
+
+// Scoreboard for the review screen. While the round is not finalised the points
+// are a live projection (base score + this round's projected points).
+function pmReviewScoreboard(lobby, results) {
+  return lobby.players.map(p => {
+    let extra = 0;
+    if (!lobby.roundFinalized) {
+      lobby.reviewData.categories.forEach(cat => {
+        const r = results[cat].find(x => x.playerId === p.playerId);
+        if (r) extra += r.points;
+      });
+    }
+    return { id: p.playerId, nickname: p.nickname, score: p.score + extra };
+  }).sort((a, b) => b.score - a.score);
+}
+
+function pmReviewPayload(lobby) {
+  const results = pmComputeResults(lobby);
+  return {
+    letter: lobby.reviewData.letter,
+    categories: lobby.reviewData.categories,
+    results,
+    scoreboard: pmReviewScoreboard(lobby, results),
+    finalized: lobby.roundFinalized,
+    connected: connectedCount(lobby),
+  };
+}
+
+function pmBroadcastReview(code) {
+  const lobby = lobbies[code];
+  if (!lobby || !lobby.reviewData) return;
+  io.to(code).emit('reviewState', pmReviewPayload(lobby));
+}
+
+// Apply this round's points to the players' scores (idempotent per round).
+function pmFinalizeRound(code) {
+  const lobby = lobbies[code];
+  if (!lobby || lobby.phase !== 'reviewing' || lobby.roundFinalized) return;
+  const results = pmComputeResults(lobby);
+  lobby.players.forEach(p => {
+    let add = 0;
+    lobby.reviewData.categories.forEach(cat => {
+      const r = results[cat].find(x => x.playerId === p.playerId);
+      if (r) add += r.points;
+    });
+    p.score += add;
+  });
+  lobby.roundFinalized = true;
+  lobby.lastResults = { letter: lobby.reviewData.letter, categories: lobby.reviewData.categories, results };
+  pmBroadcastReview(code);
+}
 
 function pmEndRound(code) {
   const lobby = lobbies[code];
@@ -141,65 +290,63 @@ function pmEndRound(code) {
   if (lobby.roundTimeout) { clearTimeout(lobby.roundTimeout); lobby.roundTimeout = null; }
   lobby.phase = 'reviewing';
 
-  const letter  = lobby.currentLetter;
-  const results = {};
+  const letter = lobby.currentLetter;
 
+  // Build immutable per-answer entries. Eligibility = non-empty AND starts with
+  // the round letter. Everything else is decided by voting during review.
+  const entries = {};
   lobby.categories.forEach(cat => {
-    const entries = lobby.players.map(p => {
+    entries[cat] = lobby.players.map(p => {
       const raw  = (lobby.answers[p.playerId] || {})[cat] || '';
       const norm = normalizeAnswer(raw);
-      const valid = norm.length > 0 && norm[0].toUpperCase() === letter;
-      return { playerId: p.playerId, nickname: p.nickname, answer: raw, norm, valid };
-    });
-    const counts = {};
-    entries.forEach(e => { if (e.valid) counts[e.norm] = (counts[e.norm] || 0) + 1; });
-    results[cat] = entries.map(e => ({
-      playerId: e.playerId, nickname: e.nickname, answer: e.answer,
-      valid: e.valid, points: e.valid ? (counts[e.norm] > 1 ? 5 : 10) : 0,
-    }));
-  });
-
-  lobby.players.forEach(p => {
-    lobby.categories.forEach(cat => {
-      const entry = (results[cat] || []).find(r => r.playerId === p.playerId);
-      if (entry) p.score += entry.points;
+      const eligible = norm.length > 0 && norm[0].toUpperCase() === letter;
+      return { key: answerKey(p.playerId, cat), playerId: p.playerId, nickname: p.nickname, answer: raw, norm, eligible };
     });
   });
 
-  lobby.lastResults = { letter, categories: lobby.categories, results };
+  lobby.reviewData     = { letter, categories: lobby.categories.slice(), entries };
+  lobby.reviewVotes    = {};   // answerKey → { voterId: 'accept'|'reject' }
+  lobby.aiVerdicts     = {};   // answerKey → { valid, reason }
+  lobby.roundFinalized = false;
+  lobby.lastResults    = null;
 
-  const roundResultsPayload = {
-    letter, categories: lobby.categories, results,
-    scoreboard: publicPlayers(lobby).sort((a,b) => b.score - a.score),
-  };
+  pmBroadcastReview(code);
+  pmRunAiValidation(code);
+}
 
-  io.to(code).emit('roundResults', roundResultsPayload);
+// ── AI VALIDATION (fire-and-forget) ────────────────────────────────────────
+// The AI no longer silently assigns points. Instead it seeds a recommendation
+// (shown to players) and acts as the tie-breaker for answers nobody voted on.
+function pmRunAiValidation(code) {
+  const lobby = lobbies[code];
+  if (!lobby || !openai || !lobby.reviewData) return;
+  const letter = lobby.reviewData.letter;
 
-  // ── AI VALIDATION (fire-and-forget, send separately) ──────────────────────
-  if (openai) {
-    const nonEmpty = [];
-    lobby.categories.forEach(cat => {
-      (results[cat] || []).forEach(r => {
-        if (r.answer && r.answer.trim().length > 0) {
-          nonEmpty.push({ playerId: r.playerId, nickname: r.nickname, answer: r.answer, category: cat });
-        }
-      });
+  const nonEmpty = [];
+  lobby.reviewData.categories.forEach(cat => {
+    lobby.reviewData.entries[cat].forEach(e => {
+      if (e.answer && e.answer.trim().length > 0) {
+        nonEmpty.push({ key: e.key, category: cat, answer: e.answer, nickname: e.nickname });
+      }
     });
+  });
+  if (nonEmpty.length === 0) return;
 
-    if (nonEmpty.length > 0) {
-      const entriesText = nonEmpty.map((e, i) =>
-        `${i+1}. Category: "${e.category}" (${CATEGORY_DESCRIPTIONS[e.category] || e.category}), Answer: "${e.answer}" by ${e.nickname}`
-      ).join('\n');
+  const entriesText = nonEmpty.map((e, i) =>
+    `${i+1}. Category: "${e.category}" (${CATEGORY_DESCRIPTIONS[e.category] || e.category}), Answer: "${e.answer}" by ${e.nickname}`
+  ).join('\n');
 
-      openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        temperature: 0,
-        max_tokens: 1200,
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content: `You are a strict but fair judge for the Polish word game "Państwa i Miasta". 
+  io.to(code).emit('aiStatus', { checking: true });
+
+  openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    temperature: 0,
+    max_tokens: 1200,
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content: `You are a strict but fair judge for the Polish word game "Państwa i Miasta".
 Validate whether each answer is a legitimate entry for its category, starting with the letter "${letter}".
 Rules:
 - Answer must start with "${letter}" (case-insensitive; Polish Ą/Ę/Ó/Ź/Ż/Ś/Ć/Ń count as their base letter for the game)
@@ -207,30 +354,25 @@ Rules:
 - Common knowledge entries are valid even if somewhat obscure; obvious nonsense is not
 - Minor typos that are clearly identifiable are acceptable
 Respond ONLY with JSON: { "validations": [ { "index": 1, "valid": true, "reason": "brief Polish explanation" }, ... ] }`,
-          },
-          {
-            role: 'user',
-            content: `Validate these answers for letter "${letter}":\n${entriesText}`,
-          },
-        ],
-      }).then(completion => {
-        try {
-          const raw = completion.choices[0]?.message?.content || '{}';
-          const obj = JSON.parse(raw);
-          const list = Array.isArray(obj) ? obj : (Array.isArray(obj.validations) ? obj.validations : []);
-          const validations = nonEmpty.map((entry, i) => {
-            const r = list.find(x => x.index === i + 1);
-            return { playerId: entry.playerId, category: entry.category, valid: r?.valid ?? true, reason: r?.reason ?? '' };
-          });
-          io.to(code).emit('aiValidation', { letter, validations });
-        } catch (err) {
-          console.error('AI parse error', err.message);
-        }
-      }).catch(err => {
-        console.error('AI request error', err.message);
-      });
-    }
-  }
+      },
+      { role: 'user', content: `Validate these answers for letter "${letter}":\n${entriesText}` },
+    ],
+  }).then(completion => {
+    // The lobby may have moved on while we waited.
+    if (!lobby.reviewData || lobby.reviewData.letter !== letter) return;
+    const raw  = completion.choices[0]?.message?.content || '{}';
+    const obj  = JSON.parse(raw);
+    const list = Array.isArray(obj) ? obj : (Array.isArray(obj.validations) ? obj.validations : []);
+    nonEmpty.forEach((entry, i) => {
+      const r = list.find(x => x.index === i + 1);
+      lobby.aiVerdicts[entry.key] = { valid: r?.valid ?? true, reason: r?.reason ?? '' };
+    });
+    io.to(code).emit('aiStatus', { checking: false });
+    pmBroadcastReview(code);
+  }).catch(err => {
+    console.error('AI request error', err.message);
+    io.to(code).emit('aiStatus', { checking: false });
+  });
 }
 
 function pmBeginRound(code) {
@@ -263,9 +405,9 @@ io.on('connection', socket => {
     const basePlayer = { playerId: pid, socketId: socket.id, nickname, connected: true, disconnectTimer: null, word: null, score: 0 };
 
     if (gameType === 'czolko') {
-      lobbies[code] = { game: 'czolko', admin: pid, players: [basePlayer], phase: 'waiting', assignments: [], assignTimeout: null, winner: null };
+      lobbies[code] = { game: 'czolko', admin: pid, players: [basePlayer], phase: 'waiting', assignments: [], assignTimeout: null, winner: null, endVotes: {}, endVoteTimeout: null };
     } else {
-      lobbies[code] = { game: 'panstwa', admin: pid, players: [basePlayer], phase: 'waiting', categories: DEFAULT_CATEGORIES.slice(), round: 0, currentLetter: null, answers: {}, roundTimeout: null, roundEndsAt: 0, stopping: false, lastResults: null };
+      lobbies[code] = { game: 'panstwa', admin: pid, players: [basePlayer], phase: 'waiting', categories: DEFAULT_CATEGORIES.slice(), round: 0, currentLetter: null, answers: {}, roundTimeout: null, roundEndsAt: 0, stopping: false, lastResults: null, reviewData: null, reviewVotes: {}, aiVerdicts: {}, roundFinalized: false };
     }
 
     socket.join(code);
@@ -324,7 +466,10 @@ io.on('connection', socket => {
       } else if (lobby.phase === 'playing') {
         socket.emit('rejoinState', { ...base, phase: 'playing' });
       } else if (lobby.phase === 'finished') {
-        socket.emit('rejoinState', { ...base, phase: 'finished', winner: lobby.winner });
+        socket.emit('rejoinState', {
+          ...base, phase: 'finished', winner: lobby.winner,
+          endVote: czolkoVoteTally(lobby), myEndVote: lobby.endVotes[playerId] || null,
+        });
       }
     } else {
       const extra = { allCategories: ALL_CATEGORIES, categories: lobby.categories, scoreboard: publicPlayers(lobby).sort((a,b) => b.score - a.score) };
@@ -333,7 +478,9 @@ io.on('connection', socket => {
       } else if (lobby.phase === 'playing') {
         socket.emit('rejoinState', { ...base, ...extra, phase: 'playing', letter: lobby.currentLetter, round: lobby.round, myAnswers: lobby.answers[playerId] || {}, endsAt: lobby.roundEndsAt });
       } else if (lobby.phase === 'reviewing') {
-        socket.emit('rejoinState', { ...base, ...extra, phase: 'reviewing', letter: lobby.currentLetter, round: lobby.round, lastResults: lobby.lastResults });
+        const myVotes = {};
+        Object.keys(lobby.reviewVotes).forEach(k => { if (lobby.reviewVotes[k][playerId]) myVotes[k] = lobby.reviewVotes[k][playerId]; });
+        socket.emit('rejoinState', { ...base, ...extra, phase: 'reviewing', round: lobby.round, review: pmReviewPayload(lobby), myVotes });
       } else if (lobby.phase === 'finished') {
         socket.emit('rejoinState', { ...base, ...extra, phase: 'finished' });
       }
@@ -375,9 +522,26 @@ io.on('connection', socket => {
     if (!lobby || lobby.game !== 'czolko' || lobby.admin !== socket.playerId || lobby.phase !== 'playing') return;
     const winner = lobby.players.find(p => p.playerId === winnerId);
     if (!winner) return socket.emit('error', 'Nie znaleziono gracza!');
-    lobby.phase  = 'finished';
-    lobby.winner = { id: winner.playerId, nickname: winner.nickname };
-    io.to(code).emit('czolkoGameEnded', { winner: lobby.winner, players: publicPlayers(lobby) });
+    lobby.phase   = 'finished';
+    lobby.winner  = { id: winner.playerId, nickname: winner.nickname };
+    lobby.endVotes = {};
+    io.to(code).emit('czolkoGameEnded', { winner: lobby.winner, players: publicPlayers(lobby), endVote: czolkoVoteTally(lobby) });
+    if (lobby.endVoteTimeout) clearTimeout(lobby.endVoteTimeout);
+    lobby.endVoteTimeout = setTimeout(() => resolveCzolkoVote(code), CZOLKO_VOTE_MS);
+  });
+
+  // Vote on what happens after the game ends: 'new' game or back to 'lobby'.
+  socket.on('czolkoEndVote', ({ vote }) => {
+    const code  = socket.lobbyCode;
+    const lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'czolko' || lobby.phase !== 'finished' || !socket.playerId) return;
+    if (vote !== 'new' && vote !== 'lobby') return;
+    lobby.endVotes[socket.playerId] = vote;
+
+    const tally = czolkoVoteTally(lobby);
+    io.to(code).emit('czolkoVoteUpdate', tally);
+    // Resolve as soon as every connected player has voted.
+    if (tally.voted >= tally.total && tally.total > 0) resolveCzolkoVote(code);
   });
 
   // ── PAŃSTWA-MIASTA ───────────────────────────────────────────────────────────
@@ -419,10 +583,40 @@ io.on('connection', socket => {
     lobby.roundTimeout = setTimeout(() => { lobby.stopping = false; pmEndRound(code); }, STOP_GRACE_MS);
   });
 
+  // A player votes to accept/reject an answer during review. Sending the same
+  // vote again toggles it off. Nobody may vote on their own answer.
+  socket.on('castVote', ({ targetId, category, vote }) => {
+    const code  = socket.lobbyCode;
+    const lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'panstwa' || lobby.phase !== 'reviewing' || lobby.roundFinalized) return;
+    if (!socket.playerId || targetId === socket.playerId) return;
+    if (!lobby.reviewData || !lobby.reviewData.categories.includes(category)) return;
+
+    const entry = (lobby.reviewData.entries[category] || []).find(e => e.playerId === targetId);
+    if (!entry || !entry.eligible) return;   // can't vote on empty / wrong-letter answers
+
+    if (!lobby.reviewVotes[entry.key]) lobby.reviewVotes[entry.key] = {};
+    const bucket = lobby.reviewVotes[entry.key];
+    if (vote !== 'accept' && vote !== 'reject') return;
+    if (bucket[socket.playerId] === vote) delete bucket[socket.playerId];   // toggle off
+    else bucket[socket.playerId] = vote;
+
+    pmBroadcastReview(code);
+  });
+
+  // Admin locks in the voting results and applies the points for this round.
+  socket.on('finalizeRound', () => {
+    const code  = socket.lobbyCode;
+    const lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId || lobby.phase !== 'reviewing') return;
+    pmFinalizeRound(code);
+  });
+
   socket.on('nextRound', () => {
     const code  = socket.lobbyCode;
     const lobby = lobbies[code];
     if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId || lobby.phase !== 'reviewing') return;
+    pmFinalizeRound(code);   // make sure this round's points are applied
     pmBeginRound(code);
   });
 
@@ -430,9 +624,51 @@ io.on('connection', socket => {
     const code  = socket.lobbyCode;
     const lobby = lobbies[code];
     if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId) return;
+    if (lobby.phase === 'reviewing') pmFinalizeRound(code);
     if (lobby.roundTimeout) { clearTimeout(lobby.roundTimeout); lobby.roundTimeout = null; }
     lobby.phase = 'finished';
     io.to(code).emit('gameEnded', { scoreboard: publicPlayers(lobby).sort((a,b) => b.score - a.score) });
+  });
+
+  // ── LEAVE LOBBY (voluntary exit) ─────────────────────────────────────────────
+
+  socket.on('leaveLobby', () => {
+    const code  = socket.lobbyCode;
+    const lobby = lobbies[code];
+    const pid   = socket.playerId;
+    socket.emit('leftLobby');            // always let the client reset to home
+    if (!lobby || !pid) return;
+
+    const player = lobby.players.find(p => p.playerId === pid);
+    if (player && player.disconnectTimer) { clearTimeout(player.disconnectTimer); player.disconnectTimer = null; }
+
+    lobby.players = lobby.players.filter(p => p.playerId !== pid);
+    socket.leave(code);
+    socket.lobbyCode = null;
+    socket.playerId  = null;
+
+    if (lobby.players.length === 0) {
+      if (lobby.roundTimeout)    clearTimeout(lobby.roundTimeout);
+      if (lobby.assignTimeout)   clearTimeout(lobby.assignTimeout);
+      if (lobby.endVoteTimeout)  clearTimeout(lobby.endVoteTimeout);
+      delete lobbies[code];
+      return;
+    }
+
+    // Hand the crown to the next player if the admin left.
+    if (lobby.admin === pid) {
+      const next = lobby.players.find(p => p.connected) || lobby.players[0];
+      lobby.admin = next.playerId;
+    }
+
+    broadcastLobby(code);
+    // Keep review/vote screens consistent after a departure.
+    if (lobby.game === 'panstwa' && lobby.phase === 'reviewing') pmBroadcastReview(code);
+    if (lobby.game === 'czolko'  && lobby.phase === 'finished') {
+      const tally = czolkoVoteTally(lobby);
+      io.to(code).emit('czolkoVoteUpdate', tally);
+      if (tally.voted >= tally.total && tally.total > 0) resolveCzolkoVote(code);
+    }
   });
 
   // ── DISCONNECT ───────────────────────────────────────────────────────────────
@@ -447,14 +683,28 @@ io.on('connection', socket => {
     player.connected = false;
     broadcastLobby(code);
 
+    // A disconnect changes the electorate size, which can complete a vote.
+    if (lobby.game === 'panstwa' && lobby.phase === 'reviewing') pmBroadcastReview(code);
+    if (lobby.game === 'czolko'  && lobby.phase === 'finished') {
+      const tally = czolkoVoteTally(lobby);
+      io.to(code).emit('czolkoVoteUpdate', tally);
+      if (tally.voted >= tally.total && tally.total > 0) resolveCzolkoVote(code);
+    }
+
     player.disconnectTimer = setTimeout(() => {
       lobby.players = lobby.players.filter(p => p.playerId !== playerId);
       if (lobby.players.length === 0) {
-        if (lobby.roundTimeout)  clearTimeout(lobby.roundTimeout);
-        if (lobby.assignTimeout) clearTimeout(lobby.assignTimeout);
+        if (lobby.roundTimeout)    clearTimeout(lobby.roundTimeout);
+        if (lobby.assignTimeout)   clearTimeout(lobby.assignTimeout);
+        if (lobby.endVoteTimeout)  clearTimeout(lobby.endVoteTimeout);
         delete lobbies[code];
       } else {
+        if (lobby.admin === playerId) {
+          const next = lobby.players.find(p => p.connected) || lobby.players[0];
+          lobby.admin = next.playerId;
+        }
         broadcastLobby(code);
+        if (lobby.game === 'panstwa' && lobby.phase === 'reviewing') pmBroadcastReview(code);
       }
     }, DISCONNECT_GRACE_MS);
   });
