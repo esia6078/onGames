@@ -1876,11 +1876,17 @@ socket.on('rejoinFailed', () => { backToHome(); });
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 function showScreen(id) {
+  // Only a genuine screen change should jump to the top. Re-showing the same
+  // screen (e.g. a lobby re-render after a settings tap or a player joining)
+  // must NOT scroll — otherwise iOS Safari yanks the page to the top on
+  // every interaction.
+  const target = document.getElementById(id);
+  const changed = !target.classList.contains('active');
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+  target.classList.add('active');
   // Top-align tall/input-heavy screens so nothing is trapped off-screen.
   document.body.classList.toggle('scroll-top', SCROLL_TOP_SCREENS.has(id));
-  window.scrollTo(0, 0);
+  if (changed) window.scrollTo(0, 0);
 }
 </script>
 </body>
