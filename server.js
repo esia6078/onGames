@@ -41,6 +41,7 @@ const ROUND_OPTIONS       = [3, 5, 10, 999];   // 999 = "bez limitu"
 const MAX_CATEGORIES      = 12;
 const MAX_CUSTOM_CAT_LEN  = 24;
 const POINT_STEP          = 5;                  // each net downvote lowers points by 5
+const ARCADE_GAME_TYPES   = ['quiz','bluff','draw','truths','assoc'];
 
 // ─── ARCADE GAMES DATA ──────────────────────────────────────────────────────
 const QUIZ_QUESTIONS = [
@@ -389,7 +390,7 @@ function publicPlayers(lobby) {
 function broadcastLobby(code) {
   const lobby = lobbies[code];
   if (!lobby) return;
-  if (['quiz','bluff','draw'].includes(lobby.game)) return broadcastArcadeLobby(code);
+  if (ARCADE_GAME_TYPES.includes(lobby.game)) return broadcastArcadeLobby(code);
   io.to(code).emit('updateLobby', {
     game: lobby.game,
     admin: lobby.admin,
@@ -752,19 +753,60 @@ function pmBeginRound(code) {
 
 // ─── ARCADE GAMES (Quiz / Zmyślacz / Kalambury) ─────────────────────────────
 
-const QUIZ_Q_MS      = 20_000;
-const QUIZ_REVEAL_MS = 4_500;
-const BLUFF_WRITE_MS = 55_000;
-const BLUFF_GUESS_MS = 40_000;
-const BLUFF_REVEAL_MS= 8_000;
-const DRAW_MS        = 80_000;
-const DRAW_REVEAL_MS = 5_000;
+const QUIZ_Q_MS       = 20_000;
+const QUIZ_REVEAL_MS  = 4_500;
+const BLUFF_WRITE_MS  = 55_000;
+const BLUFF_GUESS_MS  = 40_000;
+const BLUFF_REVEAL_MS = 8_000;
+const DRAW_MS         = 80_000;
+const DRAW_REVEAL_MS  = 5_000;
+const TRUTHS_TELL_MS  = 70_000;
+const TRUTHS_GUESS_MS = 35_000;
+const TRUTHS_REVEAL_MS= 8_000;
+const ASSOC_WRITE_MS  = 55_000;
+const ASSOC_VOTE_MS   = 35_000;
+const ASSOC_REVEAL_MS = 9_000;
 
 const ARCADE_SETTING_OPTIONS = {
-  quiz:  { key: 'questions', label: 'Liczba pytań',       values: [5, 10, 15] },
-  bluff: { key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 8] },
-  draw:  { key: 'laps',      label: 'Rund na gracza',     values: [1, 2, 3] },
+  quiz:   { key: 'questions', label: 'Liczba pytań',       values: [5, 10, 15] },
+  bluff:  { key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 8] },
+  draw:   { key: 'laps',      label: 'Rund na gracza',     values: [1, 2, 3] },
+  truths: { key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 8] },
+  assoc:  { key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 8] },
 };
+
+const ASSOC_PROMPTS = [
+  'Najgorszy prezent pod choinkę to ___.',
+  'Czego nigdy nie mów na pierwszej randce? ___',
+  'Supermoc, której nikt by nie chciał: ___',
+  'Najgorsza nazwa dla zespołu muzycznego: ___',
+  'Co znajdziesz w lodówce singla? ___',
+  'Nowy przedmiot w szkole: ___',
+  'Najgorsza wymówka na spóźnienie: ___',
+  'Najdziwniejsza rzecz do zjedzenia o 3 w nocy: ___',
+  'Tytuł najgorszego filmu wszech czasów: ___',
+  'Czego szukasz w internecie o północy? ___',
+  'Co powiedziałby twój pies, gdyby umiał mówić? ___',
+  'Najgorsza nazwa dla restauracji: ___',
+  'Sekretny talent, którym nikt się nie chwali: ___',
+  'Najgorsza rzecz do powiedzenia szefowi: ___',
+  'Co robi kot, gdy nikt nie patrzy? ___',
+  'Nowy smak lodów, który się nie przyjmie: ___',
+  'Najgorsza rada życiowa: ___',
+  'Najgorsza pamiątka z wakacji: ___',
+  'Czego nie powinno być w kanapce: ___',
+  'Nowy hit na TikToku: ___',
+  'Najgorsza rzecz do znalezienia w zupie: ___',
+  'Co robisz, gdy padnie internet? ___',
+  'Najgorsze hasło do konta: ___',
+  'Najgorszy motyw przewodni imprezy: ___',
+  'Co ukrywasz przed rodzicami? ___',
+  'Najgorszy sposób na rozpoczęcie przemówienia: ___',
+  'Rzecz, której nie kupisz nawet na promocji: ___',
+  'Najgorszy pomysł na biznes: ___',
+  'Co znajdą archeolodzy za 1000 lat? ___',
+  'Najgorsza nazwa dla nowego telefonu: ___',
+];
 
 function shuffle(arr) {
   const a = [...arr];
@@ -1027,6 +1069,192 @@ function drawFinish(code) {
   io.to(code).emit('arcadeFinished', { game: 'draw', scoreboard: scoreboardOf(lobby) });
 }
 
+// ── 2 PRAWDY 1 KŁAMSTWO (truths) ─────────────────────────────────────────────
+function truthsStart(code) {
+  const lobby = lobbies[code];
+  lobby.players.forEach(p => { p.score = 0; });
+  lobby.order   = shuffle(lobby.players.map(p => p.playerId));   // rotating authors
+  lobby.authIdx = -1;
+  lobby.roundNo = 0;
+  lobby.maxR    = lobby.settings.rounds;
+  truthsBeginTelling(code);
+}
+function truthsBeginTelling(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.roundNo += 1;
+  if (lobby.roundNo > lobby.maxR) return truthsFinish(code);
+  let guard = 0;
+  do { lobby.authIdx = (lobby.authIdx + 1) % lobby.order.length; guard++; }
+  while (guard <= lobby.order.length && !lobby.players.find(p => p.playerId === lobby.order[lobby.authIdx] && p.connected));
+  lobby.authorId   = lobby.order[lobby.authIdx];
+  lobby.statements = null; lobby.lieIndex = null; lobby.guesses = {};
+  lobby.phase = 'telling'; lobby.endsAt = Date.now() + TRUTHS_TELL_MS;
+  const author = lobby.players.find(p => p.playerId === lobby.authorId);
+  lobby.players.forEach(p => {
+    io.to(p.socketId).emit('truthsTell', {
+      round: lobby.roundNo, total: lobby.maxR,
+      authorId: lobby.authorId, authorNick: author?.nickname ?? '?',
+      amAuthor: p.playerId === lobby.authorId, endsAt: lobby.endsAt,
+    });
+  });
+  lobby.timer = setTimeout(() => { lobby.statements ? truthsToGuessing(code) : truthsBeginTelling(code); }, TRUTHS_TELL_MS);
+}
+function truthsToGuessing(code) {
+  const lobby = lobbies[code];
+  if (lobby.phase !== 'telling' || !lobby.statements) return;
+  clearGameTimer(lobby);
+  lobby.phase = 'guessing'; lobby.endsAt = Date.now() + TRUTHS_GUESS_MS;
+  const author = lobby.players.find(p => p.playerId === lobby.authorId);
+  lobby.players.forEach(p => {
+    io.to(p.socketId).emit('truthsGuess', {
+      round: lobby.roundNo, total: lobby.maxR, authorNick: author?.nickname ?? '?',
+      statements: lobby.statements, amAuthor: p.playerId === lobby.authorId,
+      picked: lobby.guesses[p.playerId] ?? null, endsAt: lobby.endsAt,
+    });
+  });
+  lobby.timer = setTimeout(() => truthsReveal(code), TRUTHS_GUESS_MS);
+}
+function truthsReveal(code) {
+  const lobby = lobbies[code];
+  if (lobby.phase !== 'guessing') return;
+  clearGameTimer(lobby);
+  lobby.phase = 'reveal';
+  const gained = {}; lobby.players.forEach(p => { gained[p.playerId] = 0; });
+  let fooled = 0;
+  Object.entries(lobby.guesses).forEach(([voter, idx]) => {
+    if (idx === lobby.lieIndex) gained[voter] = (gained[voter] || 0) + 1000;
+    else fooled++;
+  });
+  if (gained[lobby.authorId] != null) gained[lobby.authorId] += fooled * 500;
+  lobby.players.forEach(p => { p.score += gained[p.playerId] || 0; });
+  const tally = lobby.statements.map((s, i) => ({
+    text: s, isLie: i === lobby.lieIndex,
+    pickedBy: Object.entries(lobby.guesses).filter(([, x]) => x === i)
+      .map(([v]) => lobby.players.find(p => p.playerId === v)?.nickname ?? '?'),
+  }));
+  const author = lobby.players.find(p => p.playerId === lobby.authorId);
+  io.to(code).emit('truthsReveal', {
+    authorNick: author?.nickname ?? '?', lieIndex: lobby.lieIndex, tally,
+    scoreboard: scoreboardOf(lobby), last: lobby.roundNo >= lobby.maxR,
+  });
+  lobby.timer = setTimeout(() => lobby.roundNo >= lobby.maxR ? truthsFinish(code) : truthsBeginTelling(code), TRUTHS_REVEAL_MS);
+}
+function truthsFinish(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.phase = 'finished';
+  io.to(code).emit('arcadeFinished', { game: 'truths', scoreboard: scoreboardOf(lobby) });
+}
+function truthsMaybeAdvanceGuess(code) {
+  const lobby = lobbies[code];
+  const need = lobby.players.filter(p => p.connected && p.playerId !== lobby.authorId).length;
+  const have = lobby.players.filter(p => p.connected && p.playerId !== lobby.authorId && lobby.guesses[p.playerId] != null).length;
+  if (have >= need && need > 0) truthsReveal(code);
+}
+
+// ── NAJGORSZE SKOJARZENIA (assoc) ────────────────────────────────────────────
+function assocStart(code) {
+  const lobby = lobbies[code];
+  lobby.players.forEach(p => { p.score = 0; });
+  const n = Math.min(lobby.settings.rounds, ASSOC_PROMPTS.length);
+  lobby.prompts = shuffle(ASSOC_PROMPTS).slice(0, n);
+  lobby.qIndex = -1;
+  assocBeginWriting(code);
+}
+function assocBeginWriting(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.qIndex += 1;
+  if (lobby.qIndex >= lobby.prompts.length) return assocFinish(code);
+  lobby.phase = 'writing'; lobby.answers = {}; lobby.votes = {};
+  lobby.endsAt = Date.now() + ASSOC_WRITE_MS;
+  io.to(code).emit('assocWrite', { index: lobby.qIndex, total: lobby.prompts.length, prompt: lobby.prompts[lobby.qIndex], endsAt: lobby.endsAt });
+  lobby.timer = setTimeout(() => assocToVoting(code), ASSOC_WRITE_MS);
+}
+function assocToVoting(code) {
+  const lobby = lobbies[code];
+  if (lobby.phase !== 'writing') return;
+  clearGameTimer(lobby);
+  const opts = [];
+  lobby.players.forEach(p => {
+    const raw = (lobby.answers[p.playerId] || '').trim();
+    if (raw) opts.push({ id: p.playerId, text: raw, ownerId: p.playerId });
+  });
+  if (opts.length < 2) return assocReveal(code, true);          // not enough answers – skip voting
+  lobby.options = shuffle(opts);
+  lobby.phase = 'voting'; lobby.endsAt = Date.now() + ASSOC_VOTE_MS;
+  lobby.players.forEach(p => {
+    io.to(p.socketId).emit('assocVote', {
+      index: lobby.qIndex, total: lobby.prompts.length, prompt: lobby.prompts[lobby.qIndex],
+      options: lobby.options.map(o => ({ id: o.id, text: o.text, mine: o.ownerId === p.playerId })),
+      picked: lobby.votes[p.playerId] || null, endsAt: lobby.endsAt,
+    });
+  });
+  lobby.timer = setTimeout(() => assocReveal(code), ASSOC_VOTE_MS);
+}
+function assocReveal(code, skipped) {
+  const lobby = lobbies[code];
+  if (lobby.phase !== 'writing' && lobby.phase !== 'voting') return;
+  clearGameTimer(lobby);
+  lobby.phase = 'reveal';
+  const counts = {};
+  Object.values(lobby.votes || {}).forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+  (lobby.options || []).forEach(o => {
+    const c = counts[o.id] || 0;
+    const author = lobby.players.find(p => p.playerId === o.ownerId);
+    if (author) author.score += c * 500;
+  });
+  const reveal = (lobby.options || []).map(o => ({
+    text: o.text, author: lobby.players.find(p => p.playerId === o.ownerId)?.nickname ?? '?',
+    votes: counts[o.id] || 0,
+  })).sort((a, b) => b.votes - a.votes);
+  io.to(code).emit('assocReveal', {
+    prompt: lobby.prompts[lobby.qIndex], reveal, skipped: !!skipped,
+    scoreboard: scoreboardOf(lobby), last: lobby.qIndex >= lobby.prompts.length - 1,
+  });
+  lobby.timer = setTimeout(() => lobby.qIndex >= lobby.prompts.length - 1 ? assocFinish(code) : assocBeginWriting(code), ASSOC_REVEAL_MS);
+}
+function assocFinish(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.phase = 'finished';
+  io.to(code).emit('arcadeFinished', { game: 'assoc', scoreboard: scoreboardOf(lobby) });
+}
+function assocMaybeAdvanceWrite(code) {
+  const lobby = lobbies[code];
+  const need = lobby.players.filter(p => p.connected).length;
+  const have = lobby.players.filter(p => p.connected && (lobby.answers[p.playerId] || '').trim()).length;
+  if (have >= need && need > 0) assocToVoting(code);
+}
+function assocMaybeAdvanceVote(code) {
+  const lobby = lobbies[code];
+  const need = lobby.players.filter(p => p.connected).length;
+  const have = lobby.players.filter(p => p.connected && lobby.votes[p.playerId]).length;
+  if (have >= need && need > 0) assocReveal(code);
+}
+
+// Keep an arcade game moving after a player leaves/disconnects mid-round.
+function arcadeAfterDepart(code, pid) {
+  const lobby = lobbies[code]; if (!lobby) return;
+  if (lobby.game === 'draw' && lobby.phase === 'drawing') {
+    if (lobby.drawerId === pid) drawEndTurn(code, 'drawer-left');
+    else if (connectedNonDrawer(lobby) - Object.keys(lobby.guessed).length <= 0) drawEndTurn(code, 'all-guessed');
+  } else if (lobby.game === 'bluff') {
+    if (lobby.phase === 'writing') bluffMaybeAdvanceWrite(code);
+    else if (lobby.phase === 'guessing') bluffMaybeAdvanceGuess(code);
+  } else if (lobby.game === 'quiz' && lobby.phase === 'question') {
+    const total = lobby.players.filter(p => p.connected).length;
+    if (total > 0 && Object.keys(lobby.answers).length >= total) quizReveal(code);
+  } else if (lobby.game === 'truths') {
+    if (lobby.phase === 'telling' && lobby.authorId === pid) truthsBeginTelling(code);
+    else if (lobby.phase === 'guessing') truthsMaybeAdvanceGuess(code);
+  } else if (lobby.game === 'assoc') {
+    if (lobby.phase === 'writing') assocMaybeAdvanceWrite(code);
+    else if (lobby.phase === 'voting') assocMaybeAdvanceVote(code);
+  }
+}
+
 // Full snapshot for a reconnecting arcade player.
 function arcadeRejoinSnapshot(lobby, pid, isAdmin, code) {
   const base = {
@@ -1050,6 +1278,15 @@ function arcadeRejoinSnapshot(lobby, pid, isAdmin, code) {
       return { ...base, turnNo: lobby.turnNo, totalTurns: lobby.totalTurns, drawerId: lobby.drawerId, drawerNick: drawer?.nickname ?? '?', amDrawer: pid === lobby.drawerId, word: pid === lobby.drawerId ? lobby.word : null, wordLen: lobby.word.length, endsAt: lobby.endsAt, ops: lobby.ops, alreadyGuessed: !!lobby.guessed[pid] };
     }
     if (lobby.phase === 'reveal') return { ...base, word: lobby.word };
+  } else if (lobby.game === 'truths') {
+    const author = lobby.players.find(p => p.playerId === lobby.authorId);
+    if (lobby.phase === 'telling')  return { ...base, round: lobby.roundNo, total: lobby.maxR, authorId: lobby.authorId, authorNick: author?.nickname ?? '?', amAuthor: pid === lobby.authorId, endsAt: lobby.endsAt };
+    if (lobby.phase === 'guessing') return { ...base, round: lobby.roundNo, total: lobby.maxR, authorNick: author?.nickname ?? '?', statements: lobby.statements, amAuthor: pid === lobby.authorId, picked: lobby.guesses[pid] ?? null, endsAt: lobby.endsAt };
+    if (lobby.phase === 'reveal')   return { ...base, authorNick: author?.nickname ?? '?' };
+  } else if (lobby.game === 'assoc') {
+    if (lobby.phase === 'writing')  return { ...base, index: lobby.qIndex, total: lobby.prompts.length, prompt: lobby.prompts[lobby.qIndex], endsAt: lobby.endsAt, submitted: !!(lobby.answers[pid] || '').trim() };
+    if (lobby.phase === 'voting')   return { ...base, index: lobby.qIndex, total: lobby.prompts.length, prompt: lobby.prompts[lobby.qIndex], options: lobby.options.map(o => ({ id: o.id, text: o.text, mine: o.ownerId === pid })), picked: lobby.votes[pid] || null, endsAt: lobby.endsAt };
+    if (lobby.phase === 'reveal')   return { ...base, prompt: lobby.prompts[lobby.qIndex] };
   }
   return base;
 }
@@ -1062,7 +1299,7 @@ io.on('connection', socket => {
   socket.on('createLobby', ({ nickname, playerId, game, visibility, password }) => {
     const pid      = playerId || generateId();
     const code     = generateCode();
-    const valid    = ['czolko','panstwa','quiz','bluff','draw'];
+    const valid    = ['czolko','panstwa', ...ARCADE_GAME_TYPES];
     const gameType = valid.includes(game) ? game : 'czolko';
 
     const basePlayer = { playerId: pid, socketId: socket.id, nickname, connected: true, disconnectTimer: null, word: null, score: 0 };
@@ -1073,8 +1310,8 @@ io.on('connection', socket => {
       lobbies[code] = { game: 'panstwa', admin: pid, players: [basePlayer], phase: 'waiting', categories: DEFAULT_CATEGORIES.slice(), availableCategories: ALL_CATEGORIES.slice(), maxRounds: DEFAULT_MAX_ROUNDS, roundMs: ROUND_MS, round: 0, currentLetter: null, answers: {}, roundTimeout: null, roundEndsAt: 0, stopping: false, lastResults: null, reviewData: null, reviewVotes: {}, aiVerdicts: {}, roundFinalized: false };
     } else {
       const settings = gameType === 'quiz'  ? { questions: 10, hardcore: false }
-                     : gameType === 'bluff' ? { rounds: 5 }
-                     :                        { laps: 2 };
+                     : gameType === 'draw'  ? { laps: 2 }
+                     :                        { rounds: 5 };   // bluff / truths / assoc
       lobbies[code] = { game: gameType, admin: pid, players: [basePlayer], phase: 'waiting', settings, timer: null };
     }
 
@@ -1096,7 +1333,7 @@ io.on('connection', socket => {
       settings:      lobbies[code].settings,
       settingOptions: ARCADE_SETTING_OPTIONS[gameType],
     });
-    if (['quiz','bluff','draw'].includes(gameType)) broadcastArcadeLobby(code);
+    if (ARCADE_GAME_TYPES.includes(gameType)) broadcastArcadeLobby(code);
     else broadcastLobby(code);
   });
 
@@ -1124,7 +1361,7 @@ io.on('connection', socket => {
       settings:      lobby.settings,
       settingOptions: ARCADE_SETTING_OPTIONS[lobby.game],
     });
-    if (['quiz','bluff','draw'].includes(lobby.game)) broadcastArcadeLobby(code);
+    if (ARCADE_GAME_TYPES.includes(lobby.game)) broadcastArcadeLobby(code);
     else broadcastLobby(code);
   });
 
@@ -1152,7 +1389,7 @@ io.on('connection', socket => {
     const isAdmin = lobby.admin === playerId;
     const base    = { game: lobby.game, code, isAdmin, players: publicPlayers(lobby) };
 
-    if (['quiz','bluff','draw'].includes(lobby.game)) {
+    if (ARCADE_GAME_TYPES.includes(lobby.game)) {
       socket.emit('arcadeRejoin', arcadeRejoinSnapshot(lobby, playerId, isAdmin, code));
       broadcastArcadeLobby(code);
       return;
@@ -1397,7 +1634,7 @@ io.on('connection', socket => {
 
   // ── ARCADE GAMES (Quiz / Zmyślacz / Kalambury) ──────────────────────────────
 
-  const isArcade = l => l && ['quiz','bluff','draw'].includes(l.game);
+  const isArcade = l => l && ARCADE_GAME_TYPES.includes(l.game);
 
   socket.on('arcadeSetting', ({ value }) => {
     const lobby = lobbies[socket.lobbyCode];
@@ -1412,9 +1649,11 @@ io.on('connection', socket => {
     const code = socket.lobbyCode, lobby = lobbies[code];
     if (!isArcade(lobby) || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
     if (lobby.players.length < 2) return socket.emit('error', 'Potrzeba minimum 2 graczy!');
-    if (lobby.game === 'quiz')  quizStart(code);
-    else if (lobby.game === 'bluff') bluffStart(code);
-    else drawStart(code);
+    if (lobby.game === 'quiz')        quizStart(code);
+    else if (lobby.game === 'bluff')  bluffStart(code);
+    else if (lobby.game === 'draw')   drawStart(code);
+    else if (lobby.game === 'truths') truthsStart(code);
+    else if (lobby.game === 'assoc')  assocStart(code);
     broadcastPublicLobbies();
   });
 
@@ -1543,6 +1782,53 @@ io.on('connection', socket => {
     }
   });
 
+  // 2 PRAWDY 1 KŁAMSTWO
+  socket.on('truthsSubmit', ({ statements, lieIndex }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'truths' || lobby.phase !== 'telling' || socket.playerId !== lobby.authorId) return;
+    if (!Array.isArray(statements) || statements.length !== 3) return;
+    const clean = statements.map(s => (s || '').trim().slice(0, 100));
+    if (clean.some(s => !s)) return socket.emit('error', 'Wpisz wszystkie 3 zdania!');
+    if (typeof lieIndex !== 'number' || lieIndex < 0 || lieIndex > 2) return;
+    lobby.statements = clean; lobby.lieIndex = lieIndex;
+    truthsToGuessing(code);
+  });
+  socket.on('truthsGuess', ({ index }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'truths' || lobby.phase !== 'guessing' || !socket.playerId) return;
+    if (socket.playerId === lobby.authorId) return;
+    if (typeof index !== 'number' || index < 0 || index > 2) return;
+    lobby.guesses[socket.playerId] = index;
+    const need = lobby.players.filter(p => p.connected && p.playerId !== lobby.authorId).length;
+    const have = lobby.players.filter(p => p.connected && p.playerId !== lobby.authorId && lobby.guesses[p.playerId] != null).length;
+    io.to(code).emit('truthsProgress', { have, need });
+    truthsMaybeAdvanceGuess(code);
+  });
+
+  // NAJGORSZE SKOJARZENIA
+  socket.on('assocSubmit', ({ text }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'assoc' || lobby.phase !== 'writing' || !socket.playerId) return;
+    const clean = (text || '').trim().slice(0, 80);
+    if (!clean) return;
+    lobby.answers[socket.playerId] = clean;
+    const need = lobby.players.filter(p => p.connected).length;
+    const have = lobby.players.filter(p => p.connected && (lobby.answers[p.playerId] || '').trim()).length;
+    io.to(code).emit('assocWriteProgress', { have, need });
+    assocMaybeAdvanceWrite(code);
+  });
+  socket.on('assocVote', ({ optionId }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'assoc' || lobby.phase !== 'voting' || !socket.playerId) return;
+    const opt = (lobby.options || []).find(o => o.id === optionId);
+    if (!opt || opt.ownerId === socket.playerId) return;         // can't vote your own
+    lobby.votes[socket.playerId] = optionId;
+    const need = lobby.players.filter(p => p.connected).length;
+    const have = lobby.players.filter(p => p.connected && lobby.votes[p.playerId]).length;
+    io.to(code).emit('assocVoteProgress', { have, need });
+    assocMaybeAdvanceVote(code);
+  });
+
   // ── LEAVE LOBBY (voluntary exit) ─────────────────────────────────────────────
 
   socket.on('leaveLobby', () => {
@@ -1580,15 +1866,7 @@ io.on('connection', socket => {
     // Keep review/vote screens consistent after a departure.
     if (lobby.game === 'panstwa' && lobby.phase === 'reviewing') pmBroadcastReview(code);
     // Keep the game moving after someone leaves mid-round.
-    if (lobby.game === 'draw' && lobby.phase === 'drawing') {
-      if (lobby.drawerId === pid) drawEndTurn(code, 'drawer-left');
-      else if (connectedNonDrawer(lobby) - Object.keys(lobby.guessed).length <= 0) drawEndTurn(code, 'all-guessed');
-    } else if (lobby.game === 'bluff' && lobby.phase === 'writing')  bluffMaybeAdvanceWrite(code);
-    else if (lobby.game === 'bluff' && lobby.phase === 'guessing') bluffMaybeAdvanceGuess(code);
-    else if (lobby.game === 'quiz' && lobby.phase === 'question') {
-      const total = lobby.players.filter(p => p.connected).length;
-      if (total > 0 && Object.keys(lobby.answers).length >= total) quizReveal(code);
-    }
+    arcadeAfterDepart(code, pid);
     if (lobby.game === 'czolko'  && lobby.phase === 'finished') {
       const tally = czolkoVoteTally(lobby);
       io.to(code).emit('czolkoVoteUpdate', tally);
@@ -1610,6 +1888,7 @@ io.on('connection', socket => {
 
     // A disconnect changes the electorate size, which can complete a vote.
     if (lobby.game === 'panstwa' && lobby.phase === 'reviewing') pmBroadcastReview(code);
+    arcadeAfterDepart(code, playerId);
     if (lobby.game === 'czolko'  && lobby.phase === 'finished') {
       const tally = czolkoVoteTally(lobby);
       io.to(code).emit('czolkoVoteUpdate', tally);
