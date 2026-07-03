@@ -883,7 +883,7 @@ function drawNextTurn(code) {
   lobby.word      = DRAW_WORDS[Math.floor(Math.random() * DRAW_WORDS.length)];
   lobby.guessed   = {};        // playerId → order index of correct guess
   lobby.correctCount = 0;
-  lobby.strokes   = [];        // for late joiners / rejoins
+  lobby.ops       = [];        // completed draw operations (for undo / rejoin)
   lobby.phase     = 'drawing';
   lobby.endsAt    = Date.now() + DRAW_MS;
   const drawer = lobby.players.find(p => p.playerId === lobby.drawerId);
@@ -941,7 +941,7 @@ function arcadeRejoinSnapshot(lobby, pid, isAdmin, code) {
   } else if (lobby.game === 'draw') {
     if (lobby.phase === 'drawing') {
       const drawer = lobby.players.find(p => p.playerId === lobby.drawerId);
-      return { ...base, turnNo: lobby.turnNo, totalTurns: lobby.totalTurns, drawerId: lobby.drawerId, drawerNick: drawer?.nickname ?? '?', amDrawer: pid === lobby.drawerId, word: pid === lobby.drawerId ? lobby.word : null, wordLen: lobby.word.length, endsAt: lobby.endsAt, strokes: lobby.strokes, alreadyGuessed: !!lobby.guessed[pid] };
+      return { ...base, turnNo: lobby.turnNo, totalTurns: lobby.totalTurns, drawerId: lobby.drawerId, drawerNick: drawer?.nickname ?? '?', amDrawer: pid === lobby.drawerId, word: pid === lobby.drawerId ? lobby.word : null, wordLen: lobby.word.length, endsAt: lobby.endsAt, ops: lobby.ops, alreadyGuessed: !!lobby.guessed[pid] };
     }
     if (lobby.phase === 'reveal') return { ...base, word: lobby.word };
   }
@@ -1374,19 +1374,37 @@ io.on('connection', socket => {
   });
 
   // KALAMBURY
+  // Live stroke segments (for smooth real-time drawing) – not stored; the
+  // finished stroke arrives as an op via drawOp for undo/rejoin.
   socket.on('drawStroke', (data) => {
     const lobby = lobbies[socket.lobbyCode];
     if (!lobby || lobby.game !== 'draw' || lobby.phase !== 'drawing' || socket.playerId !== lobby.drawerId) return;
     if (!data || typeof data !== 'object') return;
-    lobby.strokes.push(data);
-    if (lobby.strokes.length > 4000) lobby.strokes.shift();     // cap memory
     socket.to(socket.lobbyCode).emit('drawStroke', data);       // to everyone except drawer
+  });
+
+  // A completed operation (finished stroke, fill or shape) – stored for undo
+  // and replayed for players who (re)join mid-turn.
+  socket.on('drawOp', (op) => {
+    const lobby = lobbies[socket.lobbyCode];
+    if (!lobby || lobby.game !== 'draw' || lobby.phase !== 'drawing' || socket.playerId !== lobby.drawerId) return;
+    if (!op || typeof op !== 'object') return;
+    lobby.ops.push(op);
+    if (lobby.ops.length > 2000) lobby.ops.shift();             // cap memory
+    socket.to(socket.lobbyCode).emit('drawOp', op);             // everyone except drawer
+  });
+
+  socket.on('drawUndo', () => {
+    const lobby = lobbies[socket.lobbyCode];
+    if (!lobby || lobby.game !== 'draw' || lobby.phase !== 'drawing' || socket.playerId !== lobby.drawerId) return;
+    lobby.ops.pop();
+    socket.to(socket.lobbyCode).emit('drawUndo');
   });
 
   socket.on('drawClear', () => {
     const lobby = lobbies[socket.lobbyCode];
     if (!lobby || lobby.game !== 'draw' || lobby.phase !== 'drawing' || socket.playerId !== lobby.drawerId) return;
-    lobby.strokes = [];
+    lobby.ops = [];
     socket.to(socket.lobbyCode).emit('drawClear');
   });
 
