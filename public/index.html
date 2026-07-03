@@ -73,7 +73,15 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .vis-toggle{display:flex;width:100%;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:4px;gap:4px}
 .vis-opt{flex:1;padding:10px;border-radius:9px;text-align:center;cursor:pointer;font-size:.86rem;font-weight:600;color:#9ca3af;transition:all .15s;user-select:none}
 .vis-opt.selected{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;box-shadow:0 3px 12px rgba(124,58,237,.35)}
+.vis-toggle.readonly .vis-opt{pointer-events:none;opacity:.9}
 .vis-hint{font-size:.72rem;color:#6b7280;text-align:left;margin:0}
+
+/* Round-time stepper (Państwa-Miasta) */
+.time-stepper{display:flex;align-items:center;gap:10px;justify-content:center}
+.time-btn{width:auto!important;padding:10px 16px!important;font-size:.9rem;font-weight:700;background:rgba(255,255,255,.07);color:#e5e7eb;border:1px solid rgba(255,255,255,.12);border-radius:10px}
+.time-btn:disabled{opacity:.35}
+.time-value{font-size:1.6rem;font-weight:800;color:#38bdf8;font-variant-numeric:tabular-nums;min-width:76px;text-align:center}
+.time-stepper.readonly .time-btn{display:none}
 
 /* Public lobby list rows */
 .pub-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:10px 12px;cursor:pointer;transition:background .15s}
@@ -487,6 +495,14 @@ button:disabled{opacity:.45;cursor:not-allowed}
     <p class="section-title">Liczba rund</p>
     <div class="cat-picker" id="pm-rounds-picker"></div>
   </div>
+  <div class="card" style="display:flex;flex-direction:column;gap:10px">
+    <p class="section-title">Czas rundy</p>
+    <div class="time-stepper">
+      <button class="time-btn" id="pm-time-minus" onclick="pmSetRoundTime(-1)">−15 s</button>
+      <div class="time-value" id="pm-time-value">2:00</div>
+      <button class="time-btn" id="pm-time-plus" onclick="pmSetRoundTime(1)">+15 s</button>
+    </div>
+  </div>
   <button class="btn-green" onclick="pmStartGame()" id="pm-btn-start" style="display:none">🚀 Rozpocznij grę</button>
   <p class="waiting-text" id="pm-lobby-waiting-text" style="display:none">⏳ Czekaj, aż admin rozpocznie grę...</p>
   <button class="btn-ghost" onclick="leaveLobby()">⬅ Wyjdź z lobby</button>
@@ -543,6 +559,14 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <div class="card" style="display:flex;flex-direction:column;gap:12px" id="arc-settings-card">
     <p class="section-title" id="arc-settings-label">Ustawienia</p>
     <div class="cat-picker" id="arc-settings-picker"></div>
+  </div>
+  <div class="card" style="display:flex;flex-direction:column;gap:10px" id="arc-hardcore-card">
+    <p class="section-title">Poziom trudności</p>
+    <div class="vis-toggle">
+      <div class="vis-opt selected" id="hc-off" onclick="setHardcore(false)">😀 Normalny</div>
+      <div class="vis-opt" id="hc-on" onclick="setHardcore(true)">💀 Hardcore</div>
+    </div>
+    <p class="vis-hint" id="hc-hint">Standardowe pytania dla każdego.</p>
   </div>
   <button class="btn-green" id="arc-btn-start" onclick="arcadeStart()" style="display:none">🚀 Rozpocznij grę</button>
   <p class="waiting-text" id="arc-lobby-wait" style="display:none">⏳ Czekaj, aż admin rozpocznie grę...</p>
@@ -667,6 +691,8 @@ let pmReviewLetter = null;
 let myEndVote = null;     // 'new' | 'lobby' (Czółko end-game vote)
 let selectedRounds = 5;   // chosen number of rounds (Państwa-Miasta)
 let roundOptions = [3, 5, 10, 999];
+let selectedRoundMs = 120000;   // round length (Państwa-Miasta)
+const PM_ROUND_MIN = 30000, PM_ROUND_MAX = 300000, PM_ROUND_STEP = 15000;
 
 const COLORS = ['#f87171','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6','#fb923c','#4ade80'];
 const EMOJIS = ['😎','🐱','🦊','🐸','🦁','🐼','🦄','🐙','🦋','🎃','🐵','🐧','🦖','🐢','🐝'];
@@ -1001,6 +1027,28 @@ function renderPmCatPicker() {
   const customRow = document.getElementById('pm-custom-cat-row');
   if (customRow) customRow.style.display = isAdmin ? 'flex' : 'none';
   renderPmRoundsPicker();
+  renderPmRoundTime();
+}
+
+function fmtTime(ms) {
+  const s = Math.round(ms / 1000);
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+function renderPmRoundTime() {
+  const val = document.getElementById('pm-time-value'); if (!val) return;
+  val.textContent = fmtTime(selectedRoundMs);
+  const stepper = val.closest('.time-stepper');
+  if (stepper) stepper.classList.toggle('readonly', !isAdmin);
+  const minus = document.getElementById('pm-time-minus'), plus = document.getElementById('pm-time-plus');
+  if (minus) minus.disabled = selectedRoundMs <= PM_ROUND_MIN;
+  if (plus)  plus.disabled  = selectedRoundMs >= PM_ROUND_MAX;
+}
+function pmSetRoundTime(dir) {
+  const next = selectedRoundMs + dir * PM_ROUND_STEP;
+  if (next < PM_ROUND_MIN || next > PM_ROUND_MAX) return;
+  selectedRoundMs = next;                 // optimistic; server echoes via updateLobby
+  renderPmRoundTime();
+  socket.emit('setRoundTime', { delta: dir * PM_ROUND_STEP });
 }
 
 function renderPmRoundsPicker() {
@@ -1233,7 +1281,22 @@ function renderArcadeLobby(o) {
   document.getElementById('arc-btn-start').style.display   = (isAdmin && (o.players||[]).length >= 2) ? 'block' : 'none';
   document.getElementById('arc-lobby-wait').style.display  = isAdmin ? 'none' : 'block';
   document.getElementById('arc-settings-card').style.display = arcSettingOptions ? 'flex' : 'none';
+  renderHardcore();
 }
+function renderHardcore() {
+  const card = document.getElementById('arc-hardcore-card'); if (!card) return;
+  const isQuiz = arcGame === 'quiz';
+  card.style.display = isQuiz ? 'flex' : 'none';
+  if (!isQuiz) return;
+  const on = !!(arcSettings && arcSettings.hardcore);
+  document.getElementById('hc-off').classList.toggle('selected', !on);
+  document.getElementById('hc-on').classList.toggle('selected', on);
+  document.getElementById('hc-off').closest('.vis-toggle').classList.toggle('readonly', !isAdmin);
+  document.getElementById('hc-hint').textContent = on
+    ? '💀 Bardzo trudne pytania — tylko dla twardzieli!'
+    : 'Standardowe pytania dla każdego.';
+}
+function setHardcore(on) { if (!isAdmin) return; socket.emit('quizHardcore', { on }); }
 function arcadeStart()     { socket.emit('arcadeStart'); }
 function arcadePlayAgain() { socket.emit('arcadePlayAgain'); }
 
@@ -1278,6 +1341,11 @@ socket.on('quizQuestion', renderQuizQuestion);
 socket.on('quizProgress', ({ answered, total }) => {
   const el = document.getElementById('quiz-progress');
   if (el && !quizAnswered) el.textContent = `Odpowiedziało: ${answered}/${total}`;
+});
+socket.on('quizHurry', ({ endsAt }) => {
+  startCountdown('quiz-timer', endsAt);
+  const el = document.getElementById('quiz-progress');
+  if (el) el.textContent = '⏱️ Wszyscy odpowiedzieli!';
 });
 socket.on('quizReveal', (d) => {
   const q = quizCur || {};
@@ -1474,7 +1542,7 @@ socket.on('arcadeRejoin', (s) => {
 });
 
 // ─── SHARED SOCKET EVENTS ─────────────────────────────────────────────────────
-socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats, maxRounds, roundOptions: ropts, settings, settingOptions }) => {
+socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats, maxRounds, roundOptions: ropts, roundMs, settings, settingOptions }) => {
   if (playerId) myId = playerId;
   currentGame = game; isAdmin = true; currentCode = code; saveSession({ code });
 
@@ -1484,6 +1552,7 @@ socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats, maxRound
     selectedCategories = cats.slice(0, 6);
     if (ropts) roundOptions = ropts;
     if (maxRounds) selectedRounds = maxRounds;
+    if (roundMs) selectedRoundMs = roundMs;
     document.getElementById('pm-lobby-code-display').textContent = code;
     document.getElementById('pm-lobby-deco').textContent = '👑';
     document.getElementById('pm-btn-start').style.display        = 'none';
@@ -1496,7 +1565,7 @@ socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats, maxRound
   }
 });
 
-socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats, maxRounds, roundOptions: ropts, settings, settingOptions }) => {
+socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats, maxRounds, roundOptions: ropts, roundMs, settings, settingOptions }) => {
   if (playerId) myId = playerId;
   currentGame = game; isAdmin = false; currentCode = code; saveSession({ code });
 
@@ -1506,6 +1575,7 @@ socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats, maxRounds
     selectedCategories = cats.slice(0, 6);
     if (ropts) roundOptions = ropts;
     if (maxRounds) selectedRounds = maxRounds;
+    if (roundMs) selectedRoundMs = roundMs;
     document.getElementById('pm-lobby-code-display').textContent = code;
     document.getElementById('pm-lobby-deco').textContent = '⏳';
     document.getElementById('pm-lobby-waiting-text').style.display = 'block';
@@ -1517,7 +1587,7 @@ socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats, maxRounds
   }
 });
 
-socket.on('updateLobby', ({ game, admin, players, categories, availableCategories, maxRounds }) => {
+socket.on('updateLobby', ({ game, admin, players, categories, availableCategories, maxRounds, roundMs }) => {
   currentGame = game;
   if (admin) isAdmin = (admin === myId);   // admin may have been reassigned
   const onCzolkoLobby = document.getElementById('screen-lobby-admin').classList.contains('active') ||
@@ -1527,6 +1597,7 @@ socket.on('updateLobby', ({ game, admin, players, categories, availableCategorie
     if (availableCategories) allCategories = availableCategories;
     selectedCategories = (categories || []).slice();
     if (maxRounds) selectedRounds = maxRounds;
+    if (roundMs) selectedRoundMs = roundMs;
     document.getElementById('pm-lobby-deco').textContent = isAdmin ? '👑' : '⏳';
     document.getElementById('pm-lobby-waiting-text').style.display = isAdmin ? 'none' : 'block';
     renderPmCatPicker();
@@ -1613,6 +1684,7 @@ socket.on('rejoinState', (state) => {
   selectedCategories = (state.categories   || []).slice();
   if (state.roundOptions) roundOptions = state.roundOptions;
   if (state.maxRounds)    selectedRounds = state.maxRounds;
+  if (state.roundMs)      selectedRoundMs = state.roundMs;
 
   if (state.phase === 'waiting') {
     document.getElementById('pm-lobby-code-display').textContent = state.code;
