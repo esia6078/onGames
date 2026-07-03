@@ -118,7 +118,12 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .bluff-opt{width:100%;padding:14px 16px;border-radius:12px;border:2px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#eee;font-size:1rem;font-weight:600;text-align:left;transition:all .15s}
 .bluff-opt.picked{border-color:#818cf8;background:rgba(129,140,248,.16)}
 .bluff-opt.mine{opacity:.5;cursor:not-allowed;border-style:dashed}
+.tt-row{display:flex;gap:8px;align-items:center;width:100%}
+.tt-row input{flex:1}
+.tt-lie{width:46px!important;flex:0 0 auto;padding:12px 0!important;border-radius:12px;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.12);font-size:1rem;filter:grayscale(1);opacity:.5}
+.tt-lie.on{filter:none;opacity:1;border-color:#f87171;background:rgba(248,113,113,.16)}
 .bluff-reveal-row{display:flex;flex-direction:column;gap:2px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:10px 14px}
+.bluff-reveal-row.lie{border-color:#f87171;background:rgba(248,113,113,.1)}
 .bluff-reveal-row.real{border-color:#34d399;background:rgba(52,211,153,.1)}
 .brr-text{font-weight:700}
 .brr-meta{font-size:.75rem;color:#9ca3af}
@@ -236,6 +241,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .vote-static{font-size:.8rem;color:#9ca3af;white-space:nowrap}
 .vote-own{font-size:.72rem;color:#6b7280;font-style:italic}
 .review-hint{font-size:.82rem;color:#a5b4fc;text-align:center;background:rgba(129,140,248,.08);border:1px solid rgba(129,140,248,.2);border-radius:10px;padding:8px 12px}
+.howto{font-size:.8rem;color:#cbd5e1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px;width:100%;line-height:1.45}
+.howto b{color:#fbbf24}
 
 /* Fixed in-game "leave to menu" button */
 #leave-btn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:10px;z-index:150;width:auto;padding:7px 12px;font-size:.78rem;font-weight:700;color:#fca5a5;background:rgba(20,20,40,.72);border:1px solid rgba(248,113,113,.4);border-radius:10px;backdrop-filter:blur(6px)}
@@ -344,6 +351,16 @@ button:disabled{opacity:.45;cursor:not-allowed}
         <div class="gr-text"><div class="gr-name">Kalambury</div><div class="gr-desc">Rysuj i zgaduj hasła</div></div>
         <div class="gr-check">✓</div>
       </div>
+      <div class="game-row" data-game="truths" onclick="selectGame('truths')">
+        <div class="gr-emoji">🕵️</div>
+        <div class="gr-text"><div class="gr-name">2 prawdy 1 kłamstwo</div><div class="gr-desc">Zgadnij, co jest kłamstwem</div></div>
+        <div class="gr-check">✓</div>
+      </div>
+      <div class="game-row" data-game="assoc" onclick="selectGame('assoc')">
+        <div class="gr-emoji">😂</div>
+        <div class="gr-text"><div class="gr-name">Najgorsze skojarzenia</div><div class="gr-desc">Wpisz i wybierz najśmieszniejszą</div></div>
+        <div class="gr-check">✓</div>
+      </div>
     </div>
 
     <div class="settings-divider"></div>
@@ -385,6 +402,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <div class="logo" style="font-size:1.6rem">Twoje lobby</div>
   <div class="code-box" id="lobby-code-display" onclick="copyCode(this.textContent)" title="Kliknij aby skopiować"></div>
   <p class="code-hint">Kliknij kod aby skopiować 👆</p>
+  <div class="howto"><b>📖 Jak grać:</b> Każdy widzi hasła innych, ale nie swoje. Zgadnij swoje, zadając pytania. Admin kończy grę, wskazując zwycięzcę.</div>
   <div class="card" style="display:flex;flex-direction:column;gap:10px">
     <p class="section-title">Gracze w lobby</p>
     <div class="players-list" id="lobby-players"></div>
@@ -398,6 +416,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <div style="font-size:2.5rem">⏳</div>
   <div class="logo" style="font-size:1.6rem">Lobby</div>
   <div class="code-box" id="lobby-code-player" onclick="copyCode(this.textContent)" title="Kliknij aby skopiować"></div>
+  <div class="howto"><b>📖 Jak grać:</b> Każdy widzi hasła innych, ale nie swoje. Zgadnij swoje, zadając pytania. Admin kończy grę, wskazując zwycięzcę.</div>
   <div class="card" style="display:flex;flex-direction:column;gap:10px">
     <p class="section-title">Gracze w lobby</p>
     <div class="players-list" id="lobby-players-p"></div>
@@ -504,6 +523,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <div class="logo" style="font-size:1.6rem">Lobby</div>
   <div class="code-box" id="pm-lobby-code-display" onclick="copyCode(this.textContent)" title="Kliknij aby skopiować"></div>
   <p class="code-hint">Kliknij kod aby skopiować 👆 (max 15 graczy)</p>
+  <div class="howto"><b>📖 Jak grać:</b> Na wylosowaną literę wpisz słowa w kategoriach. Kto pierwszy skończy, klika STOP. Potem głosujecie, które słowa się zaliczają (👎 obniża punkty).</div>
   <div class="card" style="display:flex;flex-direction:column;gap:10px">
     <p class="section-title">Gracze w lobby</p>
     <div class="players-list" id="pm-lobby-players"></div>
@@ -578,6 +598,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <div class="logo" style="font-size:1.6rem" id="arc-lobby-title">Lobby</div>
   <div class="code-box" id="arc-lobby-code" onclick="copyCode(this.textContent)" title="Kliknij aby skopiować"></div>
   <p class="code-hint">Kliknij kod aby skopiować 👆</p>
+  <div class="howto"><b>📖 Jak grać:</b> <span id="arc-howto"></span></div>
   <div class="card" style="display:flex;flex-direction:column;gap:10px">
     <p class="section-title">Gracze w lobby</p>
     <div class="players-list" id="arc-lobby-players"></div>
@@ -702,6 +723,65 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <p class="waiting-text">Kolejna tura za chwilę...</p>
 </div>
 
+<!-- ══════════════════════════════════════ 2 PRAWDY 1 KŁAMSTWO ══ -->
+<div class="screen" id="screen-truths-tell">
+  <p class="section-title" id="tt-counter"></p>
+  <div class="logo" style="font-size:1.2rem;text-align:center" id="tt-title">Podaj 2 prawdy i 1 kłamstwo 🕵️</div>
+  <div id="tt-author-area" style="width:100%;display:flex;flex-direction:column;gap:10px">
+    <p class="code-hint" style="text-align:center">Zaznacz kropką, które zdanie to KŁAMSTWO.</p>
+    <div class="tt-row"><input id="tt-in-0" placeholder="Zdanie 1..." maxlength="100"><button class="tt-lie" id="tt-lie-0" onclick="truthsPickLie(0)" title="To kłamstwo">🤥</button></div>
+    <div class="tt-row"><input id="tt-in-1" placeholder="Zdanie 2..." maxlength="100"><button class="tt-lie" id="tt-lie-1" onclick="truthsPickLie(1)" title="To kłamstwo">🤥</button></div>
+    <div class="tt-row"><input id="tt-in-2" placeholder="Zdanie 3..." maxlength="100"><button class="tt-lie" id="tt-lie-2" onclick="truthsPickLie(2)" title="To kłamstwo">🤥</button></div>
+    <button class="btn-main" onclick="truthsSubmit()">✅ Zatwierdź</button>
+  </div>
+  <div id="tt-wait" style="display:none" class="waiting-text"></div>
+  <div class="timer" id="tt-timer"></div>
+</div>
+<div class="screen" id="screen-truths-guess">
+  <p class="section-title" id="tg-counter"></p>
+  <div class="logo" style="font-size:1.2rem;text-align:center" id="tg-title">Co jest KŁAMSTWEM? 🕵️</div>
+  <div id="tg-options" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+  <p class="waiting-text" id="tg-progress"></p>
+  <div class="timer" id="tg-timer"></div>
+</div>
+<div class="screen" id="screen-truths-reveal">
+  <div style="font-size:2.2rem">🤥</div>
+  <div class="logo" style="font-size:1.3rem">Kłamstwo to...</div>
+  <div id="tr-list" style="width:100%;display:flex;flex-direction:column;gap:8px"></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px"><p class="section-title">Ranking</p><div class="scoreboard" id="tr-scoreboard"></div></div>
+  <p class="waiting-text">Kolejna runda za chwilę...</p>
+</div>
+
+<!-- ══════════════════════════════════════ NAJGORSZE SKOJARZENIA ══ -->
+<div class="screen" id="screen-assoc-write">
+  <p class="section-title" id="aw-counter"></p>
+  <div class="logo" style="font-size:1.2rem;text-align:center">Dokończ najśmieszniej 😂</div>
+  <div class="card" id="aw-prompt" style="text-align:center;font-weight:700;font-size:1.1rem"></div>
+  <div class="timer" id="aw-timer"></div>
+  <div id="aw-input-area" style="width:100%;display:flex;flex-direction:column;gap:10px">
+    <input id="aw-input" placeholder="Twoja odpowiedź..." maxlength="80">
+    <button class="btn-main" onclick="assocSubmit()">✅ Wyślij</button>
+  </div>
+  <div id="aw-done" class="assign-submitted-badge" style="display:none">✅ Wysłane! Czekam na resztę...</div>
+  <p class="waiting-text" id="aw-progress"></p>
+</div>
+<div class="screen" id="screen-assoc-vote">
+  <p class="section-title" id="av-counter"></p>
+  <div class="logo" style="font-size:1.2rem;text-align:center">Zagłosuj na najlepszą 😂</div>
+  <div class="card" id="av-prompt" style="text-align:center;font-weight:700;font-size:1.1rem"></div>
+  <div class="timer" id="av-timer"></div>
+  <div id="av-options" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+  <p class="waiting-text" id="av-progress"></p>
+</div>
+<div class="screen" id="screen-assoc-reveal">
+  <div style="font-size:2.2rem">🏆</div>
+  <div class="logo" style="font-size:1.3rem">Wyniki rundy</div>
+  <div class="card" id="ar-prompt" style="text-align:center;font-weight:700"></div>
+  <div id="ar-list" style="width:100%;display:flex;flex-direction:column;gap:8px"></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px"><p class="section-title">Ranking</p><div class="scoreboard" id="ar-scoreboard"></div></div>
+  <p class="waiting-text">Kolejna runda za chwilę...</p>
+</div>
+
 <!-- ══════════════════════════════════════ ARCADE: KONIEC ══ -->
 <div class="screen" id="screen-arcade-finished">
   <div style="font-size:3rem">🏆</div>
@@ -755,7 +835,7 @@ function showToast(html) {
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
 }
 // Screens that top-align + scroll (must be defined before any showScreen call).
-const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished']);
+const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished', 'screen-truths-tell', 'screen-truths-guess', 'screen-truths-reveal', 'screen-assoc-write', 'screen-assoc-vote', 'screen-assoc-reveal']);
 
 // Attempt rejoin on load
 let reconnectTimer = null;
@@ -783,6 +863,17 @@ let selectedVisibility = 'private';
 const GAME_UI = {
   czolko:{e:'🎯',n:'Czółko'}, panstwa:{e:'🌍',n:'Państwa-Miasta'},
   quiz:{e:'🧠',n:'Quiz wiedzy'}, bluff:{e:'🤥',n:'Zmyślacz'}, draw:{e:'🎨',n:'Kalambury'},
+  truths:{e:'🕵️',n:'2 prawdy 1 kłamstwo'}, assoc:{e:'😂',n:'Najgorsze skojarzenia'},
+};
+// Short how-to shown in every lobby.
+const GAME_HOWTO = {
+  czolko:  'Każdy widzi hasła innych, ale nie swoje. Zgadnij swoje, zadając pytania. Admin kończy grę wskazując zwycięzcę.',
+  panstwa: 'Na wylosowaną literę wpisz słowa w kategoriach. Kto pierwszy skończy, klika STOP. Potem głosujecie, które słowa się zaliczają.',
+  quiz:    'Odpowiadaj na pytania z 4 opcjami. Im szybciej i celniej, tym więcej punktów.',
+  bluff:   'Do trudnego pytania wymyśl fałszywą, wiarygodną odpowiedź. Potem zgadnij, która jest prawdziwa — punkty za trafienie i za nabranie innych.',
+  draw:    'Po kolei każdy rysuje wylosowane hasło, a reszta zgaduje w czacie. Punkty za szybkie zgadywanie i za rysowanie.',
+  truths:  'Po kolei każdy podaje o sobie 2 prawdy i 1 kłamstwo. Reszta zgaduje, które zdanie to kłamstwo. Punkty za trafienie i za nabranie innych.',
+  assoc:   'Do zdania z luką wpisz najśmieszniejszą odpowiedź. Potem wszyscy głosują na najlepszą (nie na swoją). Punkty za każdy głos.',
 };
 function selectGame(g) {
   selectedGame = g;
@@ -1289,9 +1380,9 @@ socket.on('gameEnded', ({ scoreboard }) => {
 });
 
 // ─── ARCADE GAMES (Quiz / Zmyślacz / Kalambury) ───────────────────────────────
-const ARCADE_GAMES = new Set(['quiz','bluff','draw']);
-const ARCADE_META  = { quiz:{emoji:'🧠',title:'Quiz wiedzy'}, bluff:{emoji:'🤥',title:'Zmyślacz'}, draw:{emoji:'🎨',title:'Kalambury'} };
-const ARCADE_MID_SCREENS = ['screen-quiz','screen-quiz-reveal','screen-bluff-write','screen-bluff-guess','screen-bluff-reveal','screen-draw','screen-draw-reveal'];
+const ARCADE_GAMES = new Set(['quiz','bluff','draw','truths','assoc']);
+const ARCADE_META  = { quiz:{emoji:'🧠',title:'Quiz wiedzy'}, bluff:{emoji:'🤥',title:'Zmyślacz'}, draw:{emoji:'🎨',title:'Kalambury'}, truths:{emoji:'🕵️',title:'2 prawdy 1 kłamstwo'}, assoc:{emoji:'😂',title:'Najgorsze skojarzenia'} };
+const ARCADE_MID_SCREENS = ['screen-quiz','screen-quiz-reveal','screen-bluff-write','screen-bluff-guess','screen-bluff-reveal','screen-draw','screen-draw-reveal','screen-truths-tell','screen-truths-guess','screen-truths-reveal','screen-assoc-write','screen-assoc-vote','screen-assoc-reveal'];
 let arcGame = null, arcSettings = {}, arcSettingOptions = null, quizCur = null, quizAnswered = false, bluffSubmitted = false, bluffPicked = null;
 
 function startCountdown(elId, endsAt) {
@@ -1335,6 +1426,7 @@ function renderArcadeLobby(o) {
   document.getElementById('arc-lobby-emoji').textContent = isAdmin ? '👑' : meta.emoji;
   document.getElementById('arc-lobby-title').textContent = meta.title;
   document.getElementById('arc-lobby-code').textContent  = o.code;
+  document.getElementById('arc-howto').textContent = GAME_HOWTO[o.game] || '';
   renderPlayersList('arc-lobby-players', o.players || []);
   renderArcadeSettings();
   document.getElementById('arc-btn-start').style.display   = (isAdmin && (o.players||[]).length >= 2) ? 'block' : 'none';
@@ -1688,6 +1780,126 @@ socket.on('drawReveal', (d) => {
 document.getElementById('dr-guess').addEventListener('keydown', e => { if (e.key === 'Enter') drawSendGuess(); });
 document.getElementById('bw-input').addEventListener('keydown', e => { if (e.key === 'Enter') bluffSubmit(); });
 
+// ── 2 PRAWDY 1 KŁAMSTWO ───────────────────────────────────────────────────────
+let ttAmAuthor = false, ttLie = null;
+function renderTruthsTell(d) {
+  ttAmAuthor = d.amAuthor; ttLie = null;
+  document.getElementById('tt-counter').textContent = `Runda ${d.round} / ${d.total}`;
+  document.getElementById('tt-author-area').style.display = d.amAuthor ? 'flex' : 'none';
+  const wait = document.getElementById('tt-wait');
+  if (d.amAuthor) { wait.style.display = 'none'; ['tt-in-0','tt-in-1','tt-in-2'].forEach(i => document.getElementById(i).value = ''); ['tt-lie-0','tt-lie-1','tt-lie-2'].forEach(i => document.getElementById(i).classList.remove('on')); }
+  else { wait.style.display = 'block'; wait.textContent = `✍️ ${d.authorNick} wymyśla 2 prawdy i 1 kłamstwo...`; }
+  startCountdown('tt-timer', d.endsAt);
+  showScreen('screen-truths-tell');
+}
+function truthsPickLie(i) { ttLie = i; ['tt-lie-0','tt-lie-1','tt-lie-2'].forEach((id, k) => document.getElementById(id).classList.toggle('on', k === i)); }
+function truthsSubmit() {
+  const statements = [0,1,2].map(i => document.getElementById('tt-in-'+i).value.trim());
+  if (statements.some(s => !s)) return alert('Wpisz wszystkie 3 zdania!');
+  if (ttLie === null) return alert('Zaznacz, które zdanie to kłamstwo (przycisk 🤥).');
+  socket.emit('truthsSubmit', { statements, lieIndex: ttLie });
+  document.getElementById('tt-author-area').style.display = 'none';
+  const wait = document.getElementById('tt-wait'); wait.style.display = 'block'; wait.textContent = '✅ Wysłane! Czekam...';
+}
+socket.on('truthsTell', renderTruthsTell);
+let ttPicked = null;
+function renderTruthsGuess(d) {
+  ttPicked = d.picked; ttAmAuthor = d.amAuthor;
+  document.getElementById('tg-counter').textContent = `Runda ${d.round} / ${d.total}`;
+  document.getElementById('tg-title').textContent = d.amAuthor ? 'Zgadują, co jest kłamstwem... 🤫' : 'Co jest KŁAMSTWEM? 🕵️';
+  const box = document.getElementById('tg-options'); box.innerHTML = '';
+  d.statements.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.className = 'bluff-opt' + (ttPicked === i ? ' picked' : '');
+    b.textContent = s;
+    if (d.amAuthor || ttPicked != null) b.disabled = true;
+    else b.onclick = () => truthsChoose(i, b);
+    box.appendChild(b);
+  });
+  document.getElementById('tg-progress').textContent = d.amAuthor ? 'To Twoje zdania — czekaj na wynik.' : '';
+  startCountdown('tg-timer', d.endsAt);
+  showScreen('screen-truths-guess');
+}
+function truthsChoose(i, btn) {
+  if (ttPicked != null) return; ttPicked = i;
+  socket.emit('truthsGuess', { index: i });
+  document.querySelectorAll('#tg-options .bluff-opt').forEach(b => b.disabled = true);
+  btn.classList.add('picked');
+}
+socket.on('truthsGuess', renderTruthsGuess);
+socket.on('truthsProgress', ({ have, need }) => { const el = document.getElementById('tg-progress'); if (el && ttPicked == null && !ttAmAuthor) el.textContent = `Zgadło: ${have}/${need}`; });
+socket.on('truthsReveal', (d) => {
+  const box = document.getElementById('tr-list'); box.innerHTML = '';
+  d.tally.forEach((t, i) => {
+    const row = document.createElement('div'); row.className = 'bluff-reveal-row' + (t.isLie ? ' lie' : '');
+    const picks = t.pickedBy.length ? ('Typowali: ' + t.pickedBy.map(escAttr).join(', ')) : 'Nikt nie typował';
+    row.innerHTML = `<div class="brr-text">${t.isLie ? '🤥 ' : '✅ '}${escAttr(t.text)}</div><div class="brr-meta">${t.isLie ? 'KŁAMSTWO' : 'prawda'} • ${picks}</div>`;
+    box.appendChild(row);
+  });
+  renderArcadeScoreboard('tr-scoreboard', d.scoreboard);
+  showScreen('screen-truths-reveal');
+});
+
+// ── NAJGORSZE SKOJARZENIA ─────────────────────────────────────────────────────
+let assocDone = false, assocPicked = null;
+function renderAssocWrite(d) {
+  assocDone = !!d.submitted;
+  document.getElementById('aw-counter').textContent = `Runda ${d.index+1} / ${d.total}`;
+  document.getElementById('aw-prompt').textContent = d.prompt;
+  document.getElementById('aw-input').value = '';
+  document.getElementById('aw-input-area').style.display = assocDone ? 'none' : 'flex';
+  document.getElementById('aw-done').style.display = assocDone ? 'block' : 'none';
+  document.getElementById('aw-progress').textContent = '';
+  startCountdown('aw-timer', d.endsAt);
+  showScreen('screen-assoc-write');
+}
+function assocSubmit() {
+  const v = document.getElementById('aw-input').value.trim(); if (!v) return;
+  socket.emit('assocSubmit', { text: v }); assocDone = true;
+  document.getElementById('aw-input-area').style.display = 'none';
+  document.getElementById('aw-done').style.display = 'block';
+}
+socket.on('assocWrite', renderAssocWrite);
+socket.on('assocWriteProgress', ({ have, need }) => { const el = document.getElementById('aw-progress'); if (el) el.textContent = `Gotowych: ${have}/${need}`; });
+function renderAssocVote(d) {
+  assocPicked = d.picked || null;
+  document.getElementById('av-counter').textContent = `Runda ${d.index+1} / ${d.total}`;
+  document.getElementById('av-prompt').textContent = d.prompt;
+  const box = document.getElementById('av-options'); box.innerHTML = '';
+  d.options.forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'bluff-opt' + (o.mine ? ' mine' : '') + (assocPicked === o.id ? ' picked' : '');
+    b.textContent = o.text;
+    if (o.mine || assocPicked) b.disabled = true;
+    else b.onclick = () => assocChoose(o.id, b);
+    box.appendChild(b);
+  });
+  document.getElementById('av-progress').textContent = '';
+  startCountdown('av-timer', d.endsAt);
+  showScreen('screen-assoc-vote');
+}
+function assocChoose(id, btn) {
+  if (assocPicked) return; assocPicked = id;
+  socket.emit('assocVote', { optionId: id });
+  document.querySelectorAll('#av-options .bluff-opt').forEach(b => b.disabled = true);
+  btn.classList.add('picked');
+}
+socket.on('assocVote', renderAssocVote);
+socket.on('assocVoteProgress', ({ have, need }) => { const el = document.getElementById('av-progress'); if (el && !assocPicked) el.textContent = `Zagłosowało: ${have}/${need}`; });
+socket.on('assocReveal', (d) => {
+  document.getElementById('ar-prompt').textContent = d.prompt;
+  const box = document.getElementById('ar-list'); box.innerHTML = '';
+  if (d.skipped) box.innerHTML = '<div class="pub-empty">Za mało odpowiedzi na tę rundę 🤷</div>';
+  d.reveal.forEach((o, i) => {
+    const row = document.createElement('div'); row.className = 'bluff-reveal-row' + (i === 0 && o.votes > 0 ? ' real' : '');
+    row.innerHTML = `<div class="brr-text">${i===0&&o.votes>0?'🏆 ':''}${escAttr(o.text)}</div><div class="brr-meta">✍️ ${escAttr(o.author)} • ${o.votes} gł.</div>`;
+    box.appendChild(row);
+  });
+  renderArcadeScoreboard('ar-scoreboard', d.scoreboard);
+  showScreen('screen-assoc-reveal');
+});
+document.getElementById('aw-input').addEventListener('keydown', e => { if (e.key === 'Enter') assocSubmit(); });
+
 // ── ARCADE REJOIN ─────────────────────────────────────────────────────────────
 socket.on('arcadeRejoin', (s) => {
   endReconnect();
@@ -1724,6 +1936,14 @@ socket.on('arcadeRejoin', (s) => {
   } else if (s.game === 'draw') {
     if (s.phase === 'drawing') renderDrawTurn(s);
     else if (s.phase === 'reveal') { document.getElementById('drr-word').textContent = s.word; renderArcadeScoreboard('drr-scoreboard', s.scoreboard); showScreen('screen-draw-reveal'); }
+  } else if (s.game === 'truths') {
+    if (s.phase === 'telling') renderTruthsTell(s);
+    else if (s.phase === 'guessing') renderTruthsGuess(s);
+    else if (s.phase === 'reveal') { document.getElementById('tr-list').innerHTML = ''; renderArcadeScoreboard('tr-scoreboard', s.scoreboard); showScreen('screen-truths-reveal'); }
+  } else if (s.game === 'assoc') {
+    if (s.phase === 'writing') renderAssocWrite(s);
+    else if (s.phase === 'voting') renderAssocVote(s);
+    else if (s.phase === 'reveal') { document.getElementById('ar-prompt').textContent = s.prompt; document.getElementById('ar-list').innerHTML = ''; renderArcadeScoreboard('ar-scoreboard', s.scoreboard); showScreen('screen-assoc-reveal'); }
   }
 });
 
