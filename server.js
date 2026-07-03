@@ -255,6 +255,27 @@ function broadcastLobby(code) {
     availableCategories: lobby.game === 'panstwa' ? lobby.availableCategories : undefined,
     maxRounds:           lobby.game === 'panstwa' ? lobby.maxRounds : undefined,
   });
+  broadcastPublicLobbies();
+}
+
+// ─── PUBLIC LOBBY BROWSER ────────────────────────────────────────────────────
+const GAME_MAX = { panstwa: MAX_PM_PLAYERS };
+function publicLobbyList() {
+  return Object.entries(lobbies)
+    .filter(([, l]) => l.visibility === 'public' && l.phase === 'waiting')
+    .map(([code, l]) => {
+      const host = l.players.find(p => p.playerId === l.admin);
+      return {
+        code, game: l.game,
+        host: host?.nickname ?? '?',
+        players: l.players.length,
+        max: GAME_MAX[l.game] || null,
+        hasPassword: !!l.password,
+      };
+    });
+}
+function broadcastPublicLobbies() {
+  io.to('lobby-browser').emit('publicLobbies', publicLobbyList());
 }
 
 // ─── CZÓŁKO – SIMULTANEOUS ASSIGNMENT ───────────────────────────────────────
@@ -623,6 +644,7 @@ function broadcastArcadeLobby(code) {
     game: lobby.game, admin: lobby.admin, players: arcadePlayers(lobby),
     settings: lobby.settings, settingOptions: ARCADE_SETTING_OPTIONS[lobby.game], code,
   });
+  broadcastPublicLobbies();
 }
 function connectedNonDrawer(lobby) {
   return lobby.players.filter(p => p.connected && p.playerId !== lobby.drawerId).length;
@@ -891,7 +913,7 @@ function arcadeRejoinSnapshot(lobby, pid, isAdmin, code) {
 io.on('connection', socket => {
 
   // CREATE LOBBY
-  socket.on('createLobby', ({ nickname, playerId, game }) => {
+  socket.on('createLobby', ({ nickname, playerId, game, visibility, password }) => {
     const pid      = playerId || generateId();
     const code     = generateCode();
     const valid    = ['czolko','panstwa','quiz','bluff','draw'];
@@ -910,7 +932,13 @@ io.on('connection', socket => {
       lobbies[code] = { game: gameType, admin: pid, players: [basePlayer], phase: 'waiting', settings, timer: null };
     }
 
+    // Public / private visibility + optional password (public only).
+    lobbies[code].visibility = visibility === 'public' ? 'public' : 'private';
+    lobbies[code].password   = (lobbies[code].visibility === 'public' && typeof password === 'string')
+      ? password.trim().slice(0, 20) : '';
+
     socket.join(code);
+    socket.leave('lobby-browser');
     socket.lobbyCode = code;
     socket.playerId  = pid;
     socket.emit('lobbyCreated', {
@@ -926,15 +954,18 @@ io.on('connection', socket => {
   });
 
   // JOIN LOBBY
-  socket.on('joinLobby', ({ code, nickname, playerId }) => {
+  socket.on('joinLobby', ({ code, nickname, playerId, password }) => {
+    code = (typeof code === 'string' ? code : '').trim().toUpperCase();
     const lobby = lobbies[code];
     if (!lobby)                                              return socket.emit('error', 'Nie ma takiego lobby!');
     if (lobby.phase !== 'waiting')                           return socket.emit('error', 'Gra już trwa!');
+    if (lobby.password && (password || '').trim() !== lobby.password) return socket.emit('joinNeedsPassword', { code, wrong: !!(password || '').trim() });
     if (lobby.game === 'panstwa' && lobby.players.length >= MAX_PM_PLAYERS) return socket.emit('error', 'Lobby jest pełne (max 15 graczy)!');
 
     const pid = playerId || generateId();
     lobby.players.push({ playerId: pid, socketId: socket.id, nickname, connected: true, disconnectTimer: null, word: null, score: 0 });
     socket.join(code);
+    socket.leave('lobby-browser');
     socket.lobbyCode = code;
     socket.playerId  = pid;
     socket.emit('joinedLobby', {
@@ -948,6 +979,13 @@ io.on('connection', socket => {
     if (['quiz','bluff','draw'].includes(lobby.game)) broadcastArcadeLobby(code);
     else broadcastLobby(code);
   });
+
+  // PUBLIC LOBBY BROWSER (home screen list)
+  socket.on('browsePublic', () => {
+    socket.join('lobby-browser');
+    socket.emit('publicLobbies', publicLobbyList());
+  });
+  socket.on('stopBrowse', () => socket.leave('lobby-browser'));
 
   // REJOIN
   socket.on('rejoin', ({ code, playerId }) => {
@@ -1019,6 +1057,7 @@ io.on('connection', socket => {
     if (lobby.players.length < 2) return socket.emit('error', 'Potrzeba minimum 2 graczy!');
     if (lobby.phase !== 'waiting') return;
     startSimultaneousAssign(code);
+    broadcastPublicLobbies();
   });
 
   socket.on('submitSimultaneousWord', ({ word }) => {
@@ -1112,6 +1151,7 @@ io.on('connection', socket => {
     if (lobby.players.length < 2)   return socket.emit('error', 'Potrzeba minimum 2 graczy!');
     if (lobby.categories.length < 3) return socket.emit('error', 'Wybierz minimum 3 kategorie!');
     pmBeginRound(code);
+    broadcastPublicLobbies();
   });
 
   socket.on('updateAnswers', ({ answers }) => {
@@ -1217,6 +1257,7 @@ io.on('connection', socket => {
     if (lobby.game === 'quiz')  quizStart(code);
     else if (lobby.game === 'bluff') bluffStart(code);
     else drawStart(code);
+    broadcastPublicLobbies();
   });
 
   socket.on('arcadePlayAgain', () => {
@@ -1335,6 +1376,7 @@ io.on('connection', socket => {
       if (lobby.endVoteTimeout)  clearTimeout(lobby.endVoteTimeout);
       if (lobby.timer)           clearTimeout(lobby.timer);
       delete lobbies[code];
+      broadcastPublicLobbies();
       return;
     }
 
@@ -1386,6 +1428,7 @@ io.on('connection', socket => {
         if (lobby.endVoteTimeout)  clearTimeout(lobby.endVoteTimeout);
         if (lobby.timer)           clearTimeout(lobby.timer);
         delete lobbies[code];
+        broadcastPublicLobbies();
       } else {
         if (lobby.admin === playerId) {
           const next = lobby.players.find(p => p.connected) || lobby.players[0];
