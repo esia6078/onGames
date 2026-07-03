@@ -65,6 +65,35 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
 /* ──────────────────────────────────────────────── GAME PICKER ── */
 .game-picker{display:flex;gap:10px;width:100%}
+.game-picker-grid{flex-wrap:wrap}
+.game-picker-grid .game-pick-card{flex:1 1 28%;min-width:90px}
+
+/* Quiz answer buttons */
+.quiz-opt{width:100%;padding:16px;border-radius:14px;border:2px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#eee;font-size:1rem;font-weight:600;text-align:left;transition:all .15s}
+.quiz-opt:disabled{opacity:1}
+.quiz-opt.picked{border-color:#818cf8;background:rgba(129,140,248,.16)}
+.quiz-opt.correct{border-color:#34d399;background:rgba(52,211,153,.18);color:#fff}
+.quiz-opt.wrong{border-color:#f87171;background:rgba(248,113,113,.16);color:#fff}
+.quiz-opt .qo-letter{display:inline-block;width:26px;height:26px;line-height:26px;text-align:center;border-radius:8px;background:rgba(255,255,255,.12);margin-right:10px;font-weight:800}
+
+/* Bluff option buttons */
+.bluff-opt{width:100%;padding:14px 16px;border-radius:12px;border:2px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#eee;font-size:1rem;font-weight:600;text-align:left;transition:all .15s}
+.bluff-opt.picked{border-color:#818cf8;background:rgba(129,140,248,.16)}
+.bluff-opt.mine{opacity:.5;cursor:not-allowed;border-style:dashed}
+.bluff-reveal-row{display:flex;flex-direction:column;gap:2px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:10px 14px}
+.bluff-reveal-row.real{border-color:#34d399;background:rgba(52,211,153,.1)}
+.brr-text{font-weight:700}
+.brr-meta{font-size:.75rem;color:#9ca3af}
+
+/* Kalambury canvas + chat */
+#dr-canvas{width:100%;max-width:420px;aspect-ratio:1/1;background:#fff;border-radius:14px;touch-action:none;box-shadow:0 6px 24px rgba(0,0,0,.35);cursor:crosshair}
+.dr-color{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.25);cursor:pointer;padding:0;flex:0 0 auto}
+.dr-color.sel{border-color:#fff;transform:scale(1.12)}
+#dr-chat{max-height:150px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;font-size:.85rem;background:rgba(0,0,0,.2);border-radius:10px;padding:8px}
+.dr-chat-line{color:#d1d5db}
+.dr-chat-line.correct{color:#34d399;font-weight:700}
+.dr-hint{font-family:monospace;letter-spacing:4px;font-size:1.3rem;font-weight:800;color:#fbbf24}
+.arc-badge{font-size:.7rem;color:#34d399}
 .game-pick-card{flex:1;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);border-radius:16px;padding:18px 10px;text-align:center;cursor:pointer;transition:all .15s}
 .game-pick-card .gp-emoji{font-size:2rem}
 .game-pick-card .gp-name{font-size:.88rem;font-weight:600;margin-top:6px}
@@ -243,7 +272,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
     <input id="nickname" placeholder="✏️ Twój nick" maxlength="16">
 
     <p class="section-title">Stwórz nowe lobby</p>
-    <div class="game-picker" id="game-picker">
+    <div class="game-picker game-picker-grid" id="game-picker">
       <div class="game-pick-card selected" data-game="czolko" onclick="selectGame('czolko')">
         <div class="gp-emoji">🎯</div>
         <div class="gp-name">Czółko</div>
@@ -251,6 +280,18 @@ button:disabled{opacity:.45;cursor:not-allowed}
       <div class="game-pick-card" data-game="panstwa" onclick="selectGame('panstwa')">
         <div class="gp-emoji">🌍</div>
         <div class="gp-name">Państwa-Miasta</div>
+      </div>
+      <div class="game-pick-card" data-game="quiz" onclick="selectGame('quiz')">
+        <div class="gp-emoji">🧠</div>
+        <div class="gp-name">Quiz wiedzy</div>
+      </div>
+      <div class="game-pick-card" data-game="bluff" onclick="selectGame('bluff')">
+        <div class="gp-emoji">🤥</div>
+        <div class="gp-name">Zmyślacz</div>
+      </div>
+      <div class="game-pick-card" data-game="draw" onclick="selectGame('draw')">
+        <div class="gp-emoji">🎨</div>
+        <div class="gp-name">Kalambury</div>
       </div>
     </div>
     <button class="btn-main" onclick="createLobby()">🏠 Stwórz lobby</button>
@@ -454,6 +495,119 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <button class="btn-main" onclick="location.reload()">🔄 Nowa gra</button>
 </div>
 
+<!-- ══════════════════════════════════════ ARCADE: WSPÓLNE LOBBY ══ -->
+<div class="screen" id="screen-arcade-lobby">
+  <div style="font-size:2.5rem" id="arc-lobby-emoji">🎮</div>
+  <div class="logo" style="font-size:1.6rem" id="arc-lobby-title">Lobby</div>
+  <div class="code-box" id="arc-lobby-code" onclick="copyCode(this.textContent)" title="Kliknij aby skopiować"></div>
+  <p class="code-hint">Kliknij kod aby skopiować 👆</p>
+  <div class="card" style="display:flex;flex-direction:column;gap:10px">
+    <p class="section-title">Gracze w lobby</p>
+    <div class="players-list" id="arc-lobby-players"></div>
+  </div>
+  <div class="card" style="display:flex;flex-direction:column;gap:12px" id="arc-settings-card">
+    <p class="section-title" id="arc-settings-label">Ustawienia</p>
+    <div class="cat-picker" id="arc-settings-picker"></div>
+  </div>
+  <button class="btn-green" id="arc-btn-start" onclick="arcadeStart()" style="display:none">🚀 Rozpocznij grę</button>
+  <p class="waiting-text" id="arc-lobby-wait" style="display:none">⏳ Czekaj, aż admin rozpocznie grę...</p>
+  <button class="btn-ghost" onclick="leaveLobby()">⬅ Wyjdź z lobby</button>
+</div>
+
+<!-- ══════════════════════════════════════ QUIZ ══ -->
+<div class="screen" id="screen-quiz">
+  <p class="section-title" id="quiz-counter"></p>
+  <div class="card" id="quiz-question" style="text-align:center;font-size:1.15rem;font-weight:700"></div>
+  <div class="timer" id="quiz-timer"></div>
+  <div id="quiz-options" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+  <p class="waiting-text" id="quiz-progress"></p>
+</div>
+<div class="screen" id="screen-quiz-reveal">
+  <p class="section-title" id="quizr-counter"></p>
+  <div class="card" id="quizr-question" style="text-align:center;font-weight:700"></div>
+  <div id="quizr-options" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+  <div class="card" id="quizr-result" style="text-align:center;font-weight:700"></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px"><p class="section-title">Ranking</p><div class="scoreboard" id="quizr-scoreboard"></div></div>
+  <p class="waiting-text">Kolejne pytanie za chwilę...</p>
+</div>
+
+<!-- ══════════════════════════════════════ ZMYŚLACZ ══ -->
+<div class="screen" id="screen-bluff-write">
+  <p class="section-title" id="bw-counter"></p>
+  <div class="logo" style="font-size:1.2rem;text-align:center">Wymyśl fałszywą odpowiedź 🤥</div>
+  <div class="card" id="bw-question" style="text-align:center;font-weight:700;font-size:1.1rem"></div>
+  <div class="timer" id="bw-timer"></div>
+  <div id="bw-input-area" style="width:100%;display:flex;flex-direction:column;gap:10px">
+    <input id="bw-input" placeholder="Twoja zmyślona odpowiedź..." maxlength="60">
+    <button class="btn-main" onclick="bluffSubmit()">✅ Wyślij</button>
+    <p class="code-hint">Wpisz coś wiarygodnego, żeby nabrać innych!</p>
+  </div>
+  <div id="bw-done" class="assign-submitted-badge" style="display:none">✅ Wysłane! Czekam na resztę...</div>
+  <p class="waiting-text" id="bw-progress"></p>
+</div>
+<div class="screen" id="screen-bluff-guess">
+  <p class="section-title" id="bg-counter"></p>
+  <div class="logo" style="font-size:1.2rem;text-align:center">Która jest PRAWDZIWA? 🕵️</div>
+  <div class="card" id="bg-question" style="text-align:center;font-weight:700;font-size:1.1rem"></div>
+  <div class="timer" id="bg-timer"></div>
+  <div id="bg-options" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+  <p class="waiting-text" id="bg-progress"></p>
+</div>
+<div class="screen" id="screen-bluff-reveal">
+  <div style="font-size:2.2rem">💡</div>
+  <div class="logo" style="font-size:1.3rem">Rozwiązanie</div>
+  <div class="card" id="br-question" style="text-align:center;font-weight:700"></div>
+  <div id="br-list" style="width:100%;display:flex;flex-direction:column;gap:8px"></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px"><p class="section-title">Ranking</p><div class="scoreboard" id="br-scoreboard"></div></div>
+  <p class="waiting-text">Kolejna runda za chwilę...</p>
+</div>
+
+<!-- ══════════════════════════════════════ KALAMBURY ══ -->
+<div class="screen" id="screen-draw">
+  <p class="section-title" id="dr-counter"></p>
+  <div style="display:flex;justify-content:space-between;align-items:center;width:100%;max-width:420px">
+    <div id="dr-word" style="font-weight:700;font-size:.95rem"></div>
+    <div class="timer" id="dr-timer" style="font-size:1.1rem"></div>
+  </div>
+  <canvas id="dr-canvas" width="700" height="700"></canvas>
+  <div id="dr-tools" style="display:none;gap:8px;width:100%;max-width:420px;align-items:center;flex-wrap:wrap;justify-content:center">
+    <button class="dr-color sel" style="background:#111827" onclick="drawSetColor('#111827',this)"></button>
+    <button class="dr-color" style="background:#ef4444" onclick="drawSetColor('#ef4444',this)"></button>
+    <button class="dr-color" style="background:#3b82f6" onclick="drawSetColor('#3b82f6',this)"></button>
+    <button class="dr-color" style="background:#22c55e" onclick="drawSetColor('#22c55e',this)"></button>
+    <button class="dr-color" style="background:#eab308" onclick="drawSetColor('#eab308',this)"></button>
+    <button class="dr-color" style="background:#f97316" onclick="drawSetColor('#f97316',this)"></button>
+    <button class="dr-color" style="background:#a855f7" onclick="drawSetColor('#a855f7',this)"></button>
+    <button class="nb-toolbar-btn" onclick="drawSetColor('#ffffff',null,true)">🧽 Gumka</button>
+    <button class="nb-toolbar-btn" style="background:rgba(248,113,113,.1);color:#f87171" onclick="drawClearCanvas()">🗑️ Wyczyść</button>
+  </div>
+  <div id="dr-guess-area" style="display:flex;gap:8px;width:100%;max-width:420px">
+    <input id="dr-guess" placeholder="Zgadnij hasło..." maxlength="40" autocomplete="off">
+    <button class="btn-sec" style="width:auto;padding:13px 18px" onclick="drawSendGuess()">Zgadnij</button>
+  </div>
+  <div id="dr-chat" style="width:100%;max-width:420px"></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:420px"><p class="section-title">Ranking</p><div class="scoreboard" id="dr-scoreboard"></div></div>
+</div>
+<div class="screen" id="screen-draw-reveal">
+  <div style="font-size:2.5rem">🎨</div>
+  <div class="logo" style="font-size:1.4rem">Hasło: <span id="drr-word" style="color:#fbbf24"></span></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px"><p class="section-title">Ranking</p><div class="scoreboard" id="drr-scoreboard"></div></div>
+  <p class="waiting-text">Kolejna tura za chwilę...</p>
+</div>
+
+<!-- ══════════════════════════════════════ ARCADE: KONIEC ══ -->
+<div class="screen" id="screen-arcade-finished">
+  <div style="font-size:3rem">🏆</div>
+  <div class="logo" style="font-size:1.6rem">Koniec gry!</div>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px">
+    <p class="section-title">Ranking końcowy</p>
+    <div class="scoreboard" id="arc-final-scoreboard"></div>
+  </div>
+  <button class="btn-green" id="arc-btn-again" onclick="arcadePlayAgain()" style="display:none">🔄 Zagraj jeszcze raz</button>
+  <p class="waiting-text" id="arc-again-wait" style="display:none">⏳ Czekaj, aż admin zdecyduje...</p>
+  <button class="btn-ghost" onclick="leaveLobby()">⬅ Wyjdź z lobby</button>
+</div>
+
 <!-- ══════════════════════════════════════ JAVASCRIPT ══ -->
 <script>
 const socket = io();
@@ -492,7 +646,7 @@ function showToast(html) {
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
 }
 // Screens that top-align + scroll (must be defined before any showScreen call).
-const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game']);
+const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished']);
 
 // Attempt rejoin on load
 let reconnectTimer = null;
@@ -944,11 +1098,304 @@ socket.on('gameEnded', ({ scoreboard }) => {
   clearSession(); showScreen('screen-pm-finished');
 });
 
+// ─── ARCADE GAMES (Quiz / Zmyślacz / Kalambury) ───────────────────────────────
+const ARCADE_GAMES = new Set(['quiz','bluff','draw']);
+const ARCADE_META  = { quiz:{emoji:'🧠',title:'Quiz wiedzy'}, bluff:{emoji:'🤥',title:'Zmyślacz'}, draw:{emoji:'🎨',title:'Kalambury'} };
+const ARCADE_MID_SCREENS = ['screen-quiz','screen-quiz-reveal','screen-bluff-write','screen-bluff-guess','screen-bluff-reveal','screen-draw','screen-draw-reveal'];
+let arcGame = null, arcSettings = {}, arcSettingOptions = null, quizCur = null, quizAnswered = false, bluffSubmitted = false, bluffPicked = null;
+
+function startCountdown(elId, endsAt) {
+  const el = document.getElementById(elId); if (!el) return;
+  if (el._int) clearInterval(el._int);
+  const tick = () => {
+    const s = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+    el.textContent = s + ' s';
+    el.classList.toggle('low', s <= 5);
+    if (endsAt - Date.now() <= 0) { clearInterval(el._int); el._int = null; }
+  };
+  tick(); el._int = setInterval(tick, 250);
+}
+function renderArcadeScoreboard(id, sb) {
+  const div = document.getElementById(id); if (!div) return; div.innerHTML = '';
+  (sb || []).forEach((p, i) => {
+    const row = document.createElement('div'); row.className = 'score-row' + (i === 0 ? ' rank1' : '');
+    row.innerHTML = `<div class="score-rank">${i+1}</div><div class="score-name">${escAttr(p.nickname)}${p.id===myId?' (Ty)':''}${p.connected===false?' <span class="player-item-offline">offline</span>':''}</div><div class="score-value">${p.score}</div>`;
+    div.appendChild(row);
+  });
+}
+
+// ── ARCADE LOBBY ──────────────────────────────────────────────────────────────
+function renderArcadeSettings() {
+  const div = document.getElementById('arc-settings-picker'); if (!div || !arcSettingOptions) return;
+  document.getElementById('arc-settings-label').textContent = arcSettingOptions.label;
+  div.innerHTML = '';
+  const cur = arcSettings[arcSettingOptions.key];
+  arcSettingOptions.values.forEach(v => {
+    const chip = document.createElement('div');
+    chip.className = 'cat-chip' + (cur === v ? ' selected' : '') + (isAdmin ? '' : ' readonly');
+    chip.textContent = v;
+    if (isAdmin) chip.onclick = () => socket.emit('arcadeSetting', { value: v });
+    div.appendChild(chip);
+  });
+}
+function renderArcadeLobby(o) {
+  currentGame = o.game; arcGame = o.game; currentCode = o.code;
+  arcSettings = o.settings || arcSettings; arcSettingOptions = o.settingOptions || arcSettingOptions;
+  const meta = ARCADE_META[o.game] || { emoji:'🎮', title:'Lobby' };
+  document.getElementById('arc-lobby-emoji').textContent = isAdmin ? '👑' : meta.emoji;
+  document.getElementById('arc-lobby-title').textContent = meta.title;
+  document.getElementById('arc-lobby-code').textContent  = o.code;
+  renderPlayersList('arc-lobby-players', o.players || []);
+  renderArcadeSettings();
+  document.getElementById('arc-btn-start').style.display   = (isAdmin && (o.players||[]).length >= 2) ? 'block' : 'none';
+  document.getElementById('arc-lobby-wait').style.display  = isAdmin ? 'none' : 'block';
+  document.getElementById('arc-settings-card').style.display = arcSettingOptions ? 'flex' : 'none';
+}
+function arcadeStart()     { socket.emit('arcadeStart'); }
+function arcadePlayAgain() { socket.emit('arcadePlayAgain'); }
+
+socket.on('arcadeLobby', (o) => {
+  isAdmin = (o.admin === myId);
+  renderArcadeLobby(o);
+  const cur = document.querySelector('.screen.active')?.id;
+  if (!ARCADE_MID_SCREENS.includes(cur)) showScreen('screen-arcade-lobby');
+});
+socket.on('arcadeReturnLobby', () => showScreen('screen-arcade-lobby'));
+socket.on('arcadeFinished', ({ scoreboard }) => {
+  renderArcadeScoreboard('arc-final-scoreboard', scoreboard);
+  document.getElementById('arc-btn-again').style.display = isAdmin ? 'block' : 'none';
+  document.getElementById('arc-again-wait').style.display = isAdmin ? 'none' : 'block';
+  showScreen('screen-arcade-finished');
+});
+
+// ── QUIZ ──────────────────────────────────────────────────────────────────────
+function renderQuizQuestion(d) {
+  quizCur = d; quizAnswered = !!d.youAnswered;
+  document.getElementById('quiz-counter').textContent  = `Pytanie ${d.index+1} / ${d.total}`;
+  document.getElementById('quiz-question').textContent = d.question;
+  const opts = document.getElementById('quiz-options'); opts.innerHTML = '';
+  d.options.forEach((o, i) => {
+    const b = document.createElement('button'); b.className = 'quiz-opt'; b.disabled = quizAnswered;
+    b.innerHTML = `<span class="qo-letter">${'ABCD'[i]}</span>${escAttr(o)}`;
+    b.onclick = () => quizPick(i, b);
+    opts.appendChild(b);
+  });
+  document.getElementById('quiz-progress').textContent = quizAnswered ? 'Odpowiedź wysłana ✓' : '';
+  startCountdown('quiz-timer', d.endsAt);
+  showScreen('screen-quiz');
+}
+function quizPick(i, btn) {
+  if (quizAnswered) return; quizAnswered = true;
+  socket.emit('quizAnswer', { choice: i });
+  document.querySelectorAll('#quiz-options .quiz-opt').forEach(b => b.disabled = true);
+  btn.classList.add('picked');
+  document.getElementById('quiz-progress').textContent = 'Odpowiedź wysłana ✓';
+}
+socket.on('quizQuestion', renderQuizQuestion);
+socket.on('quizProgress', ({ answered, total }) => {
+  const el = document.getElementById('quiz-progress');
+  if (el && !quizAnswered) el.textContent = `Odpowiedziało: ${answered}/${total}`;
+});
+socket.on('quizReveal', (d) => {
+  const q = quizCur || {};
+  document.getElementById('quizr-counter').textContent  = q.total ? `Pytanie ${q.index+1} / ${q.total}` : '';
+  document.getElementById('quizr-question').textContent = q.question || '';
+  const opts = document.getElementById('quizr-options'); opts.innerHTML = '';
+  const mine = (d.perPlayer || {})[myId];
+  (q.options || d.options || []).forEach((o, i) => {
+    let cls = 'quiz-opt';
+    if (i === d.correct) cls += ' correct';
+    else if (mine && mine.choice === i) cls += ' wrong';
+    const div = document.createElement('div'); div.className = cls;
+    div.innerHTML = `<span class="qo-letter">${'ABCD'[i]}</span>${escAttr(o)}`;
+    opts.appendChild(div);
+  });
+  const res = document.getElementById('quizr-result');
+  if (mine && mine.choice === d.correct) res.textContent = `✅ Dobrze! +${mine.gained} pkt`;
+  else if (mine && mine.choice != null)  res.textContent = '❌ Źle';
+  else res.textContent = '⏱️ Brak odpowiedzi';
+  renderArcadeScoreboard('quizr-scoreboard', d.scoreboard);
+  showScreen('screen-quiz-reveal');
+});
+
+// ── ZMYŚLACZ ──────────────────────────────────────────────────────────────────
+function renderBluffWrite(d) {
+  bluffSubmitted = !!d.submitted;
+  document.getElementById('bw-counter').textContent  = `Runda ${d.index+1} / ${d.total}`;
+  document.getElementById('bw-question').textContent = d.question;
+  document.getElementById('bw-input').value = '';
+  document.getElementById('bw-input-area').style.display = bluffSubmitted ? 'none' : 'flex';
+  document.getElementById('bw-done').style.display       = bluffSubmitted ? 'block' : 'none';
+  document.getElementById('bw-progress').textContent = '';
+  startCountdown('bw-timer', d.endsAt);
+  showScreen('screen-bluff-write');
+}
+function bluffSubmit() {
+  const v = document.getElementById('bw-input').value.trim(); if (!v) return;
+  socket.emit('bluffSubmitFake', { text: v }); bluffSubmitted = true;
+  document.getElementById('bw-input-area').style.display = 'none';
+  document.getElementById('bw-done').style.display = 'block';
+}
+socket.on('bluffWrite', renderBluffWrite);
+socket.on('bluffWriteProgress', ({ have, need }) => {
+  const el = document.getElementById('bw-progress'); if (el) el.textContent = `Gotowych: ${have}/${need}`;
+});
+function renderBluffGuess(d) {
+  bluffPicked = d.picked || null;
+  document.getElementById('bg-counter').textContent  = `Runda ${d.index+1} / ${d.total}`;
+  document.getElementById('bg-question').textContent = d.question;
+  const box = document.getElementById('bg-options'); box.innerHTML = '';
+  d.options.forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'bluff-opt' + (o.mine ? ' mine' : '') + (bluffPicked === o.id ? ' picked' : '');
+    b.textContent = o.text;
+    if (o.mine || bluffPicked) b.disabled = true;
+    else b.onclick = () => bluffChoose(o.id, b);
+    box.appendChild(b);
+  });
+  document.getElementById('bg-progress').textContent = d.foundTruth ? '🎯 Napisałeś prawdę — dostaniesz bonus!' : '';
+  startCountdown('bg-timer', d.endsAt);
+  showScreen('screen-bluff-guess');
+}
+function bluffChoose(id, btn) {
+  if (bluffPicked) return; bluffPicked = id;
+  socket.emit('bluffPick', { optionId: id });
+  document.querySelectorAll('#bg-options .bluff-opt').forEach(b => b.disabled = true);
+  btn.classList.add('picked');
+}
+socket.on('bluffGuess', renderBluffGuess);
+socket.on('bluffGuessProgress', ({ have, need }) => {
+  const el = document.getElementById('bg-progress'); if (el && !bluffPicked) el.textContent = `Zgadło: ${have}/${need}`;
+});
+socket.on('bluffReveal', (d) => {
+  document.getElementById('br-question').textContent = d.question;
+  const box = document.getElementById('br-list'); box.innerHTML = '';
+  d.reveal.forEach(o => {
+    const row = document.createElement('div'); row.className = 'bluff-reveal-row' + (o.isReal ? ' real' : '');
+    const picks = o.pickedBy.length ? ('Wybrali: ' + o.pickedBy.map(escAttr).join(', ')) : 'Nikt nie wybrał';
+    const auth  = o.isReal ? '✅ PRAWDA' : ('✍️ ' + escAttr(o.author));
+    row.innerHTML = `<div class="brr-text">${escAttr(o.text)}</div><div class="brr-meta">${auth} • ${picks}</div>`;
+    box.appendChild(row);
+  });
+  renderArcadeScoreboard('br-scoreboard', d.scoreboard);
+  showScreen('screen-bluff-reveal');
+});
+
+// ── KALAMBURY ─────────────────────────────────────────────────────────────────
+const drCanvas = document.getElementById('dr-canvas');
+const dctx = drCanvas.getContext('2d');
+let drAmDrawer = false, drDrawing = false, drColor = '#111827', drWidth = 8;
+function drPos(e) {
+  const r = drCanvas.getBoundingClientRect();
+  const cx = e.clientX, cy = e.clientY;
+  return { x: Math.min(1, Math.max(0, (cx - r.left) / r.width)), y: Math.min(1, Math.max(0, (cy - r.top) / r.height)) };
+}
+function drApply(s) {
+  const W = drCanvas.width, H = drCanvas.height;
+  dctx.lineCap = 'round'; dctx.lineJoin = 'round'; dctx.strokeStyle = s.c; dctx.lineWidth = s.w;
+  if (s.t === 's') {
+    dctx.beginPath(); dctx.moveTo(s.x*W, s.y*H); dctx.lineTo(s.x*W + 0.1, s.y*H + 0.1); dctx.stroke();
+    drCanvas._last = { x: s.x*W, y: s.y*H };
+  } else {
+    const l = drCanvas._last || { x: s.x*W, y: s.y*H };
+    dctx.beginPath(); dctx.moveTo(l.x, l.y); dctx.lineTo(s.x*W, s.y*H); dctx.stroke();
+    drCanvas._last = { x: s.x*W, y: s.y*H };
+  }
+}
+function drClearLocal() { dctx.clearRect(0, 0, drCanvas.width, drCanvas.height); drCanvas._last = null; }
+function drStart(e) { if (!drAmDrawer) return; e.preventDefault(); drDrawing = true; const p = drPos(e); const s = { t:'s', x:p.x, y:p.y, c:drColor, w:drWidth }; drApply(s); socket.emit('drawStroke', s); }
+function drMove(e)  { if (!drAmDrawer || !drDrawing) return; e.preventDefault(); const p = drPos(e); const s = { t:'l', x:p.x, y:p.y, c:drColor, w:drWidth }; drApply(s); socket.emit('drawStroke', s); }
+function drEnd()    { drDrawing = false; }
+drCanvas.addEventListener('pointerdown', drStart);
+drCanvas.addEventListener('pointermove', drMove);
+window.addEventListener('pointerup', drEnd);
+function drawSetColor(c, btn, eraser) { drColor = c; drWidth = eraser ? 55 : 8; document.querySelectorAll('.dr-color').forEach(b => b.classList.remove('sel')); if (btn) btn.classList.add('sel'); }
+function drawClearCanvas() { drClearLocal(); socket.emit('drawClear'); }
+function drawSendGuess() { const i = document.getElementById('dr-guess'); const v = i.value.trim(); if (!v) return; socket.emit('drawGuess', { text: v }); i.value = ''; }
+function drAddChat(html, correct) {
+  const box = document.getElementById('dr-chat'); const line = document.createElement('div');
+  line.className = 'dr-chat-line' + (correct ? ' correct' : ''); line.innerHTML = html;
+  box.appendChild(line); box.scrollTop = box.scrollHeight;
+  while (box.children.length > 50) box.removeChild(box.firstChild);
+}
+function renderDrawTurn(d) {
+  drAmDrawer = d.amDrawer; drDrawing = false;
+  document.getElementById('dr-counter').textContent = `Tura ${d.turnNo} / ${d.totalTurns}`;
+  drClearLocal();
+  if (d.strokes && d.strokes.length) d.strokes.forEach(drApply);
+  const wordEl = document.getElementById('dr-word');
+  if (d.amDrawer) wordEl.innerHTML = `Rysujesz: <span style="color:#fbbf24">${escAttr(d.word)}</span>`;
+  else wordEl.innerHTML = `${escAttr(d.drawerNick)} rysuje… <span class="dr-hint">${'_ '.repeat(d.wordLen).trim()}</span>`;
+  document.getElementById('dr-tools').style.display      = d.amDrawer ? 'flex' : 'none';
+  document.getElementById('dr-guess-area').style.display = d.amDrawer ? 'none' : 'flex';
+  const g = document.getElementById('dr-guess'); g.value = ''; g.disabled = !!d.alreadyGuessed; g.placeholder = d.alreadyGuessed ? 'Zgadłeś! 🎉' : 'Zgadnij hasło...';
+  document.getElementById('dr-chat').innerHTML = '';
+  renderArcadeScoreboard('dr-scoreboard', d.scoreboard);
+  startCountdown('dr-timer', d.endsAt);
+  showScreen('screen-draw');
+}
+socket.on('drawTurn', renderDrawTurn);
+socket.on('drawStroke', drApply);
+socket.on('drawClear', drClearLocal);
+socket.on('drawChat', ({ nick, text }) => drAddChat(`<b>${escAttr(nick)}:</b> ${escAttr(text)}`, false));
+socket.on('drawGuessed', ({ id, nick, order, scoreboard }) => {
+  drAddChat(`✅ <b>${escAttr(nick)}</b> zgadł(a)! (${order}. miejsce)`, true);
+  renderArcadeScoreboard('dr-scoreboard', scoreboard);
+  if (id === myId) { const g = document.getElementById('dr-guess'); g.disabled = true; g.placeholder = 'Zgadłeś! 🎉'; }
+});
+socket.on('drawReveal', (d) => {
+  document.getElementById('drr-word').textContent = d.word;
+  renderArcadeScoreboard('drr-scoreboard', d.scoreboard);
+  showScreen('screen-draw-reveal');
+});
+document.getElementById('dr-guess').addEventListener('keydown', e => { if (e.key === 'Enter') drawSendGuess(); });
+document.getElementById('bw-input').addEventListener('keydown', e => { if (e.key === 'Enter') bluffSubmit(); });
+
+// ── ARCADE REJOIN ─────────────────────────────────────────────────────────────
+socket.on('arcadeRejoin', (s) => {
+  endReconnect();
+  currentGame = s.game; arcGame = s.game; isAdmin = !!s.isAdmin; currentCode = s.code;
+  arcSettings = s.settings; arcSettingOptions = s.settingOptions;
+  if (s.phase === 'waiting') { renderArcadeLobby(s); showScreen('screen-arcade-lobby'); return; }
+  if (s.phase === 'finished') {
+    renderArcadeScoreboard('arc-final-scoreboard', s.scoreboard);
+    document.getElementById('arc-btn-again').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('arc-again-wait').style.display = isAdmin ? 'none' : 'block';
+    showScreen('screen-arcade-finished'); return;
+  }
+  if (s.game === 'quiz') {
+    if (s.phase === 'question') renderQuizQuestion(s);
+    else if (s.phase === 'reveal') {
+      quizCur = { index: s.index, total: s.total, question: s.question, options: s.options };
+      const opts = document.getElementById('quizr-options'); opts.innerHTML = '';
+      document.getElementById('quizr-counter').textContent = `Pytanie ${s.index+1} / ${s.total}`;
+      document.getElementById('quizr-question').textContent = s.question;
+      s.options.forEach((o, i) => { const div = document.createElement('div'); div.className = 'quiz-opt' + (i===s.correct?' correct':''); div.innerHTML = `<span class="qo-letter">${'ABCD'[i]}</span>${escAttr(o)}`; opts.appendChild(div); });
+      document.getElementById('quizr-result').textContent = '';
+      renderArcadeScoreboard('quizr-scoreboard', s.scoreboard);
+      showScreen('screen-quiz-reveal');
+    }
+  } else if (s.game === 'bluff') {
+    if (s.phase === 'writing') renderBluffWrite(s);
+    else if (s.phase === 'guessing') renderBluffGuess(s);
+    else if (s.phase === 'reveal') {
+      document.getElementById('br-question').textContent = s.question;
+      document.getElementById('br-list').innerHTML = '';
+      renderArcadeScoreboard('br-scoreboard', s.scoreboard);
+      showScreen('screen-bluff-reveal');
+    }
+  } else if (s.game === 'draw') {
+    if (s.phase === 'drawing') renderDrawTurn(s);
+    else if (s.phase === 'reveal') { document.getElementById('drr-word').textContent = s.word; renderArcadeScoreboard('drr-scoreboard', s.scoreboard); showScreen('screen-draw-reveal'); }
+  }
+});
+
 // ─── SHARED SOCKET EVENTS ─────────────────────────────────────────────────────
-socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats, maxRounds, roundOptions: ropts }) => {
+socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats, maxRounds, roundOptions: ropts, settings, settingOptions }) => {
   if (playerId) myId = playerId;
   currentGame = game; isAdmin = true; currentCode = code; saveSession({ code });
 
+  if (ARCADE_GAMES.has(game)) { arcSettings = settings; arcSettingOptions = settingOptions; return; }
   if (game === 'panstwa') {
     allCategories      = cats;
     selectedCategories = cats.slice(0, 6);
@@ -966,10 +1413,11 @@ socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats, maxRound
   }
 });
 
-socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats, maxRounds, roundOptions: ropts }) => {
+socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats, maxRounds, roundOptions: ropts, settings, settingOptions }) => {
   if (playerId) myId = playerId;
   currentGame = game; isAdmin = false; currentCode = code; saveSession({ code });
 
+  if (ARCADE_GAMES.has(game)) { arcSettings = settings; arcSettingOptions = settingOptions; return; }
   if (game === 'panstwa') {
     allCategories      = cats;
     selectedCategories = cats.slice(0, 6);
