@@ -68,6 +68,24 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .game-picker-grid{flex-wrap:wrap}
 .game-picker-grid .game-pick-card{flex:1 1 28%;min-width:90px}
 
+/* Visibility (public/private) picker */
+.vis-picker{display:flex;gap:10px;width:100%}
+.vis-card{flex:1;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);border-radius:14px;padding:12px 8px;text-align:center;cursor:pointer;transition:all .15s}
+.vis-card .vis-emoji{font-size:1.5rem}
+.vis-card .vis-name{font-size:.85rem;font-weight:700;margin-top:2px}
+.vis-card .vis-desc{font-size:.68rem;color:#6b7280}
+.vis-card.selected{border-color:#818cf8;background:rgba(129,140,248,.12)}
+
+/* Public lobby list rows */
+.pub-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:10px 12px;cursor:pointer;transition:background .15s}
+.pub-row:hover{background:rgba(129,140,248,.1)}
+.pub-emoji{font-size:1.4rem;flex:0 0 auto}
+.pub-info{flex:1;min-width:0}
+.pub-title{font-weight:700;font-size:.9rem}
+.pub-sub{font-size:.72rem;color:#9ca3af}
+.pub-meta{font-size:.75rem;color:#cbd5e1;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.pub-empty{font-size:.82rem;color:#6b7280;text-align:center;padding:6px}
+
 /* Quiz answer buttons */
 .quiz-opt{width:100%;padding:16px;border-radius:14px;border:2px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#eee;font-size:1rem;font-weight:600;text-align:left;transition:all .15s}
 .quiz-opt:disabled{opacity:1}
@@ -266,7 +284,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <div class="screen active" id="screen-home">
   <div style="font-size:2.5rem;text-align:center">🎮</div>
   <div class="logo">Gry towarzyskie</div>
-  <div class="logo-sub">Czółko • Państwa-Miasta</div>
+  <div class="logo-sub">Czółko • Państwa-Miasta • Quiz • Zmyślacz • Kalambury</div>
 
   <div class="card" style="display:flex;flex-direction:column;gap:14px">
     <input id="nickname" placeholder="✏️ Twój nick" maxlength="16">
@@ -294,6 +312,19 @@ button:disabled{opacity:.45;cursor:not-allowed}
         <div class="gp-name">Kalambury</div>
       </div>
     </div>
+
+    <div class="vis-picker">
+      <div class="vis-card selected" id="vis-private" onclick="selectVisibility('private')">
+        <div class="vis-emoji">🔒</div><div class="vis-name">Prywatne</div>
+        <div class="vis-desc">tylko po kodzie</div>
+      </div>
+      <div class="vis-card" id="vis-public" onclick="selectVisibility('public')">
+        <div class="vis-emoji">🌍</div><div class="vis-name">Publiczne</div>
+        <div class="vis-desc">widoczne na liście</div>
+      </div>
+    </div>
+    <input id="lobby-password" placeholder="🔑 Hasło (opcjonalne)" maxlength="20" style="display:none">
+
     <button class="btn-main" onclick="createLobby()">🏠 Stwórz lobby</button>
 
     <div style="display:flex;align-items:center;gap:10px">
@@ -308,6 +339,14 @@ button:disabled{opacity:.45;cursor:not-allowed}
     </div>
   </div>
   <p class="error" id="home-error"></p>
+
+  <div class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <p class="section-title" style="margin:0">🌍 Publiczne lobby</p>
+      <button class="nb-toolbar-btn" onclick="refreshPublic()" title="Odśwież">🔄</button>
+    </div>
+    <div id="public-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════ CZÓŁKO: LOBBY ADMIN ══ -->
@@ -651,7 +690,7 @@ const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'scre
 // Attempt rejoin on load
 let reconnectTimer = null;
 function endReconnect() { if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; } }
-function backToHome() { endReconnect(); clearSession(); showScreen('screen-home'); }
+function backToHome() { endReconnect(); clearSession(); showScreen('screen-home'); socket.emit('browsePublic'); }
 
 const savedSession = getSession();
 if (savedSession && savedSession.code) {
@@ -670,9 +709,20 @@ socket.on('connect', () => {
 });
 
 // ─── HOME ─────────────────────────────────────────────────────────────────────
+let selectedVisibility = 'private';
+const GAME_UI = {
+  czolko:{e:'🎯',n:'Czółko'}, panstwa:{e:'🌍',n:'Państwa-Miasta'},
+  quiz:{e:'🧠',n:'Quiz wiedzy'}, bluff:{e:'🤥',n:'Zmyślacz'}, draw:{e:'🎨',n:'Kalambury'},
+};
 function selectGame(g) {
   selectedGame = g;
   document.querySelectorAll('.game-pick-card').forEach(el => el.classList.toggle('selected', el.dataset.game === g));
+}
+function selectVisibility(v) {
+  selectedVisibility = v;
+  document.getElementById('vis-private').classList.toggle('selected', v === 'private');
+  document.getElementById('vis-public').classList.toggle('selected', v === 'public');
+  document.getElementById('lobby-password').style.display = v === 'public' ? 'block' : 'none';
 }
 function getNick() {
   const n = document.getElementById('nickname').value.trim();
@@ -680,8 +730,42 @@ function getNick() {
   return n;
 }
 function showHomeError(msg) { document.getElementById('home-error').textContent = msg; setTimeout(() => { document.getElementById('home-error').textContent = ''; }, 3000); }
-function createLobby() { const n = getNick(); if (!n) return; socket.emit('createLobby', { nickname: n, playerId: myId, game: selectedGame }); }
+function createLobby() {
+  const n = getNick(); if (!n) return;
+  const password = selectedVisibility === 'public' ? document.getElementById('lobby-password').value.trim() : '';
+  socket.emit('createLobby', { nickname: n, playerId: myId, game: selectedGame, visibility: selectedVisibility, password });
+}
 function joinLobby()   { const n = getNick(); if (!n) return; const c = document.getElementById('join-code').value.trim().toUpperCase(); if (!c) { showHomeError('Wpisz kod!'); return; } socket.emit('joinLobby', { code: c, nickname: n, playerId: myId }); }
+
+// ── PUBLIC LOBBY BROWSER ──────────────────────────────────────────────────────
+function refreshPublic() { socket.emit('browsePublic'); }
+function renderPublicList(list) {
+  const div = document.getElementById('public-list'); if (!div) return; div.innerHTML = '';
+  if (!list || !list.length) { div.innerHTML = '<div class="pub-empty">Brak publicznych lobby — stwórz pierwsze! 🎉</div>'; return; }
+  list.forEach(l => {
+    const ui = GAME_UI[l.game] || { e:'🎮', n:l.game };
+    const cap = l.max ? `${l.players}/${l.max}` : `${l.players}`;
+    const row = document.createElement('div'); row.className = 'pub-row';
+    row.innerHTML = `<div class="pub-emoji">${ui.e}</div>
+      <div class="pub-info"><div class="pub-title">${escAttr(ui.n)}</div><div class="pub-sub">host: ${escAttr(l.host)}</div></div>
+      <div class="pub-meta">${l.hasPassword ? '🔒' : ''} 👥 ${cap} →</div>`;
+    row.onclick = () => joinPublic(l.code, l.hasPassword);
+    div.appendChild(row);
+  });
+}
+function joinPublic(code, hasPassword) {
+  const n = getNick(); if (!n) return;
+  let password = '';
+  if (hasPassword) { password = (prompt('🔑 Podaj hasło do lobby:') || '').trim(); if (!password) return; }
+  socket.emit('joinLobby', { code, nickname: n, playerId: myId, password });
+}
+socket.on('publicLobbies', renderPublicList);
+socket.on('joinNeedsPassword', ({ code, wrong }) => {
+  const n = getNick(); if (!n) return;
+  const password = (prompt(wrong ? '❌ Złe hasło. Spróbuj ponownie:' : '🔑 To lobby wymaga hasła:') || '').trim();
+  if (!password) return;
+  socket.emit('joinLobby', { code, nickname: n, playerId: myId, password });
+});
 
 function leaveLobby() {
   if (!confirm('Na pewno wyjść z lobby?')) return;
