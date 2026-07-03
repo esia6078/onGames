@@ -44,6 +44,65 @@ const POINT_STEP          = 5;                  // each net downvote lowers poin
 const ARCADE_GAME_TYPES   = ['quiz','bluff','draw','truths','assoc'];
 
 // ─── ARCADE GAMES DATA ──────────────────────────────────────────────────────
+// Poziom ŁATWY – dla każdego, bardzo proste.
+const QUIZ_EASY_QUESTIONS = [
+  { q: 'Jakiego koloru jest banan?',               o: ['Żółty','Niebieski','Czarny','Fioletowy'],           c: 0 },
+  { q: 'Jakiego koloru jest dojrzały pomidor?',    o: ['Czerwony','Niebieski','Czarny','Biały'],            c: 0 },
+  { q: 'Jakiego koloru jest cytryna?',             o: ['Żółty','Czerwony','Niebieski','Zielony'],           c: 0 },
+  { q: 'Jakiego koloru jest śnieg?',               o: ['Biały','Czarny','Zielony','Czerwony'],              c: 0 },
+  { q: 'Jakiego koloru jest trawa?',               o: ['Zielona','Niebieska','Czarna','Żółta'],             c: 0 },
+  { q: 'Ile to jest 2 + 2?',                       o: ['4','3','5','22'],                                   c: 0 },
+  { q: 'Ile to jest 5 + 5?',                       o: ['10','15','25','50'],                                c: 0 },
+  { q: 'Ile to jest 10 − 3?',                      o: ['7','6','8','13'],                                   c: 0 },
+  { q: 'Ile to jest 3 × 2?',                       o: ['6','5','8','9'],                                    c: 0 },
+  { q: 'Ile to jest 4 × 2?',                       o: ['8','6','10','4'],                                   c: 0 },
+  { q: 'Ile to jest połowa z 10?',                 o: ['5','2','10','15'],                                  c: 0 },
+  { q: 'Ile nóg ma pies?',                         o: ['4','2','6','3'],                                    c: 0 },
+  { q: 'Ile nóg ma pająk?',                        o: ['8','6','4','10'],                                   c: 0 },
+  { q: 'Ile nóg ma kura?',                         o: ['2','4','6','3'],                                    c: 0 },
+  { q: 'Ile palców ma jedna dłoń?',                o: ['5','4','6','10'],                                   c: 0 },
+  { q: 'Co robi krowa?',                           o: ['Muczy','Szczeka','Miauczy','Rży'],                  c: 0 },
+  { q: 'Co robi kaczka?',                          o: ['Kwacze','Szczeka','Muczy','Miauczy'],               c: 0 },
+  { q: 'Gdzie mieszka ryba?',                      o: ['W wodzie','W lesie','Na drzewie','W piasku'],       c: 0 },
+  { q: 'Które to zwierzę ma trąbę?',               o: ['Słoń','Mysz','Kot','Żaba'],                         c: 0 },
+  { q: 'Jak nazywa się król zwierząt?',            o: ['Lew','Kot','Pies','Mysz'],                          c: 0 },
+  { q: 'Czym jeździ się po torach?',               o: ['Pociąg','Samolot','Statek','Rower'],                c: 0 },
+  { q: 'Ile kół ma samochód osobowy?',             o: ['4','2','3','6'],                                    c: 0 },
+  { q: 'Ile kół ma rower?',                        o: ['2','4','1','3'],                                    c: 0 },
+  { q: 'Co świeci w dzień na niebie?',             o: ['Słońce','Księżyc','Gwiazdy','Lampa'],               c: 0 },
+  { q: 'Co świeci w nocy na niebie?',              o: ['Księżyc','Słońce','Tęcza','Chmura'],                c: 0 },
+  { q: 'Pora roku, gdy pada śnieg?',               o: ['Zima','Lato','Wiosna','Jesień'],                    c: 0 },
+  { q: 'Pora roku, gdy jest najgoręcej?',          o: ['Lato','Zima','Jesień','Wiosna'],                    c: 0 },
+  { q: 'Czym widzimy?',                            o: ['Oczami','Uszami','Nosem','Rękami'],                 c: 0 },
+  { q: 'Czym słyszymy?',                           o: ['Uszami','Oczami','Nosem','Nogami'],                 c: 0 },
+  { q: 'Czym wąchamy?',                            o: ['Nosem','Uszami','Oczami','Rękami'],                 c: 0 },
+  { q: 'Gdzie kupujemy jedzenie?',                 o: ['Sklep','Szkoła','Kino','Basen'],                    c: 0 },
+  { q: 'Gdzie się uczymy?',                        o: ['Szkoła','Sklep','Szpital','Stadion'],               c: 0 },
+  { q: 'Kto leczy zwierzęta?',                     o: ['Weterynarz','Dentysta','Fryzjer','Kucharz'],        c: 0 },
+  { q: 'Kto roznosi listy?',                       o: ['Listonosz','Strażak','Piekarz','Malarz'],           c: 0 },
+  { q: 'Co daje krowa?',                           o: ['Mleko','Jajka','Wełnę','Miód'],                     c: 0 },
+  { q: 'Co daje owca?',                            o: ['Wełnę','Jajka','Miód','Sok'],                       c: 0 },
+  { q: 'Co robi pszczoła?',                        o: ['Robi miód','Szczeka','Pływa','Rży'],                c: 0 },
+  { q: 'Co nosi król na głowie?',                  o: ['Koronę','Kask','Czapkę z daszkiem','Kapelusz'],     c: 0 },
+  { q: 'Czym piszemy?',                            o: ['Długopisem','Widelcem','Młotkiem','Garnkiem'],      c: 0 },
+  { q: 'Co zakładamy na nogi?',                    o: ['Buty','Czapkę','Rękawiczki','Okulary'],             c: 0 },
+  { q: 'Co zakładamy na głowę?',                   o: ['Czapkę','Buty','Skarpetki','Rękawiczki'],           c: 0 },
+  { q: 'Ile dni ma weekend?',                      o: ['2','1','3','5'],                                    c: 0 },
+  { q: 'Ile minut ma kwadrans?',                   o: ['15','30','45','60'],                                c: 0 },
+  { q: 'Który to owoc?',                           o: ['Jabłko','Marchewka','Ziemniak','Cebula'],           c: 0 },
+  { q: 'Które to warzywo?',                        o: ['Marchewka','Banan','Truskawka','Winogrono'],        c: 0 },
+  { q: 'Jaki napój robi się z jabłek?',            o: ['Sok jabłkowy','Mleko','Kawa','Ocet'],               c: 0 },
+  { q: 'Jaki kształt ma piłka?',                   o: ['Okrągły','Kwadratowy','Trójkątny','Prosty'],        c: 0 },
+  { q: 'Ile boków ma trójkąt?',                    o: ['3','4','5','6'],                                    c: 0 },
+  { q: 'Ile boków ma kwadrat?',                    o: ['4','3','5','6'],                                    c: 0 },
+  { q: 'Gdzie śpi człowiek?',                      o: ['W łóżku','W wannie','W lodówce','Na drzewie'],      c: 0 },
+  { q: 'Jak nazywa się młody pies?',               o: ['Szczeniak','Kociak','Prosiak','Źrebak'],            c: 0 },
+  { q: 'Jak nazywa się młody kot?',                o: ['Kociak','Szczeniak','Kurczak','Cielak'],            c: 0 },
+  { q: 'Co robi żaba?',                            o: ['Skacze i kumka','Szczeka','Rży','Kwacze'],          c: 0 },
+  { q: 'Ile liter ma słowo „kot"?',                o: ['3','2','4','5'],                                    c: 0 },
+  { q: 'Ile to jest tuzin?',                       o: ['12','10','6','20'],                                 c: 0 },
+];
+
 const QUIZ_QUESTIONS = [
   { q: 'Stolica Australii?',                       o: ['Sydney','Canberra','Melbourne','Perth'],            c: 1 },
   { q: 'Ile nóg ma pająk?',                        o: ['6','8','10','12'],                                  c: 1 },
@@ -202,6 +261,50 @@ const QUIZ_QUESTIONS = [
   { q: 'Ile nóg ma pies?',                         o: ['4','2','6','8'],                                    c: 0 },
   { q: 'Co daje kura?',                            o: ['Jajka','Mleko','Wełnę','Miód'],                     c: 0 },
   { q: 'Co produkują pszczoły?',                   o: ['Miód','Mleko','Jajka','Ser'],                       c: 0 },
+  { q: 'W którym kraju wynaleziono pizzę?',        o: ['Włochy','Francja','Grecja','Hiszpania'],            c: 0 },
+  { q: 'Jaki taniec pochodzi z Argentyny?',        o: ['Tango','Walc','Samba','Polka'],                     c: 0 },
+  { q: 'Który instrument ma czarno-białe klawisze?', o: ['Pianino','Gitara','Skrzypce','Perkusja'],         c: 0 },
+  { q: 'Jak nazywa się słynny detektyw Conan Doyle\'a?', o: ['Sherlock Holmes','Herkules Poirot','James Bond','Zorro'], c: 0 },
+  { q: 'Kto napisał „Harry\'ego Pottera"?',        o: ['J.K. Rowling','Tolkien','C.S. Lewis','R. Dahl'],    c: 0 },
+  { q: 'Gdzie mieszka Święty Mikołaj (wg legendy)?', o: ['Laponia','Syberia','Grenlandia','Alaska'],        c: 0 },
+  { q: 'Ile pierścieni ma flaga olimpijska?',      o: ['5','4','6','3'],                                    c: 0 },
+  { q: 'Największy ssak morski?',                  o: ['Płetwal błękitny','Delfin','Rekin','Foka'],         c: 0 },
+  { q: 'Które zwierzę zmienia kolor skóry?',       o: ['Kameleon','Żyrafa','Słoń','Krokodyl'],              c: 0 },
+  { q: 'Jak nazywa się dom Eskimosów ze śniegu?',  o: ['Igloo','Jurta','Wigwam','Namiot'],                  c: 0 },
+  { q: 'W jakim kraju zbudowano Wielki Mur?',      o: ['Chiny','Japonia','Indie','Korea'],                  c: 0 },
+  { q: 'Kto namalował „Bitwę pod Grunwaldem"?',    o: ['Jan Matejko','Wyspiański','Malczewski','Kossak'],   c: 0 },
+  { q: 'Kto namalował „Damę z gronostajem"?',      o: ['Leonardo da Vinci','Rembrandt','Matejko','Picasso'], c: 0 },
+  { q: 'W jakim mieście stoi wieża Eiffla?',       o: ['Paryż','Londyn','Rzym','Berlin'],                   c: 0 },
+  { q: 'W którym kraju jest Wielki Kanion?',       o: ['USA','Kanada','Meksyk','Brazylia'],                 c: 0 },
+  { q: 'Waluta Wielkiej Brytanii?',               o: ['Funt','Euro','Dolar','Frank'],                      c: 0 },
+  { q: 'Które zwierzę jest symbolem WWF?',         o: ['Panda','Lew','Tygrys','Słoń'],                      c: 0 },
+  { q: 'Który malarz odciął sobie ucho?',          o: ['Van Gogh','Rembrandt','Vermeer','Mondrian'],        c: 0 },
+  { q: 'W jakim mieście stoi Statua Wolności?',    o: ['Nowy Jork','Waszyngton','Chicago','Boston'],        c: 0 },
+  { q: 'W którym kraju żyją kangury?',             o: ['Australia','Brazylia','Kenia','Kanada'],            c: 0 },
+  { q: 'W którym kraju żyją pandy?',               o: ['Chiny','Japonia','Indie','Tajlandia'],              c: 0 },
+  { q: 'Największe państwo Ameryki Południowej?',  o: ['Brazylia','Argentyna','Chile','Peru'],              c: 0 },
+  { q: 'Autor „Dziadów"?',                         o: ['Mickiewicz','Słowacki','Norwid','Krasiński'],       c: 0 },
+  { q: 'Największa gorąca pustynia świata?',       o: ['Sahara','Gobi','Atakama','Kalahari'],               c: 0 },
+  { q: 'Najwyższy budynek świata?',               o: ['Burdż Chalifa','Empire State','Wieża Eiffla','Sears'], c: 0 },
+  { q: 'Najszybszy ptak w locie nurkowym?',        o: ['Sokół wędrowny','Orzeł','Jaskółka','Koliber'],      c: 0 },
+  { q: 'Które „Wielkie ___" to przydomek Nowego Jorku?', o: ['Jabłko','Winogrono','Pomarańcza','Banan'],    c: 0 },
+  { q: 'Polski noblista, autor „Chłopów"?',        o: ['Reymont','Sienkiewicz','Miłosz','Prus'],            c: 0 },
+  { q: 'W którym sporcie wykonuje się „slam dunk"?', o: ['Koszykówka','Siatkówka','Piłka nożna','Tenis'],   c: 0 },
+  { q: 'Ile zawodników siatkówki jest na boisku?', o: ['6','5','7','11'],                                   c: 0 },
+  { q: 'W jakim sporcie gra się rakietką na stole?', o: ['Tenis stołowy','Golf','Hokej','Rugby'],           c: 0 },
+  { q: 'Największy ptak nielot?',                  o: ['Struś','Emu','Pingwin','Kiwi'],                     c: 0 },
+  { q: 'Jak nazywa się grupa wilków?',             o: ['Wataha','Stado','Rój','Ławica'],                    c: 0 },
+  { q: 'Który miesiąc bywa dłuższy w roku przestępnym?', o: ['Luty','Styczeń','Marzec','Kwiecień'],         c: 0 },
+  { q: 'Który kraj słynie z serów i wieży Eiffla?', o: ['Francja','Włochy','Szwajcaria','Grecja'],          c: 0 },
+  { q: 'Ile lat ma stulecie?',                    o: ['100','10','1000','50'],                             c: 0 },
+  { q: 'Dawna dziewiąta „planeta", dziś karłowata?', o: ['Pluton','Ceres','Mars','Eris'],                   c: 0 },
+  { q: 'Największe państwo Afryki (powierzchnia)?', o: ['Algieria','Egipt','Nigeria','RPA'],                c: 0 },
+  { q: 'Jakim pojazdem lata się w kosmos?',        o: ['Rakieta','Samolot','Balon','Ślizgacz'],             c: 0 },
+  { q: 'Ile wynosi 7 + 8?',                        o: ['15','16','14','17'],                                c: 0 },
+  { q: 'Który kontynent jest najzimniejszy?',      o: ['Antarktyda','Europa','Afryka','Azja'],              c: 0 },
+  { q: 'Kto napisał bajki „Kopciuszek" i „Kot w butach" (zbiór)?', o: ['Charles Perrault','Bracia Grimm','Andersen','Ezop'], c: 0 },
+  { q: 'Największa małpa człekokształtna?',        o: ['Goryl','Szympans','Orangutan','Gibon'],             c: 0 },
+  { q: 'Który sport rozgrywa się na korcie?',      o: ['Tenis','Hokej','Pływanie','Kolarstwo'],             c: 0 },
 ];
 
 // Tryb HARDCORE – dużo trudniejsze pytania.
@@ -276,6 +379,43 @@ const QUIZ_HARD_QUESTIONS = [
   { q: 'Który pierwiastek ma symbol „Sn"?',                 o: ['Cyna','Srebro','Antymon','Selen'],                    c: 0 },
   { q: 'Autor obrazu „Krzyk"?',                             o: ['Edvard Munch','Van Gogh','Klimt','Dalí'],             c: 0 },
   { q: 'W którym roku zatonął Titanic?',                    o: ['1912','1905','1918','1923'],                          c: 0 },
+  { q: 'Bóg wojny w mitologii greckiej?',                  o: ['Ares','Zeus','Apollo','Hades'],                       c: 0 },
+  { q: 'Bóg mórz w mitologii greckiej?',                   o: ['Posejdon','Zeus','Hades','Hermes'],                   c: 0 },
+  { q: 'Władca podziemi w mitologii greckiej?',            o: ['Hades','Zeus','Posejdon','Ares'],                     c: 0 },
+  { q: 'Bogini mądrości w mitologii greckiej?',            o: ['Atena','Hera','Afrodyta','Artemida'],                 c: 0 },
+  { q: 'Posłaniec bogów w mitologii greckiej?',            o: ['Hermes','Ares','Apollo','Zeus'],                      c: 0 },
+  { q: 'Kto napisał „Lalkę"?',                             o: ['Bolesław Prus','Sienkiewicz','Żeromski','Reymont'],   c: 0 },
+  { q: 'Kto napisał „Romeo i Julię"?',                     o: ['Szekspir','Molier','Goethe','Dante'],                 c: 0 },
+  { q: 'Który kompozytor był Polakiem?',                   o: ['Chopin','Mozart','Beethoven','Vivaldi'],              c: 0 },
+  { q: 'W którym roku wybuchła rewolucja październikowa?', o: ['1917','1905','1918','1922'],                          c: 0 },
+  { q: 'Pierwszy prezydent II RP?',                        o: ['Gabriel Narutowicz','Piłsudski','Mościcki','Wojciechowski'], c: 0 },
+  { q: 'Pierwsza dynastia królów Polski?',                 o: ['Piastowie','Jagiellonowie','Wazowie','Sasi'],         c: 0 },
+  { q: 'Faraon ze słynną złotą maską (grób odkryty 1922)?', o: ['Tutanchamon','Ramzes II','Cheops','Echnaton'],       c: 0 },
+  { q: 'Najwyższy szczyt Ameryki Południowej?',            o: ['Aconcagua','Kilimandżaro','Denali','Elbrus'],         c: 0 },
+  { q: 'Cieśnina między Europą a Afryką?',                 o: ['Gibraltarska','Beringa','Bosfor','Kaletańska'],       c: 0 },
+  { q: 'Kto wynalazł telefon (przypisuje się)?',           o: ['Bell','Edison','Marconi','Morse'],                    c: 0 },
+  { q: 'Bracia, którzy skonstruowali pierwszy samolot?',   o: ['Wright','Montgolfier','Zeppelin','Grimm'],            c: 0 },
+  { q: 'W którym roku zdobyto Mount Everest?',             o: ['1953','1924','1969','1901'],                          c: 0 },
+  { q: 'Kto stworzył kubizm (wraz z Braquem)?',            o: ['Picasso','Monet','Dalí','Warhol'],                    c: 0 },
+  { q: 'Najdłuższa rzeka Europy?',                         o: ['Wołga','Dunaj','Ren','Wisła'],                        c: 0 },
+  { q: 'Kto pomalował sufit Kaplicy Sykstyńskiej?',        o: ['Michał Anioł','Leonardo','Rafael','Botticelli'],      c: 0 },
+  { q: 'Flagowy statek Krzysztofa Kolumba?',               o: ['Santa Maria','Titanic','Beagle','Victoria'],          c: 0 },
+  { q: 'Kto opracował układ okresowy pierwiastków?',       o: ['Mendelejew','Newton','Bohr','Curie'],                 c: 0 },
+  { q: 'Polka z dwiema Nagrodami Nobla?',                  o: ['Maria Skłodowska-Curie','W. Szymborska','O. Tokarczuk','I. Sendlerowa'], c: 0 },
+  { q: 'W którym kraju leży Machu Picchu?',                o: ['Peru','Meksyk','Chile','Boliwia'],                    c: 0 },
+  { q: 'W którym kraju leży Tadż Mahal?',                  o: ['Indie','Pakistan','Iran','Egipt'],                    c: 0 },
+  { q: 'Autor teorii ewolucji?',                           o: ['Karol Darwin','Mendel','Lamarck','Wallace'],          c: 0 },
+  { q: 'Który kraj tradycyjnie wynalazł herbatę?',         o: ['Chiny','Indie','Japonia','Anglia'],                   c: 0 },
+  { q: 'Słynny wódz Hunów?',                               o: ['Attyla','Czyngis-chan','Cezar','Napoleon'],           c: 0 },
+  { q: 'Cesarz Francuzów pokonany pod Waterloo?',          o: ['Napoleon','Ludwik XIV','De Gaulle','Robespierre'],    c: 0 },
+  { q: 'W którym roku była bitwa pod Waterloo?',           o: ['1815','1789','1805','1832'],                          c: 0 },
+  { q: 'Jedyny zachowany cud świata starożytnego?',        o: ['Piramida w Gizie','Wiszące ogrody','Kolos Rodyjski','Latarnia w Aleksandrii'], c: 0 },
+  { q: 'Kto namalował „Mona Lisę"?',                       o: ['Leonardo da Vinci','Rafael','Tycjan','Rubens'],       c: 0 },
+  { q: 'Kraj o największej liczbie ludności?',             o: ['Indie','Chiny','USA','Indonezja'],                    c: 0 },
+  { q: 'Który kompozytor napisał „Marsza tureckiego"?',    o: ['Mozart','Beethoven','Chopin','Bach'],                 c: 0 },
+  { q: 'Autor „Pana Wołodyjowskiego"?',                    o: ['Sienkiewicz','Prus','Reymont','Orzeszkowa'],          c: 0 },
+  { q: 'W której epoce żyły dinozaury (era)?',             o: ['Mezozoik','Paleozoik','Kenozoik','Prekambr'],         c: 0 },
+  { q: 'Który polski król zwany był „Wielkim"?',           o: ['Kazimierz III','Mieszko I','Zygmunt III','Jan III'],  c: 0 },
 ];
 
 const BLUFF_QUESTIONS = [
@@ -840,7 +980,9 @@ function connectedNonDrawer(lobby) {
 // ── QUIZ ─────────────────────────────────────────────────────────────────────
 function quizStart(code) {
   const lobby = lobbies[code];
-  const bank = lobby.settings.hardcore ? QUIZ_HARD_QUESTIONS : QUIZ_QUESTIONS;
+  const bank = lobby.settings.difficulty === 'easy' ? QUIZ_EASY_QUESTIONS
+             : lobby.settings.difficulty === 'hard' ? QUIZ_HARD_QUESTIONS
+             :                                        QUIZ_QUESTIONS;
   const n = Math.min(lobby.settings.questions, bank.length);
   lobby.questions = shuffle(bank).slice(0, n);
   lobby.qIndex = -1;
@@ -1309,7 +1451,7 @@ io.on('connection', socket => {
     } else if (gameType === 'panstwa') {
       lobbies[code] = { game: 'panstwa', admin: pid, players: [basePlayer], phase: 'waiting', categories: DEFAULT_CATEGORIES.slice(), availableCategories: ALL_CATEGORIES.slice(), maxRounds: DEFAULT_MAX_ROUNDS, roundMs: ROUND_MS, round: 0, currentLetter: null, answers: {}, roundTimeout: null, roundEndsAt: 0, stopping: false, lastResults: null, reviewData: null, reviewVotes: {}, aiVerdicts: {}, roundFinalized: false };
     } else {
-      const settings = gameType === 'quiz'  ? { questions: 10, hardcore: false }
+      const settings = gameType === 'quiz'  ? { questions: 10, difficulty: 'medium' }
                      : gameType === 'draw'  ? { laps: 2 }
                      :                        { rounds: 5 };   // bluff / truths / assoc
       lobbies[code] = { game: gameType, admin: pid, players: [basePlayer], phase: 'waiting', settings, timer: null };
@@ -1686,10 +1828,11 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('quizHardcore', ({ on }) => {
+  socket.on('quizDifficulty', ({ level }) => {
     const code = socket.lobbyCode, lobby = lobbies[code];
     if (!lobby || lobby.game !== 'quiz' || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
-    lobby.settings.hardcore = !!on;
+    if (!['easy','medium','hard'].includes(level)) return;
+    lobby.settings.difficulty = level;
     broadcastArcadeLobby(code);
   });
 

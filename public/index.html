@@ -610,10 +610,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <div class="card" style="display:flex;flex-direction:column;gap:10px" id="arc-hardcore-card">
     <p class="section-title">Poziom trudności</p>
     <div class="vis-toggle">
-      <div class="vis-opt selected" id="hc-off" onclick="setHardcore(false)">😀 Normalny</div>
-      <div class="vis-opt" id="hc-on" onclick="setHardcore(true)">💀 Hardcore</div>
+      <div class="vis-opt" id="diff-easy" onclick="setDifficulty('easy')">🙂 Łatwy</div>
+      <div class="vis-opt selected" id="diff-medium" onclick="setDifficulty('medium')">😎 Średni</div>
+      <div class="vis-opt" id="diff-hard" onclick="setDifficulty('hard')">💀 Hardcore</div>
     </div>
-    <p class="vis-hint" id="hc-hint">Standardowe pytania dla każdego.</p>
+    <p class="vis-hint" id="hc-hint">Mieszanka kategorii o średniej trudności.</p>
   </div>
   <button class="btn-green" id="arc-btn-start" onclick="arcadeStart()" style="display:none">🚀 Rozpocznij grę</button>
   <p class="waiting-text" id="arc-lobby-wait" style="display:none">⏳ Czekaj, aż admin rozpocznie grę...</p>
@@ -1432,22 +1433,26 @@ function renderArcadeLobby(o) {
   document.getElementById('arc-btn-start').style.display   = (isAdmin && (o.players||[]).length >= 2) ? 'block' : 'none';
   document.getElementById('arc-lobby-wait').style.display  = isAdmin ? 'none' : 'block';
   document.getElementById('arc-settings-card').style.display = arcSettingOptions ? 'flex' : 'none';
-  renderHardcore();
+  renderDifficulty();
 }
-function renderHardcore() {
+const DIFF_HINT = {
+  easy:   '🙂 Bardzo proste pytania — dla każdego (i dla dzieci).',
+  medium: '😎 Mieszanka kategorii o średniej trudności.',
+  hard:   '💀 Trudne pytania z wielu dziedzin — tylko dla twardzieli!',
+};
+function renderDifficulty() {
   const card = document.getElementById('arc-hardcore-card'); if (!card) return;
   const isQuiz = arcGame === 'quiz';
   card.style.display = isQuiz ? 'flex' : 'none';
   if (!isQuiz) return;
-  const on = !!(arcSettings && arcSettings.hardcore);
-  document.getElementById('hc-off').classList.toggle('selected', !on);
-  document.getElementById('hc-on').classList.toggle('selected', on);
-  document.getElementById('hc-off').closest('.vis-toggle').classList.toggle('readonly', !isAdmin);
-  document.getElementById('hc-hint').textContent = on
-    ? '💀 Bardzo trudne pytania — tylko dla twardzieli!'
-    : 'Standardowe pytania dla każdego.';
+  const d = (arcSettings && arcSettings.difficulty) || 'medium';
+  document.getElementById('diff-easy').classList.toggle('selected', d === 'easy');
+  document.getElementById('diff-medium').classList.toggle('selected', d === 'medium');
+  document.getElementById('diff-hard').classList.toggle('selected', d === 'hard');
+  document.getElementById('diff-easy').closest('.vis-toggle').classList.toggle('readonly', !isAdmin);
+  document.getElementById('hc-hint').textContent = DIFF_HINT[d];
 }
-function setHardcore(on) { if (!isAdmin) return; socket.emit('quizHardcore', { on }); }
+function setDifficulty(level) { if (!isAdmin) return; socket.emit('quizDifficulty', { level }); }
 function arcadeStart()     { socket.emit('arcadeStart'); }
 function arcadePlayAgain() { socket.emit('arcadePlayAgain'); }
 
