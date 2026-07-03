@@ -26,7 +26,10 @@ if (process.env.OPENAI_API_KEY) {
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const DISCONNECT_GRACE_MS = 10 * 60 * 1000;   // 10 min
 const MAX_PM_PLAYERS      = 15;
-const ROUND_MS            = 120_000;           // 2 min
+const ROUND_MS            = 120_000;           // 2 min (default round length)
+const ROUND_MS_MIN        = 30_000;            // 30 s minimum
+const ROUND_MS_MAX        = 300_000;           // 5 min maximum
+const ROUND_MS_STEP       = 15_000;            // ±15 s per tap
 const STOP_GRACE_MS       = 3_000;             // 3 s after STOP
 const WORD_REVEAL_MS      = 4_000;             // 4 s reveal screen
 const ASSIGN_TIMEOUT_MS   = 90_000;            // 90 s max for assignment phase
@@ -132,6 +135,40 @@ const QUIZ_QUESTIONS = [
   { q: 'Ile boków ma sześciokąt?',                 o: ['5','6','7','8'],                                     c: 1 },
   { q: 'Największe jezioro świata?',               o: ['Morze Kaspijskie','Bajkał','Wiktorii','Huron'],     c: 0 },
   { q: 'Ile sekund ma minuta?',                    o: ['30','60','100','90'],                               c: 1 },
+];
+
+// Tryb HARDCORE – dużo trudniejsze pytania.
+const QUIZ_HARD_QUESTIONS = [
+  { q: 'W którym roku odbyła się bitwa pod Wiedniem?',       o: ['1673','1683','1699','1621'],                          c: 1 },
+  { q: 'Który pierwiastek ma liczbę atomową 79?',           o: ['Srebro','Złoto','Platyna','Rtęć'],                    c: 1 },
+  { q: 'Kto napisał „Boską Komedię"?',                      o: ['Petrarka','Dante','Boccaccio','Wergiliusz'],          c: 1 },
+  { q: 'Który malarz namalował „Guernicę"?',                o: ['Dalí','Picasso','Miró','Goya'],                       c: 1 },
+  { q: 'Najdłuższa kość w ciele człowieka?',                o: ['Piszczel','Kość udowa','Kość ramienna','Strzałka'],   c: 1 },
+  { q: 'Przyspieszenie ziemskie g wynosi ok. … m/s²',       o: ['9,81','10,8','8,9','11,2'],                           c: 0 },
+  { q: 'Który władca zapoczątkował unię polsko-litewską?',  o: ['Kazimierz Wielki','Władysław Jagiełło','Chrobry','Zygmunt Stary'], c: 1 },
+  { q: 'Kto odkrył penicylinę?',                            o: ['Pasteur','Fleming','Koch','Salk'],                    c: 1 },
+  { q: 'Stolica Nowej Zelandii?',                           o: ['Auckland','Wellington','Christchurch','Hamilton'],    c: 1 },
+  { q: 'Liczba Eulera „e" wynosi w przybliżeniu…',          o: ['2,72','3,14','1,62','2,30'],                          c: 0 },
+  { q: 'Który kraj ma najwięcej czynnych wulkanów?',        o: ['Japonia','Indonezja','USA','Islandia'],               c: 1 },
+  { q: 'Autor „Zbrodni i kary"?',                           o: ['Tołstoj','Dostojewski','Czechow','Gogol'],            c: 1 },
+  { q: 'Który pierwiastek jest ciekłym niemetalem (20°C)?', o: ['Rtęć','Brom','Jod','Chlor'],                          c: 1 },
+  { q: 'W którym roku Gagarin poleciał w kosmos?',          o: ['1961','1957','1969','1959'],                          c: 0 },
+  { q: 'Najwyższy szczyt Afryki?',                          o: ['Mount Kenia','Kilimandżaro','Ruwenzori','Atlas'],     c: 1 },
+  { q: 'Który organ produkuje insulinę?',                   o: ['Wątroba','Trzustka','Nerki','Śledziona'],             c: 1 },
+  { q: 'Który filozof napisał dialog „Państwo"?',           o: ['Arystoteles','Platon','Sokrates','Kant'],             c: 1 },
+  { q: 'Pierwiastek o symbolu „W" to…',                     o: ['Wanad','Wolfram','Wapń','Wodór'],                     c: 1 },
+  { q: 'Kto sformułował zasadę nieoznaczoności?',           o: ['Bohr','Heisenberg','Schrödinger','Planck'],           c: 1 },
+  { q: 'Rów Mariański ma głębokość ok. … m',                o: ['11 000','8 800','6 500','15 000'],                    c: 0 },
+  { q: 'Ile ścian ma dwudziestościan foremny?',             o: ['12','20','8','24'],                                   c: 1 },
+  { q: 'Suma kątów wewnętrznych pięciokąta wynosi…',        o: ['540°','360°','720°','480°'],                          c: 0 },
+  { q: 'Który pierwiastek jest najlżejszy?',                o: ['Hel','Wodór','Lit','Tlen'],                           c: 1 },
+  { q: 'Najczęstszy pierwiastek w skorupie ziemskiej?',     o: ['Żelazo','Tlen','Krzem','Glin'],                       c: 1 },
+  { q: 'Gdzie mieści się Międzynarodowy Trybunał Sprawiedliwości?', o: ['Haga','Genewa','Nowy Jork','Wiedeń'],         c: 0 },
+  { q: 'W którym roku wybuchła rewolucja francuska?',       o: ['1789','1799','1776','1804'],                          c: 0 },
+  { q: 'Który kraj podarował USA Statuę Wolności?',         o: ['Wielka Brytania','Francja','Hiszpania','Włochy'],     c: 1 },
+  { q: 'Pierwiastek o symbolu „K" to…',                     o: ['Krzem','Potas','Kadm','Kobalt'],                      c: 1 },
+  { q: 'Autor „Odysei"?',                                   o: ['Wergiliusz','Homer','Sofokles','Owidiusz'],           c: 1 },
+  { q: 'Który kompozytor napisał „Odę do radości" (IX Symfonia)?', o: ['Mozart','Beethoven','Bach','Brahms'],         c: 1 },
 ];
 
 const BLUFF_QUESTIONS = [
@@ -254,6 +291,7 @@ function broadcastLobby(code) {
     categories:          lobby.game === 'panstwa' ? lobby.categories : undefined,
     availableCategories: lobby.game === 'panstwa' ? lobby.availableCategories : undefined,
     maxRounds:           lobby.game === 'panstwa' ? lobby.maxRounds : undefined,
+    roundMs:             lobby.game === 'panstwa' ? lobby.roundMs : undefined,
   });
   broadcastPublicLobbies();
 }
@@ -595,9 +633,10 @@ function pmBeginRound(code) {
   lobby.currentLetter = LETTERS[Math.floor(Math.random() * LETTERS.length)];
   lobby.answers       = {};
   lobby.players.forEach(p => { lobby.answers[p.playerId] = {}; });
-  lobby.roundEndsAt   = Date.now() + ROUND_MS;
+  const roundMs       = lobby.roundMs || ROUND_MS;
+  lobby.roundEndsAt   = Date.now() + roundMs;
   lobby.stopping      = false;
-  lobby.roundTimeout  = setTimeout(() => pmEndRound(code), ROUND_MS);
+  lobby.roundTimeout  = setTimeout(() => pmEndRound(code), roundMs);
 
   io.to(code).emit('roundStarted', {
     round: lobby.round, maxRounds: lobby.maxRounds, letter: lobby.currentLetter,
@@ -653,8 +692,9 @@ function connectedNonDrawer(lobby) {
 // ── QUIZ ─────────────────────────────────────────────────────────────────────
 function quizStart(code) {
   const lobby = lobbies[code];
-  const n = Math.min(lobby.settings.questions, QUIZ_QUESTIONS.length);
-  lobby.questions = shuffle(QUIZ_QUESTIONS).slice(0, n);
+  const bank = lobby.settings.hardcore ? QUIZ_HARD_QUESTIONS : QUIZ_QUESTIONS;
+  const n = Math.min(lobby.settings.questions, bank.length);
+  lobby.questions = shuffle(bank).slice(0, n);
   lobby.qIndex = -1;
   lobby.players.forEach(p => { p.score = 0; });
   quizNextQuestion(code);
@@ -924,9 +964,9 @@ io.on('connection', socket => {
     if (gameType === 'czolko') {
       lobbies[code] = { game: 'czolko', admin: pid, players: [basePlayer], phase: 'waiting', assignments: [], assignTimeout: null, winner: null, endVotes: {}, endVoteTimeout: null };
     } else if (gameType === 'panstwa') {
-      lobbies[code] = { game: 'panstwa', admin: pid, players: [basePlayer], phase: 'waiting', categories: DEFAULT_CATEGORIES.slice(), availableCategories: ALL_CATEGORIES.slice(), maxRounds: DEFAULT_MAX_ROUNDS, round: 0, currentLetter: null, answers: {}, roundTimeout: null, roundEndsAt: 0, stopping: false, lastResults: null, reviewData: null, reviewVotes: {}, aiVerdicts: {}, roundFinalized: false };
+      lobbies[code] = { game: 'panstwa', admin: pid, players: [basePlayer], phase: 'waiting', categories: DEFAULT_CATEGORIES.slice(), availableCategories: ALL_CATEGORIES.slice(), maxRounds: DEFAULT_MAX_ROUNDS, roundMs: ROUND_MS, round: 0, currentLetter: null, answers: {}, roundTimeout: null, roundEndsAt: 0, stopping: false, lastResults: null, reviewData: null, reviewVotes: {}, aiVerdicts: {}, roundFinalized: false };
     } else {
-      const settings = gameType === 'quiz'  ? { questions: 10 }
+      const settings = gameType === 'quiz'  ? { questions: 10, hardcore: false }
                      : gameType === 'bluff' ? { rounds: 5 }
                      :                        { laps: 2 };
       lobbies[code] = { game: gameType, admin: pid, players: [basePlayer], phase: 'waiting', settings, timer: null };
@@ -946,6 +986,7 @@ io.on('connection', socket => {
       allCategories: gameType === 'panstwa' ? lobbies[code].availableCategories : undefined,
       maxRounds:     gameType === 'panstwa' ? lobbies[code].maxRounds : undefined,
       roundOptions:  gameType === 'panstwa' ? ROUND_OPTIONS : undefined,
+      roundMs:       gameType === 'panstwa' ? lobbies[code].roundMs : undefined,
       settings:      lobbies[code].settings,
       settingOptions: ARCADE_SETTING_OPTIONS[gameType],
     });
@@ -973,6 +1014,7 @@ io.on('connection', socket => {
       allCategories: lobby.game === 'panstwa' ? lobby.availableCategories : undefined,
       maxRounds:     lobby.game === 'panstwa' ? lobby.maxRounds : undefined,
       roundOptions:  lobby.game === 'panstwa' ? ROUND_OPTIONS : undefined,
+      roundMs:       lobby.game === 'panstwa' ? lobby.roundMs : undefined,
       settings:      lobby.settings,
       settingOptions: ARCADE_SETTING_OPTIONS[lobby.game],
     });
@@ -1032,7 +1074,7 @@ io.on('connection', socket => {
         });
       }
     } else {
-      const extra = { allCategories: lobby.availableCategories, categories: lobby.categories, maxRounds: lobby.maxRounds, roundOptions: ROUND_OPTIONS, scoreboard: publicPlayers(lobby).sort((a,b) => b.score - a.score) };
+      const extra = { allCategories: lobby.availableCategories, categories: lobby.categories, maxRounds: lobby.maxRounds, roundOptions: ROUND_OPTIONS, roundMs: lobby.roundMs, scoreboard: publicPlayers(lobby).sort((a,b) => b.score - a.score) };
       if (lobby.phase === 'waiting') {
         socket.emit('rejoinState', { ...base, ...extra, phase: 'waiting' });
       } else if (lobby.phase === 'playing') {
@@ -1141,6 +1183,16 @@ io.on('connection', socket => {
     if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
     if (!ROUND_OPTIONS.includes(count)) return;
     lobby.maxRounds = count;
+    broadcastLobby(code);
+  });
+
+  // Admin adjusts the round length by ±15 s.
+  socket.on('setRoundTime', ({ delta }) => {
+    const code  = socket.lobbyCode;
+    const lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'panstwa' || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
+    if (delta !== ROUND_MS_STEP && delta !== -ROUND_MS_STEP) return;
+    lobby.roundMs = Math.max(ROUND_MS_MIN, Math.min(ROUND_MS_MAX, (lobby.roundMs || ROUND_MS) + delta));
     broadcastLobby(code);
   });
 
@@ -1278,8 +1330,22 @@ io.on('connection', socket => {
     if (typeof choice !== 'number' || choice < 0 || choice > 3) return;
     lobby.answers[socket.playerId] = { choice, at: Date.now() };
     const answered = Object.keys(lobby.answers).length;
-    io.to(socket.lobbyCode).emit('quizProgress', { answered, total: lobby.players.filter(p => p.connected).length });
-    if (answered >= lobby.players.filter(p => p.connected).length) quizReveal(socket.lobbyCode);
+    const total = lobby.players.filter(p => p.connected).length;
+    io.to(socket.lobbyCode).emit('quizProgress', { answered, total });
+    // Everyone answered → don't sit on an easy question: cut remaining to 5 s.
+    if (answered >= total && total > 0 && lobby.qEndsAt - Date.now() > 5000) {
+      lobby.qEndsAt = Date.now() + 5000;
+      clearGameTimer(lobby);
+      lobby.timer = setTimeout(() => quizReveal(socket.lobbyCode), 5000);
+      io.to(socket.lobbyCode).emit('quizHurry', { endsAt: lobby.qEndsAt });
+    }
+  });
+
+  socket.on('quizHardcore', ({ on }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'quiz' || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
+    lobby.settings.hardcore = !!on;
+    broadcastArcadeLobby(code);
   });
 
   // ZMYŚLACZ
