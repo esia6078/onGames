@@ -135,6 +135,72 @@ const QUIZ_QUESTIONS = [
   { q: 'Ile boków ma sześciokąt?',                 o: ['5','6','7','8'],                                     c: 1 },
   { q: 'Największe jezioro świata?',               o: ['Morze Kaspijskie','Bajkał','Wiktorii','Huron'],     c: 0 },
   { q: 'Ile sekund ma minuta?',                    o: ['30','60','100','90'],                               c: 1 },
+  { q: 'Stolica Francji?',                         o: ['Lyon','Paryż','Marsylia','Nicea'],                  c: 1 },
+  { q: 'Stolica Chin?',                            o: ['Szanghaj','Pekin','Kanton','Hongkong'],             c: 1 },
+  { q: 'Stolica Brazylii?',                        o: ['Rio de Janeiro','Brasília','São Paulo','Salvador'], c: 1 },
+  { q: 'Stolica Turcji?',                          o: ['Stambuł','Ankara','Izmir','Bursa'],                 c: 1 },
+  { q: 'Stolica Indii?',                           o: ['Mumbaj','New Delhi','Kalkuta','Ćennaj'],            c: 1 },
+  { q: 'Stolica Argentyny?',                       o: ['Buenos Aires','Córdoba','Rosario','Mendoza'],       c: 0 },
+  { q: 'Stolica Holandii?',                        o: ['Rotterdam','Amsterdam','Haga','Utrecht'],           c: 1 },
+  { q: 'Stolica Austrii?',                         o: ['Salzburg','Wiedeń','Graz','Linz'],                  c: 1 },
+  { q: 'Stolica Szwajcarii?',                      o: ['Zurych','Berno','Genewa','Bazylea'],                c: 1 },
+  { q: 'Stolica Danii?',                           o: ['Kopenhaga','Aarhus','Odense','Aalborg'],            c: 0 },
+  { q: 'Stolica Finlandii?',                       o: ['Helsinki','Espoo','Tampere','Turku'],               c: 0 },
+  { q: 'Stolica Irlandii?',                        o: ['Cork','Dublin','Galway','Limerick'],                c: 1 },
+  { q: 'Stolica Islandii?',                        o: ['Reykjavik','Akureyri','Kópavogur','Selfoss'],       c: 0 },
+  { q: 'Stolica Belgii?',                          o: ['Antwerpia','Bruksela','Gandawa','Brugia'],          c: 1 },
+  { q: 'Ile to jest 6 × 7?',                       o: ['42','48','36','49'],                                c: 0 },
+  { q: 'Ile to jest 8 × 9?',                       o: ['72','81','64','79'],                                c: 0 },
+  { q: 'Ile to jest 144 : 12?',                    o: ['12','14','11','16'],                                c: 0 },
+  { q: 'Ile to jest 25% ze 100?',                  o: ['25','50','20','75'],                                c: 0 },
+  { q: 'Ile to jest 3 do potęgi 3?',               o: ['27','9','12','6'],                                  c: 0 },
+  { q: 'Ile ścian ma sześcian?',                   o: ['6','4','8','12'],                                    c: 0 },
+  { q: 'Ile milimetrów ma centymetr?',             o: ['10','100','5','1'],                                 c: 0 },
+  { q: 'Ile gramów ma kilogram?',                  o: ['1000','100','10','500'],                            c: 0 },
+  { q: 'Ile centymetrów ma metr?',                 o: ['100','10','1000','50'],                             c: 0 },
+  { q: 'Ile dni ma tydzień?',                      o: ['7','5','10','6'],                                    c: 0 },
+  { q: 'Ile miesięcy ma rok?',                     o: ['12','10','11','24'],                                c: 0 },
+  { q: 'Ile godzin ma doba?',                      o: ['24','12','48','20'],                                c: 0 },
+  { q: 'Który zmysł odpowiada za widzenie?',       o: ['Wzrok','Słuch','Smak','Dotyk'],                     c: 0 },
+  { q: 'Ile palców ma jedna dłoń?',                o: ['5','4','6','10'],                                    c: 0 },
+  { q: 'Które zwierzę miauczy?',                   o: ['Kot','Pies','Krowa','Kura'],                        c: 0 },
+  { q: 'Które zwierzę szczeka?',                   o: ['Pies','Kot','Koń','Owca'],                          c: 0 },
+  { q: 'Które zwierzę daje mleko?',                o: ['Krowa','Kura','Wąż','Orzeł'],                       c: 0 },
+  { q: 'Gdzie żyją pingwiny?',                     o: ['Antarktyda','Sahara','Amazonia','Alpy'],            c: 0 },
+  { q: 'Które zwierzę ma trąbę?',                  o: ['Słoń','Żyrafa','Lew','Zebra'],                      c: 0 },
+  { q: 'Z czego robi się chleb?',                  o: ['Mąka','Ryż','Ziemniaki','Mleko'],                   c: 0 },
+  { q: 'Z czego robi się wino?',                   o: ['Winogrona','Jabłka','Chmiel','Pszenica'],           c: 0 },
+  { q: 'Jaki owoc jest żółty i zakrzywiony?',      o: ['Banan','Jabłko','Śliwka','Wiśnia'],                 c: 0 },
+  { q: 'Ilu siatkarzy z drużyny jest na boisku?',  o: ['6','5','7','11'],                                   c: 0 },
+  { q: 'W jakim sporcie używa się kija i krążka?', o: ['Hokej','Koszykówka','Pływanie','Boks'],             c: 0 },
+  { q: 'Ilu koszykarzy z drużyny jest na boisku?', o: ['5','6','7','11'],                                   c: 0 },
+  { q: 'Jak nazywają się MŚ w piłce nożnej?',      o: ['Mundial','Wimbledon','Tour de France','Puchar Davisa'], c: 0 },
+  { q: 'Największe państwo Europy (powierzchnia)?', o: ['Rosja','Niemcy','Francja','Ukraina'],              c: 0 },
+  { q: 'Najdłuższa rzeka Afryki?',                 o: ['Nil','Kongo','Niger','Zambezi'],                    c: 0 },
+  { q: 'Na jakim kontynencie leży Egipt?',         o: ['Afryka','Azja','Europa','Ameryka'],                 c: 0 },
+  { q: 'Na jakim kontynencie leży Brazylia?',      o: ['Ameryka Południowa','Afryka','Azja','Europa'],      c: 0 },
+  { q: 'Ile kolorów ma polska flaga?',             o: ['2','3','1','4'],                                    c: 0 },
+  { q: 'Jakie zwierzę jest w godle Polski?',       o: ['Orzeł','Lew','Niedźwiedź','Żubr'],                  c: 0 },
+  { q: 'Kto leczy zęby?',                          o: ['Dentysta','Kardiolog','Weterynarz','Okulista'],     c: 0 },
+  { q: 'Kto gasi pożary?',                         o: ['Strażak','Policjant','Listonosz','Piekarz'],        c: 0 },
+  { q: 'Gdzie pracuje nauczyciel?',                o: ['Szkoła','Szpital','Piekarnia','Fabryka'],           c: 0 },
+  { q: 'Gwiazda w centrum Układu Słonecznego?',    o: ['Słońce','Księżyc','Mars','Syriusz'],                c: 0 },
+  { q: 'Co krąży wokół Ziemi?',                    o: ['Księżyc','Słońce','Mars','Wenus'],                  c: 0 },
+  { q: 'Ile wynosi 10 + 15?',                      o: ['25','20','30','35'],                                c: 0 },
+  { q: 'Ile wynosi 100 − 1?',                      o: ['99','90','101','89'],                               c: 0 },
+  { q: 'Który miesiąc jest pierwszy w roku?',      o: ['Styczeń','Grudzień','Luty','Marzec'],               c: 0 },
+  { q: 'Który miesiąc jest ostatni w roku?',       o: ['Grudzień','Styczeń','Listopad','Październik'],      c: 0 },
+  { q: 'Ile kół ma rower?',                        o: ['2','3','4','1'],                                    c: 0 },
+  { q: 'Który owoc jest czerwony i rośnie na jabłoni?', o: ['Jabłko','Banan','Cytryna','Kiwi'],             c: 0 },
+  { q: 'Jak nazywa się dom pszczół?',              o: ['Ul','Kurnik','Mrowisko','Nora'],                    c: 0 },
+  { q: 'Jak nazywa się młode psa?',                o: ['Szczeniak','Kociak','Źrebak','Cielak'],             c: 0 },
+  { q: 'Jak nazywa się młode kota?',               o: ['Kociak','Szczeniak','Prosiak','Kurczak'],           c: 0 },
+  { q: 'Która pora roku jest najcieplejsza?',      o: ['Lato','Zima','Jesień','Wiosna'],                    c: 0 },
+  { q: 'Która pora roku jest najzimniejsza?',      o: ['Zima','Lato','Wiosna','Jesień'],                    c: 0 },
+  { q: 'Jakiego koloru jest śnieg?',               o: ['Biały','Czarny','Zielony','Niebieski'],             c: 0 },
+  { q: 'Ile nóg ma pies?',                         o: ['4','2','6','8'],                                    c: 0 },
+  { q: 'Co daje kura?',                            o: ['Jajka','Mleko','Wełnę','Miód'],                     c: 0 },
+  { q: 'Co produkują pszczoły?',                   o: ['Miód','Mleko','Jajka','Ser'],                       c: 0 },
 ];
 
 // Tryb HARDCORE – dużo trudniejsze pytania.
@@ -169,6 +235,46 @@ const QUIZ_HARD_QUESTIONS = [
   { q: 'Pierwiastek o symbolu „K" to…',                     o: ['Krzem','Potas','Kadm','Kobalt'],                      c: 1 },
   { q: 'Autor „Odysei"?',                                   o: ['Wergiliusz','Homer','Sofokles','Owidiusz'],           c: 1 },
   { q: 'Który kompozytor napisał „Odę do radości" (IX Symfonia)?', o: ['Mozart','Beethoven','Bach','Brahms'],         c: 1 },
+  { q: 'W którym roku wybuchło powstanie warszawskie?',     o: ['1944','1943','1939','1945'],                          c: 0 },
+  { q: 'Kto był pierwszym cesarzem rzymskim?',              o: ['Juliusz Cezar','Oktawian August','Neron','Kaligula'], c: 1 },
+  { q: 'Który pierwiastek ma symbol „Na"?',                 o: ['Azot','Sód','Nikiel','Neon'],                         c: 1 },
+  { q: 'Który pierwiastek ma symbol „Pb"?',                 o: ['Platyna','Ołów','Pallad','Polon'],                    c: 1 },
+  { q: 'Który pierwiastek ma symbol „Hg"?',                 o: ['Rtęć','Wodór','Hel','Hafn'],                          c: 0 },
+  { q: 'Ile wynosi zero absolutne w °C?',                   o: ['-273','-100','-459','0'],                             c: 0 },
+  { q: 'Kto napisał „Hamleta"?',                            o: ['Szekspir','Molier','Goethe','Dante'],                 c: 0 },
+  { q: 'W którym roku Kolumb dotarł do Ameryki?',           o: ['1492','1498','1453','1519'],                          c: 0 },
+  { q: 'Liczba atomowa węgla to…',                          o: ['6','12','8','14'],                                    c: 0 },
+  { q: 'Który kraj wynalazł papier?',                       o: ['Chiny','Egipt','Grecja','Indie'],                     c: 0 },
+  { q: 'Stolica Maroka?',                                   o: ['Casablanca','Rabat','Marrakesz','Fez'],               c: 1 },
+  { q: 'Najmniejszy ocean świata?',                         o: ['Arktyczny','Spokojny','Atlantycki','Indyjski'],       c: 0 },
+  { q: 'Filozof – nauczyciel Aleksandra Wielkiego?',        o: ['Arystoteles','Platon','Sokrates','Diogenes'],         c: 0 },
+  { q: 'W którym roku zjednoczono ponownie Niemcy?',        o: ['1990','1989','1991','1985'],                          c: 0 },
+  { q: 'Kto skomponował „Cztery pory roku"?',               o: ['Vivaldi','Mozart','Chopin','Bach'],                   c: 0 },
+  { q: 'Najlepszy przewodnik prądu spośród metali?',        o: ['Srebro','Miedź','Złoto','Żelazo'],                    c: 0 },
+  { q: 'Stolica Korei Południowej?',                        o: ['Seul','Pjongjang','Busan','Inczon'],                  c: 0 },
+  { q: 'W którym mieście stoi Koloseum?',                   o: ['Rzym','Ateny','Neapol','Florencja'],                  c: 0 },
+  { q: 'Kto namalował „Ostatnią Wieczerzę"?',               o: ['Leonardo da Vinci','Michał Anioł','Rafael','Caravaggio'], c: 0 },
+  { q: 'Kto wyrzeźbił słynnego „Dawida"?',                  o: ['Michał Anioł','Donatello','Bernini','Rodin'],         c: 0 },
+  { q: 'Prędkość dźwięku w powietrzu to ok. … m/s',         o: ['343','150','1000','30'],                              c: 0 },
+  { q: 'Który pierwiastek jest gazem szlachetnym?',         o: ['Hel','Tlen','Azot','Wodór'],                          c: 0 },
+  { q: 'Jednostka temperatury w układzie SI?',              o: ['Kelwin','Celsjusz','Fahrenheit','Dżul'],              c: 0 },
+  { q: 'Z ilu jam zbudowane jest ludzkie serce?',           o: ['4','2','3','1'],                                      c: 0 },
+  { q: 'Największy producent kawy na świecie?',             o: ['Brazylia','Kolumbia','Wietnam','Etiopia'],            c: 0 },
+  { q: 'Najwyższy wodospad świata?',                        o: ['Salto Ángel','Niagara','Wiktorii','Iguazú'],          c: 0 },
+  { q: 'Ile wynosi 2 do potęgi 10?',                        o: ['1024','1000','512','2048'],                           c: 0 },
+  { q: 'Najczęściej używany język ojczysty na świecie?',    o: ['Chiński mandaryński','Angielski','Hiszpański','Hindi'], c: 0 },
+  { q: 'Kto sformułował prawo powszechnego ciążenia?',      o: ['Newton','Einstein','Galileusz','Kepler'],             c: 0 },
+  { q: 'Największa wyspa świata?',                          o: ['Grenlandia','Nowa Gwinea','Borneo','Madagaskar'],     c: 0 },
+  { q: 'Który papież był Polakiem?',                        o: ['Jan Paweł II','Benedykt XVI','Franciszek','Jan XXIII'], c: 0 },
+  { q: 'W którym roku zakończyła się II wojna światowa?',   o: ['1945','1944','1946','1939'],                          c: 0 },
+  { q: 'Który kraj słynie z fiordów?',                      o: ['Norwegia','Hiszpania','Grecja','Egipt'],              c: 0 },
+  { q: 'Ile wynosi pierwiastek z 169?',                     o: ['13','12','14','11'],                                  c: 0 },
+  { q: 'Który organ odpowiada za oddychanie?',              o: ['Płuca','Serce','Wątroba','Żołądek'],                  c: 0 },
+  { q: 'Jak nazywa się teoria powstania wszechświata?',     o: ['Wielki Wybuch','Ewolucja','Względność','Struny'],     c: 0 },
+  { q: 'Ile wynosi kąt pełny?',                             o: ['360°','180°','270°','90°'],                           c: 0 },
+  { q: 'Który pierwiastek ma symbol „Sn"?',                 o: ['Cyna','Srebro','Antymon','Selen'],                    c: 0 },
+  { q: 'Autor obrazu „Krzyk"?',                             o: ['Edvard Munch','Van Gogh','Klimt','Dalí'],             c: 0 },
+  { q: 'W którym roku zatonął Titanic?',                    o: ['1912','1905','1918','1923'],                          c: 0 },
 ];
 
 const BLUFF_QUESTIONS = [
@@ -1473,10 +1579,16 @@ io.on('connection', socket => {
     broadcastLobby(code);
     // Keep review/vote screens consistent after a departure.
     if (lobby.game === 'panstwa' && lobby.phase === 'reviewing') pmBroadcastReview(code);
-    // If the drawer left mid-turn, end the turn so the game keeps moving.
-    if (lobby.game === 'draw' && lobby.phase === 'drawing' && lobby.drawerId === pid) drawEndTurn(code, 'drawer-left');
-    else if (lobby.game === 'bluff' && lobby.phase === 'writing')  bluffMaybeAdvanceWrite(code);
+    // Keep the game moving after someone leaves mid-round.
+    if (lobby.game === 'draw' && lobby.phase === 'drawing') {
+      if (lobby.drawerId === pid) drawEndTurn(code, 'drawer-left');
+      else if (connectedNonDrawer(lobby) - Object.keys(lobby.guessed).length <= 0) drawEndTurn(code, 'all-guessed');
+    } else if (lobby.game === 'bluff' && lobby.phase === 'writing')  bluffMaybeAdvanceWrite(code);
     else if (lobby.game === 'bluff' && lobby.phase === 'guessing') bluffMaybeAdvanceGuess(code);
+    else if (lobby.game === 'quiz' && lobby.phase === 'question') {
+      const total = lobby.players.filter(p => p.connected).length;
+      if (total > 0 && Object.keys(lobby.answers).length >= total) quizReveal(code);
+    }
     if (lobby.game === 'czolko'  && lobby.phase === 'finished') {
       const tally = czolkoVoteTally(lobby);
       io.to(code).emit('czolkoVoteUpdate', tally);
