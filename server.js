@@ -39,6 +39,70 @@ const MAX_CATEGORIES      = 12;
 const MAX_CUSTOM_CAT_LEN  = 24;
 const POINT_STEP          = 5;                  // each net downvote lowers points by 5
 
+// ─── ARCADE GAMES DATA ──────────────────────────────────────────────────────
+const QUIZ_QUESTIONS = [
+  { q: 'Stolica Australii?',                       o: ['Sydney','Canberra','Melbourne','Perth'],            c: 1 },
+  { q: 'Ile nóg ma pająk?',                        o: ['6','8','10','12'],                                  c: 1 },
+  { q: 'Który pierwiastek ma symbol „O"?',         o: ['Złoto','Tlen','Osm','Wodór'],                       c: 1 },
+  { q: 'W którym roku zaczęła się II wojna światowa?', o: ['1914','1939','1945','1918'],                    c: 1 },
+  { q: 'Najdłuższa rzeka w Polsce?',               o: ['Odra','Wisła','Warta','Bug'],                       c: 1 },
+  { q: 'Ile wynosi 7 × 8?',                        o: ['54','56','64','48'],                                c: 1 },
+  { q: 'Kto namalował Mona Lisę?',                 o: ['Picasso','Leonardo da Vinci','Van Gogh','Rembrandt'], c: 1 },
+  { q: 'Stolica Japonii?',                         o: ['Pekin','Tokio','Seul','Bangkok'],                   c: 1 },
+  { q: 'Która planeta jest najbliżej Słońca?',     o: ['Wenus','Merkury','Mars','Ziemia'],                  c: 1 },
+  { q: 'Ile kontynentów jest na Ziemi?',           o: ['5','6','7','8'],                                     c: 2 },
+  { q: 'Symbol chemiczny wody?',                   o: ['CO₂','H₂O','O₂','NaCl'],                            c: 1 },
+  { q: 'Kto napisał „Pana Tadeusza"?',             o: ['Słowacki','Mickiewicz','Sienkiewicz','Prus'],       c: 1 },
+  { q: 'Największy ocean świata?',                 o: ['Atlantycki','Spokojny','Indyjski','Arktyczny'],     c: 1 },
+  { q: 'W jakim kraju stoi wieża Eiffla?',         o: ['Włochy','Francja','Hiszpania','Anglia'],            c: 1 },
+  { q: 'Ile to jest 12 × 12?',                     o: ['124','144','148','132'],                            c: 1 },
+  { q: 'Największe zwierzę na świecie?',           o: ['Słoń','Płetwal błękitny','Żyrafa','Rekin'],         c: 1 },
+  { q: 'Stolica Niemiec?',                         o: ['Monachium','Berlin','Hamburg','Frankfurt'],         c: 1 },
+  { q: 'Ile bitów ma bajt?',                       o: ['4','8','16','32'],                                  c: 1 },
+  { q: 'Kto pierwszy stanął na Księżycu?',         o: ['Gagarin','Armstrong','Aldrin','Glenn'],             c: 1 },
+  { q: 'Najwyższy szczyt świata?',                 o: ['K2','Mount Everest','Rysy','Mont Blanc'],           c: 1 },
+  { q: 'Ilu piłkarzy z jednej drużyny jest na boisku?', o: ['9','10','11','12'],                            c: 2 },
+  { q: 'Żółty + niebieski daje kolor…',            o: ['Zielony','Fioletowy','Pomarańczowy','Brązowy'],     c: 0 },
+  { q: 'W którym mieście jest Krzywa Wieża?',      o: ['Rzym','Piza','Wenecja','Mediolan'],                 c: 1 },
+  { q: 'Pierwiastek z 81 to…',                     o: ['7','9','8','6'],                                     c: 1 },
+  { q: 'Stolica Polski?',                          o: ['Kraków','Warszawa','Łódź','Wrocław'],               c: 1 },
+  { q: 'Jak nazywa się nasza galaktyka?',          o: ['Andromeda','Droga Mleczna','Wielki Wóz','Plejady'], c: 1 },
+  { q: 'Ile serc ma ośmiornica?',                  o: ['1','2','3','8'],                                    c: 2 },
+  { q: 'W którym roku Polska weszła do UE?',        o: ['2000','2004','2007','1999'],                        c: 1 },
+];
+
+const BLUFF_QUESTIONS = [
+  { q: 'Jak nazywał się pierwszy pies w kosmosie?',                 a: 'Łajka' },
+  { q: 'Ile kości ma dorosły człowiek?',                           a: '206' },
+  { q: 'Największa pustynia świata to…',                            a: 'Antarktyda' },
+  { q: 'Najczęstszy pierwiastek we wszechświecie?',                a: 'Wodór' },
+  { q: 'Jak nazywa się samica konia?',                             a: 'Klacz' },
+  { q: 'Strach przed pająkami to…',                                a: 'Arachnofobia' },
+  { q: 'Najmniejsze państwo świata?',                              a: 'Watykan' },
+  { q: 'Z czego zrobiony jest grafit w ołówku?',                   a: 'Węgiel' },
+  { q: 'Największy księżyc Jowisza?',                              a: 'Ganimedes' },
+  { q: 'Najgłębszy punkt oceanu to Rów…',                          a: 'Mariański' },
+  { q: 'Najtwardszy minerał naturalny?',                          a: 'Diament' },
+  { q: 'W jakim mieście urodził się Kopernik?',                   a: 'Toruń' },
+  { q: 'Prędkość światła to ok. … km/s',                          a: '300000' },
+  { q: 'Największa małpa świata?',                                a: 'Goryl' },
+  { q: 'Autor teorii względności?',                              a: 'Einstein' },
+  { q: 'Ile lat trwała „wojna stuletnia"?',                       a: '116' },
+  { q: 'Kraj o największej liczbie ludności?',                    a: 'Indie' },
+  { q: 'Ile kolorów ma tęcza?',                                  a: 'Siedem' },
+  { q: 'Jak nazywa się największa planeta Układu Słonecznego?',   a: 'Jowisz' },
+  { q: 'Metal ciekły w temperaturze pokojowej to…',              a: 'Rtęć' },
+];
+
+const DRAW_WORDS = [
+  'kot','pies','słońce','dom','drzewo','samochód','kwiat','ryba','gwiazda','serce',
+  'księżyc','banan','jabłko','okulary','parasol','rower','telefon','but','czapka','zegar',
+  'gitara','statek','samolot','pociąg','most','góra','chmura','tęcza','lody','pizza',
+  'hamburger','klucz','młotek','nożyczki','książka','ołówek','żarówka','prezent','balon','latawiec',
+  'robot','dinozaur','pszczoła','motyl','żaba','słoń','lew','żyrafa','wąż','pingwin',
+  'sowa','korona','miecz','tarcza','zamek','choinka','bałwan','kotwica','latarnia','grzyb',
+];
+
 const CATEGORY_DESCRIPTIONS = {
   'Państwo':  'sovereign country recognised internationally',
   'Miasto':   'real city or town',
@@ -71,6 +135,7 @@ function publicPlayers(lobby) {
 function broadcastLobby(code) {
   const lobby = lobbies[code];
   if (!lobby) return;
+  if (['quiz','bluff','draw'].includes(lobby.game)) return broadcastArcadeLobby(code);
   io.to(code).emit('updateLobby', {
     game: lobby.game,
     admin: lobby.admin,
@@ -408,6 +473,308 @@ function pmBeginRound(code) {
   });
 }
 
+// ─── ARCADE GAMES (Quiz / Zmyślacz / Kalambury) ─────────────────────────────
+
+const QUIZ_Q_MS      = 20_000;
+const QUIZ_REVEAL_MS = 4_500;
+const BLUFF_WRITE_MS = 55_000;
+const BLUFF_GUESS_MS = 40_000;
+const BLUFF_REVEAL_MS= 8_000;
+const DRAW_MS        = 80_000;
+const DRAW_REVEAL_MS = 5_000;
+
+const ARCADE_SETTING_OPTIONS = {
+  quiz:  { key: 'questions', label: 'Liczba pytań',       values: [5, 10, 15] },
+  bluff: { key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 8] },
+  draw:  { key: 'laps',      label: 'Rund na gracza',     values: [1, 2, 3] },
+};
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function scoreboardOf(lobby) {
+  return lobby.players
+    .map(p => ({ id: p.playerId, nickname: p.nickname, connected: p.connected, score: p.score }))
+    .sort((a, b) => b.score - a.score);
+}
+function arcadePlayers(lobby) {
+  return lobby.players.map(p => ({ id: p.playerId, nickname: p.nickname, connected: p.connected }));
+}
+function clearGameTimer(lobby) {
+  if (lobby.timer) { clearTimeout(lobby.timer); lobby.timer = null; }
+}
+function broadcastArcadeLobby(code) {
+  const lobby = lobbies[code];
+  if (!lobby) return;
+  io.to(code).emit('arcadeLobby', {
+    game: lobby.game, admin: lobby.admin, players: arcadePlayers(lobby),
+    settings: lobby.settings, settingOptions: ARCADE_SETTING_OPTIONS[lobby.game], code,
+  });
+}
+function connectedNonDrawer(lobby) {
+  return lobby.players.filter(p => p.connected && p.playerId !== lobby.drawerId).length;
+}
+
+// ── QUIZ ─────────────────────────────────────────────────────────────────────
+function quizStart(code) {
+  const lobby = lobbies[code];
+  const n = Math.min(lobby.settings.questions, QUIZ_QUESTIONS.length);
+  lobby.questions = shuffle(QUIZ_QUESTIONS).slice(0, n);
+  lobby.qIndex = -1;
+  lobby.players.forEach(p => { p.score = 0; });
+  quizNextQuestion(code);
+}
+function quizNextQuestion(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.qIndex += 1;
+  if (lobby.qIndex >= lobby.questions.length) return quizFinish(code);
+  const q = lobby.questions[lobby.qIndex];
+  lobby.phase    = 'question';
+  lobby.answers  = {};                       // playerId → { choice, at }
+  lobby.qEndsAt  = Date.now() + QUIZ_Q_MS;
+  io.to(code).emit('quizQuestion', {
+    index: lobby.qIndex, total: lobby.questions.length,
+    question: q.q, options: q.o, endsAt: lobby.qEndsAt,
+  });
+  lobby.timer = setTimeout(() => quizReveal(code), QUIZ_Q_MS);
+}
+function quizReveal(code) {
+  const lobby = lobbies[code];
+  if (!lobby || lobby.phase !== 'question') return;
+  clearGameTimer(lobby);
+  lobby.phase = 'reveal';
+  const q = lobby.questions[lobby.qIndex];
+  const perPlayer = {};
+  lobby.players.forEach(p => {
+    const a = lobby.answers[p.playerId];
+    let gained = 0;
+    if (a && a.choice === q.c) {
+      const frac = Math.max(0, Math.min(1, (lobby.qEndsAt - a.at) / QUIZ_Q_MS));
+      gained = 500 + Math.round(500 * frac);
+      p.score += gained;
+    }
+    perPlayer[p.playerId] = { choice: a ? a.choice : null, gained };
+  });
+  io.to(code).emit('quizReveal', {
+    correct: q.c, options: q.o, perPlayer,
+    scoreboard: scoreboardOf(lobby),
+    last: lobby.qIndex >= lobby.questions.length - 1,
+  });
+  lobby.timer = setTimeout(() => {
+    if (lobby.qIndex >= lobby.questions.length - 1) quizFinish(code);
+    else quizNextQuestion(code);
+  }, QUIZ_REVEAL_MS);
+}
+function quizFinish(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.phase = 'finished';
+  io.to(code).emit('arcadeFinished', { game: 'quiz', scoreboard: scoreboardOf(lobby) });
+}
+
+// ── ZMYŚLACZ (bluff) ─────────────────────────────────────────────────────────
+function bluffStart(code) {
+  const lobby = lobbies[code];
+  const n = Math.min(lobby.settings.rounds, BLUFF_QUESTIONS.length);
+  lobby.questions = shuffle(BLUFF_QUESTIONS).slice(0, n);
+  lobby.qIndex = -1;
+  lobby.players.forEach(p => { p.score = 0; });
+  bluffBeginWriting(code);
+}
+function bluffBeginWriting(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.qIndex += 1;
+  if (lobby.qIndex >= lobby.questions.length) return bluffFinish(code);
+  lobby.phase   = 'writing';
+  lobby.fakes   = {};   // playerId → text
+  lobby.guesses = {};   // playerId → optionId
+  lobby.foundTruth = {};
+  lobby.endsAt  = Date.now() + BLUFF_WRITE_MS;
+  io.to(code).emit('bluffWrite', {
+    index: lobby.qIndex, total: lobby.questions.length,
+    question: lobby.questions[lobby.qIndex].q, endsAt: lobby.endsAt,
+  });
+  lobby.timer = setTimeout(() => bluffToGuessing(code), BLUFF_WRITE_MS);
+}
+function bluffToGuessing(code) {
+  const lobby = lobbies[code];
+  if (!lobby || lobby.phase !== 'writing') return;
+  clearGameTimer(lobby);
+  lobby.phase = 'guessing';
+  const real = lobby.questions[lobby.qIndex].a;
+  const realNorm = normalizeAnswer(real);
+  // Build options: the real answer + each player's (non-truth) fake.
+  const opts = [{ id: 'REAL', text: real, ownerId: null }];
+  lobby.players.forEach(p => {
+    const raw = (lobby.fakes[p.playerId] || '').trim();
+    if (!raw) return;
+    if (normalizeAnswer(raw) === realNorm) { lobby.foundTruth[p.playerId] = true; return; }
+    opts.push({ id: p.playerId, text: raw, ownerId: p.playerId });
+  });
+  lobby.options = shuffle(opts);
+  lobby.endsAt  = Date.now() + BLUFF_GUESS_MS;
+  // Each player sees the options but not who wrote them; their own fake is flagged.
+  lobby.players.forEach(p => {
+    io.to(p.socketId).emit('bluffGuess', {
+      index: lobby.qIndex, total: lobby.questions.length,
+      question: lobby.questions[lobby.qIndex].q,
+      options: lobby.options.map(o => ({ id: o.id, text: o.text, mine: o.ownerId === p.playerId })),
+      foundTruth: !!lobby.foundTruth[p.playerId],
+      endsAt: lobby.endsAt,
+    });
+  });
+  lobby.timer = setTimeout(() => bluffReveal(code), BLUFF_GUESS_MS);
+}
+function bluffReveal(code) {
+  const lobby = lobbies[code];
+  if (!lobby || lobby.phase !== 'guessing') return;
+  clearGameTimer(lobby);
+  lobby.phase = 'reveal';
+  const gained = {};
+  lobby.players.forEach(p => { gained[p.playerId] = 0; });
+  // Truth-finders bonus.
+  Object.keys(lobby.foundTruth).forEach(pid => { if (gained[pid] != null) gained[pid] += 500; });
+  // Score guesses.
+  Object.entries(lobby.guesses).forEach(([voterId, optId]) => {
+    if (optId === 'REAL') { if (gained[voterId] != null) gained[voterId] += 1000; }
+    else if (gained[optId] != null) gained[optId] += 500;   // fooled someone → author scores
+  });
+  lobby.players.forEach(p => { p.score += gained[p.playerId] || 0; });
+  // Build a readable reveal: each option, its author, and who picked it.
+  const pickedBy = {};
+  lobby.options.forEach(o => { pickedBy[o.id] = []; });
+  Object.entries(lobby.guesses).forEach(([voterId, optId]) => {
+    const voter = lobby.players.find(p => p.playerId === voterId);
+    if (pickedBy[optId]) pickedBy[optId].push(voter?.nickname ?? '?');
+  });
+  const reveal = lobby.options.map(o => ({
+    id: o.id, text: o.text,
+    author: o.ownerId ? (lobby.players.find(p => p.playerId === o.ownerId)?.nickname ?? '?') : 'PRAWDA',
+    isReal: o.id === 'REAL',
+    pickedBy: pickedBy[o.id] || [],
+  }));
+  io.to(code).emit('bluffReveal', {
+    question: lobby.questions[lobby.qIndex].q, real: lobby.questions[lobby.qIndex].a,
+    reveal, gained, scoreboard: scoreboardOf(lobby),
+    last: lobby.qIndex >= lobby.questions.length - 1,
+  });
+  lobby.timer = setTimeout(() => {
+    if (lobby.qIndex >= lobby.questions.length - 1) bluffFinish(code);
+    else bluffBeginWriting(code);
+  }, BLUFF_REVEAL_MS);
+}
+function bluffFinish(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.phase = 'finished';
+  io.to(code).emit('arcadeFinished', { game: 'bluff', scoreboard: scoreboardOf(lobby) });
+}
+// Advance early once everyone (still connected) has acted.
+function bluffMaybeAdvanceWrite(code) {
+  const lobby = lobbies[code];
+  const need = lobby.players.filter(p => p.connected).length;
+  const have = lobby.players.filter(p => p.connected && (lobby.fakes[p.playerId] || '').trim()).length;
+  if (have >= need && need > 0) bluffToGuessing(code);
+}
+function bluffMaybeAdvanceGuess(code) {
+  const lobby = lobbies[code];
+  const need = lobby.players.filter(p => p.connected).length;
+  const have = lobby.players.filter(p => p.connected && lobby.guesses[p.playerId]).length;
+  if (have >= need && need > 0) bluffReveal(code);
+}
+
+// ── KALAMBURY (draw & guess) ─────────────────────────────────────────────────
+function drawStart(code) {
+  const lobby = lobbies[code];
+  lobby.players.forEach(p => { p.score = 0; });
+  lobby.order      = shuffle(lobby.players.map(p => p.playerId));
+  lobby.turnIndex  = -1;
+  lobby.totalTurns = lobby.order.length * lobby.settings.laps;
+  lobby.turnNo     = 0;
+  drawNextTurn(code);
+}
+function drawNextTurn(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.turnNo += 1;
+  if (lobby.turnNo > lobby.totalTurns) return drawFinish(code);
+  // Pick next connected drawer.
+  let guard = 0;
+  do { lobby.turnIndex = (lobby.turnIndex + 1) % lobby.order.length; guard++; }
+  while (guard <= lobby.order.length && !lobby.players.find(p => p.playerId === lobby.order[lobby.turnIndex] && p.connected));
+  lobby.drawerId  = lobby.order[lobby.turnIndex];
+  lobby.word      = DRAW_WORDS[Math.floor(Math.random() * DRAW_WORDS.length)];
+  lobby.guessed   = {};        // playerId → order index of correct guess
+  lobby.correctCount = 0;
+  lobby.strokes   = [];        // for late joiners / rejoins
+  lobby.phase     = 'drawing';
+  lobby.endsAt    = Date.now() + DRAW_MS;
+  const drawer = lobby.players.find(p => p.playerId === lobby.drawerId);
+  lobby.players.forEach(p => {
+    io.to(p.socketId).emit('drawTurn', {
+      turnNo: lobby.turnNo, totalTurns: lobby.totalTurns,
+      drawerId: lobby.drawerId, drawerNick: drawer?.nickname ?? '?',
+      amDrawer: p.playerId === lobby.drawerId,
+      word: p.playerId === lobby.drawerId ? lobby.word : null,
+      wordLen: lobby.word.length, endsAt: lobby.endsAt,
+      scoreboard: scoreboardOf(lobby),
+    });
+  });
+  lobby.timer = setTimeout(() => drawEndTurn(code, 'timeout'), DRAW_MS);
+}
+function drawEndTurn(code, reason) {
+  const lobby = lobbies[code];
+  if (!lobby || lobby.phase !== 'drawing') return;
+  clearGameTimer(lobby);
+  lobby.phase = 'reveal';
+  io.to(code).emit('drawReveal', {
+    word: lobby.word, reason,
+    scoreboard: scoreboardOf(lobby),
+    last: lobby.turnNo >= lobby.totalTurns,
+  });
+  lobby.timer = setTimeout(() => {
+    if (lobby.turnNo >= lobby.totalTurns) drawFinish(code);
+    else drawNextTurn(code);
+  }, DRAW_REVEAL_MS);
+}
+function drawFinish(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.phase = 'finished';
+  io.to(code).emit('arcadeFinished', { game: 'draw', scoreboard: scoreboardOf(lobby) });
+}
+
+// Full snapshot for a reconnecting arcade player.
+function arcadeRejoinSnapshot(lobby, pid, isAdmin, code) {
+  const base = {
+    game: lobby.game, code, isAdmin, phase: lobby.phase,
+    settings: lobby.settings, settingOptions: ARCADE_SETTING_OPTIONS[lobby.game],
+    players: arcadePlayers(lobby), scoreboard: scoreboardOf(lobby),
+  };
+  if (lobby.phase === 'waiting' || lobby.phase === 'finished') return base;
+  if (lobby.game === 'quiz') {
+    const q = lobby.questions[lobby.qIndex];
+    if (lobby.phase === 'question') return { ...base, index: lobby.qIndex, total: lobby.questions.length, question: q.q, options: q.o, endsAt: lobby.qEndsAt, youAnswered: !!lobby.answers[pid] };
+    if (lobby.phase === 'reveal')   return { ...base, index: lobby.qIndex, total: lobby.questions.length, question: q.q, options: q.o, correct: q.c };
+  } else if (lobby.game === 'bluff') {
+    const q = lobby.questions[lobby.qIndex];
+    if (lobby.phase === 'writing')  return { ...base, index: lobby.qIndex, total: lobby.questions.length, question: q.q, endsAt: lobby.endsAt, submitted: !!(lobby.fakes[pid] || '').trim() };
+    if (lobby.phase === 'guessing') return { ...base, index: lobby.qIndex, total: lobby.questions.length, question: q.q, endsAt: lobby.endsAt, options: lobby.options.map(o => ({ id: o.id, text: o.text, mine: o.ownerId === pid })), foundTruth: !!lobby.foundTruth[pid], picked: lobby.guesses[pid] || null };
+    if (lobby.phase === 'reveal')   return { ...base, question: q.q, real: q.a };
+  } else if (lobby.game === 'draw') {
+    if (lobby.phase === 'drawing') {
+      const drawer = lobby.players.find(p => p.playerId === lobby.drawerId);
+      return { ...base, turnNo: lobby.turnNo, totalTurns: lobby.totalTurns, drawerId: lobby.drawerId, drawerNick: drawer?.nickname ?? '?', amDrawer: pid === lobby.drawerId, word: pid === lobby.drawerId ? lobby.word : null, wordLen: lobby.word.length, endsAt: lobby.endsAt, strokes: lobby.strokes, alreadyGuessed: !!lobby.guessed[pid] };
+    }
+    if (lobby.phase === 'reveal') return { ...base, word: lobby.word };
+  }
+  return base;
+}
+
 // ─── SOCKET EVENTS ───────────────────────────────────────────────────────────
 
 io.on('connection', socket => {
@@ -416,14 +783,20 @@ io.on('connection', socket => {
   socket.on('createLobby', ({ nickname, playerId, game }) => {
     const pid      = playerId || generateId();
     const code     = generateCode();
-    const gameType = game === 'panstwa' ? 'panstwa' : 'czolko';
+    const valid    = ['czolko','panstwa','quiz','bluff','draw'];
+    const gameType = valid.includes(game) ? game : 'czolko';
 
     const basePlayer = { playerId: pid, socketId: socket.id, nickname, connected: true, disconnectTimer: null, word: null, score: 0 };
 
     if (gameType === 'czolko') {
       lobbies[code] = { game: 'czolko', admin: pid, players: [basePlayer], phase: 'waiting', assignments: [], assignTimeout: null, winner: null, endVotes: {}, endVoteTimeout: null };
-    } else {
+    } else if (gameType === 'panstwa') {
       lobbies[code] = { game: 'panstwa', admin: pid, players: [basePlayer], phase: 'waiting', categories: DEFAULT_CATEGORIES.slice(), availableCategories: ALL_CATEGORIES.slice(), maxRounds: DEFAULT_MAX_ROUNDS, round: 0, currentLetter: null, answers: {}, roundTimeout: null, roundEndsAt: 0, stopping: false, lastResults: null, reviewData: null, reviewVotes: {}, aiVerdicts: {}, roundFinalized: false };
+    } else {
+      const settings = gameType === 'quiz'  ? { questions: 10 }
+                     : gameType === 'bluff' ? { rounds: 5 }
+                     :                        { laps: 2 };
+      lobbies[code] = { game: gameType, admin: pid, players: [basePlayer], phase: 'waiting', settings, timer: null };
     }
 
     socket.join(code);
@@ -434,8 +807,11 @@ io.on('connection', socket => {
       allCategories: gameType === 'panstwa' ? lobbies[code].availableCategories : undefined,
       maxRounds:     gameType === 'panstwa' ? lobbies[code].maxRounds : undefined,
       roundOptions:  gameType === 'panstwa' ? ROUND_OPTIONS : undefined,
+      settings:      lobbies[code].settings,
+      settingOptions: ARCADE_SETTING_OPTIONS[gameType],
     });
-    broadcastLobby(code);
+    if (['quiz','bluff','draw'].includes(gameType)) broadcastArcadeLobby(code);
+    else broadcastLobby(code);
   });
 
   // JOIN LOBBY
@@ -455,8 +831,11 @@ io.on('connection', socket => {
       allCategories: lobby.game === 'panstwa' ? lobby.availableCategories : undefined,
       maxRounds:     lobby.game === 'panstwa' ? lobby.maxRounds : undefined,
       roundOptions:  lobby.game === 'panstwa' ? ROUND_OPTIONS : undefined,
+      settings:      lobby.settings,
+      settingOptions: ARCADE_SETTING_OPTIONS[lobby.game],
     });
-    broadcastLobby(code);
+    if (['quiz','bluff','draw'].includes(lobby.game)) broadcastArcadeLobby(code);
+    else broadcastLobby(code);
   });
 
   // REJOIN
@@ -475,6 +854,12 @@ io.on('connection', socket => {
 
     const isAdmin = lobby.admin === playerId;
     const base    = { game: lobby.game, code, isAdmin, players: publicPlayers(lobby) };
+
+    if (['quiz','bluff','draw'].includes(lobby.game)) {
+      socket.emit('arcadeRejoin', arcadeRejoinSnapshot(lobby, playerId, isAdmin, code));
+      broadcastArcadeLobby(code);
+      return;
+    }
 
     if (lobby.game === 'czolko') {
       if (lobby.phase === 'waiting') {
@@ -701,6 +1086,121 @@ io.on('connection', socket => {
     io.to(code).emit('gameEnded', { scoreboard: publicPlayers(lobby).sort((a,b) => b.score - a.score) });
   });
 
+  // ── ARCADE GAMES (Quiz / Zmyślacz / Kalambury) ──────────────────────────────
+
+  const isArcade = l => l && ['quiz','bluff','draw'].includes(l.game);
+
+  socket.on('arcadeSetting', ({ value }) => {
+    const lobby = lobbies[socket.lobbyCode];
+    if (!isArcade(lobby) || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
+    const opt = ARCADE_SETTING_OPTIONS[lobby.game];
+    if (!opt.values.includes(value)) return;
+    lobby.settings[opt.key] = value;
+    broadcastArcadeLobby(socket.lobbyCode);
+  });
+
+  socket.on('arcadeStart', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!isArcade(lobby) || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
+    if (lobby.players.length < 2) return socket.emit('error', 'Potrzeba minimum 2 graczy!');
+    if (lobby.game === 'quiz')  quizStart(code);
+    else if (lobby.game === 'bluff') bluffStart(code);
+    else drawStart(code);
+  });
+
+  socket.on('arcadePlayAgain', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!isArcade(lobby) || lobby.admin !== socket.playerId || lobby.phase !== 'finished') return;
+    clearGameTimer(lobby);
+    lobby.phase = 'waiting';
+    lobby.players.forEach(p => { p.score = 0; });
+    io.to(code).emit('arcadeReturnLobby');
+    broadcastArcadeLobby(code);
+  });
+
+  // QUIZ
+  socket.on('quizAnswer', ({ choice }) => {
+    const lobby = lobbies[socket.lobbyCode];
+    if (!lobby || lobby.game !== 'quiz' || lobby.phase !== 'question' || !socket.playerId) return;
+    if (lobby.answers[socket.playerId]) return;                 // already answered
+    if (typeof choice !== 'number' || choice < 0 || choice > 3) return;
+    lobby.answers[socket.playerId] = { choice, at: Date.now() };
+    const answered = Object.keys(lobby.answers).length;
+    io.to(socket.lobbyCode).emit('quizProgress', { answered, total: lobby.players.filter(p => p.connected).length });
+    if (answered >= lobby.players.filter(p => p.connected).length) quizReveal(socket.lobbyCode);
+  });
+
+  // ZMYŚLACZ
+  socket.on('bluffSubmitFake', ({ text }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'bluff' || lobby.phase !== 'writing' || !socket.playerId) return;
+    const clean = (text || '').trim().slice(0, 60);
+    if (!clean) return;
+    lobby.fakes[socket.playerId] = clean;
+    const need = lobby.players.filter(p => p.connected).length;
+    const have = lobby.players.filter(p => p.connected && (lobby.fakes[p.playerId] || '').trim()).length;
+    io.to(code).emit('bluffWriteProgress', { have, need });
+    bluffMaybeAdvanceWrite(code);
+  });
+
+  socket.on('bluffPick', ({ optionId }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'bluff' || lobby.phase !== 'guessing' || !socket.playerId) return;
+    const opt = (lobby.options || []).find(o => o.id === optionId);
+    if (!opt || opt.ownerId === socket.playerId) return;        // can't pick your own fake
+    lobby.guesses[socket.playerId] = optionId;
+    const need = lobby.players.filter(p => p.connected).length;
+    const have = lobby.players.filter(p => p.connected && lobby.guesses[p.playerId]).length;
+    io.to(code).emit('bluffGuessProgress', { have, need });
+    bluffMaybeAdvanceGuess(code);
+  });
+
+  // KALAMBURY
+  socket.on('drawStroke', (data) => {
+    const lobby = lobbies[socket.lobbyCode];
+    if (!lobby || lobby.game !== 'draw' || lobby.phase !== 'drawing' || socket.playerId !== lobby.drawerId) return;
+    if (!data || typeof data !== 'object') return;
+    lobby.strokes.push(data);
+    if (lobby.strokes.length > 4000) lobby.strokes.shift();     // cap memory
+    socket.to(socket.lobbyCode).emit('drawStroke', data);       // to everyone except drawer
+  });
+
+  socket.on('drawClear', () => {
+    const lobby = lobbies[socket.lobbyCode];
+    if (!lobby || lobby.game !== 'draw' || lobby.phase !== 'drawing' || socket.playerId !== lobby.drawerId) return;
+    lobby.strokes = [];
+    socket.to(socket.lobbyCode).emit('drawClear');
+  });
+
+  socket.on('drawGuess', ({ text }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'draw' || lobby.phase !== 'drawing' || !socket.playerId) return;
+    if (socket.playerId === lobby.drawerId) return;             // drawer can't guess
+    const guess = (text || '').trim().slice(0, 40);
+    if (!guess) return;
+    const me = lobby.players.find(p => p.playerId === socket.playerId);
+    if (lobby.guessed[socket.playerId]) return;                 // already got it
+
+    if (normalizeAnswer(guess) === normalizeAnswer(lobby.word)) {
+      lobby.correctCount += 1;
+      lobby.guessed[socket.playerId] = lobby.correctCount;
+      const gPts = Math.max(60, 140 - 20 * (lobby.correctCount - 1));
+      me.score += gPts;
+      const drawer = lobby.players.find(p => p.playerId === lobby.drawerId);
+      if (drawer) drawer.score += 40;
+      io.to(code).emit('drawGuessed', {
+        id: me.playerId, nick: me.nickname, order: lobby.correctCount,
+        scoreboard: scoreboardOf(lobby),
+      });
+      // End the turn once everyone who can guess has guessed.
+      const remaining = connectedNonDrawer(lobby) - Object.keys(lobby.guessed).length;
+      if (remaining <= 0) drawEndTurn(code, 'all-guessed');
+    } else {
+      // Broadcast as a normal chat message (a wrong guess).
+      io.to(code).emit('drawChat', { nick: me.nickname, text: guess });
+    }
+  });
+
   // ── LEAVE LOBBY (voluntary exit) ─────────────────────────────────────────────
 
   socket.on('leaveLobby', () => {
@@ -722,6 +1222,7 @@ io.on('connection', socket => {
       if (lobby.roundTimeout)    clearTimeout(lobby.roundTimeout);
       if (lobby.assignTimeout)   clearTimeout(lobby.assignTimeout);
       if (lobby.endVoteTimeout)  clearTimeout(lobby.endVoteTimeout);
+      if (lobby.timer)           clearTimeout(lobby.timer);
       delete lobbies[code];
       return;
     }
@@ -735,6 +1236,10 @@ io.on('connection', socket => {
     broadcastLobby(code);
     // Keep review/vote screens consistent after a departure.
     if (lobby.game === 'panstwa' && lobby.phase === 'reviewing') pmBroadcastReview(code);
+    // If the drawer left mid-turn, end the turn so the game keeps moving.
+    if (lobby.game === 'draw' && lobby.phase === 'drawing' && lobby.drawerId === pid) drawEndTurn(code, 'drawer-left');
+    else if (lobby.game === 'bluff' && lobby.phase === 'writing')  bluffMaybeAdvanceWrite(code);
+    else if (lobby.game === 'bluff' && lobby.phase === 'guessing') bluffMaybeAdvanceGuess(code);
     if (lobby.game === 'czolko'  && lobby.phase === 'finished') {
       const tally = czolkoVoteTally(lobby);
       io.to(code).emit('czolkoVoteUpdate', tally);
@@ -768,6 +1273,7 @@ io.on('connection', socket => {
         if (lobby.roundTimeout)    clearTimeout(lobby.roundTimeout);
         if (lobby.assignTimeout)   clearTimeout(lobby.assignTimeout);
         if (lobby.endVoteTimeout)  clearTimeout(lobby.endVoteTimeout);
+        if (lobby.timer)           clearTimeout(lobby.timer);
         delete lobbies[code];
       } else {
         if (lobby.admin === playerId) {
