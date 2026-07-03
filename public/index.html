@@ -115,6 +115,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .dr-color{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.25);cursor:pointer;padding:0;flex:0 0 auto}
 .dr-color.sel{border-color:#fff;transform:scale(1.12)}
 .nb-toolbar-btn.tool-on{background:rgba(129,140,248,.28)!important;color:#c7d2fe!important;outline:1px solid #818cf8}
+#dr-width-dot{display:inline-block;border-radius:50%;background:#e5e7eb;flex:0 0 auto;width:10px;height:10px}
 #dr-chat{max-height:150px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;font-size:.85rem;background:rgba(0,0,0,.2);border-radius:10px;padding:8px}
 .dr-chat-line{color:#d1d5db}
 .dr-chat-line.correct{color:#34d399;font-weight:700}
@@ -646,6 +647,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
     <button class="nb-toolbar-btn" onclick="drawUndo()" title="Cofnij">↩️</button>
     <button class="nb-toolbar-btn" style="background:rgba(248,113,113,.1);color:#f87171" onclick="drawClearCanvas()" title="Wyczyść">🗑️</button>
     <button class="nb-toolbar-btn" onclick="drawToggleMore()" title="Więcej kolorów">🎨 ▾</button>
+  </div>
+  <div id="dr-thickness" style="display:none;align-items:center;gap:10px;width:100%;max-width:420px;justify-content:center">
+    <span style="font-size:.8rem;color:#9ca3af">Grubość</span>
+    <input type="range" id="dr-width-input" min="2" max="42" step="1" value="8" oninput="drawSetWidth(this.value)" style="flex:1;max-width:240px;accent-color:#818cf8">
+    <span id="dr-width-dot"></span>
   </div>
   <div id="dr-more" style="display:none;gap:10px;width:100%;max-width:420px;align-items:center;justify-content:center;flex-wrap:wrap">
     <label style="font-size:.8rem;color:#cbd5e1;display:flex;align-items:center;gap:6px">Cała paleta:
@@ -1454,6 +1460,7 @@ socket.on('bluffReveal', (d) => {
 const drCanvas = document.getElementById('dr-canvas');
 const dctx = drCanvas.getContext('2d', { willReadFrequently: true });
 let drAmDrawer = false, drDrawing = false, drColor = '#111827', drWidth = 8;
+let drPenWidth = 8, drEraser = false;
 let drTool = 'pen';           // 'pen' | 'fill' | 'shape'
 let drShape = 'square';
 let drOps = [];               // completed operations (undo / rejoin replay)
@@ -1576,14 +1583,21 @@ function drSyncToolUI() {
   ['sq','ci','he'].forEach(id => { const b=document.getElementById('dr-shape-'+id); if (b) b.classList.remove('tool-on'); });
   if (drTool==='shape') { const m={square:'sq',circle:'ci',heart:'he'}; const b=document.getElementById('dr-shape-'+m[drShape]); if (b) b.classList.add('tool-on'); }
 }
+function drApplyWidth() { drWidth = drEraser ? Math.max(24, drPenWidth * 4) : drPenWidth; }
+function drawSetWidth(v) {
+  drPenWidth = Math.max(2, Math.min(42, +v || 8));
+  drApplyWidth();
+  const dot=document.getElementById('dr-width-dot');
+  if (dot) { const px=Math.max(4, Math.min(26, Math.round(drPenWidth/1.6))); dot.style.width=px+'px'; dot.style.height=px+'px'; }
+}
 function drawSetColor(c, btn, eraser) {
-  drColor=c; drWidth=eraser?55:8; drTool='pen';
+  drColor=c; drEraser=!!eraser; drApplyWidth(); drTool='pen';
   document.querySelectorAll('.dr-color').forEach(b => b.classList.remove('sel')); if (btn) btn.classList.add('sel');
   const ci=document.getElementById('dr-color-input'); if (ci && !eraser) ci.value=c;
   drSyncToolUI();
 }
 function drawPickColor(hex) {
-  drColor=hex; drWidth=8; drTool='pen';
+  drColor=hex; drEraser=false; drApplyWidth(); drTool='pen';
   document.querySelectorAll('.dr-color').forEach(b => b.classList.remove('sel'));
   drSyncToolUI();
 }
@@ -1600,7 +1614,8 @@ function drAddChat(html, correct) {
   while (box.children.length>50) box.removeChild(box.firstChild);
 }
 function renderDrawTurn(d) {
-  drAmDrawer=d.amDrawer; drDrawing=false; drCurStroke=null; drTool='pen'; drSnapshot=null;
+  drAmDrawer=d.amDrawer; drDrawing=false; drCurStroke=null; drTool='pen'; drSnapshot=null; drEraser=false;
+  drApplyWidth();
   drOps = (d.ops||[]).slice();
   document.getElementById('dr-counter').textContent = `Tura ${d.turnNo} / ${d.totalTurns}`;
   drRedrawAll();
@@ -1608,7 +1623,9 @@ function renderDrawTurn(d) {
   if (d.amDrawer) wordEl.innerHTML = `Rysujesz: <span style="color:#fbbf24">${escAttr(d.word)}</span>`;
   else wordEl.innerHTML = `${escAttr(d.drawerNick)} rysuje… <span class="dr-hint">${'_ '.repeat(d.wordLen).trim()}</span>`;
   document.getElementById('dr-tools').style.display      = d.amDrawer ? 'flex' : 'none';
+  document.getElementById('dr-thickness').style.display  = d.amDrawer ? 'flex' : 'none';
   document.getElementById('dr-more').style.display       = 'none';
+  const wi=document.getElementById('dr-width-input'); if (wi) { wi.value = drPenWidth; drawSetWidth(drPenWidth); }
   document.getElementById('dr-guess-area').style.display = d.amDrawer ? 'none' : 'flex';
   const g=document.getElementById('dr-guess'); g.value=''; g.disabled=!!d.alreadyGuessed; g.placeholder=d.alreadyGuessed?'Zgadłeś! 🎉':'Zgadnij hasło...';
   document.getElementById('dr-chat').innerHTML='';
