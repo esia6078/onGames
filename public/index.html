@@ -10,8 +10,10 @@
 <style>
 /* ────────────────────────────────────────────────────────── BASE ── */
 *{box-sizing:border-box;margin:0;padding:0}
-/* Leave room under a focused field so the mobile keyboard never covers it */
-html{scroll-padding-bottom:320px;scroll-padding-top:70px}
+/* Small headroom so a focused field isn't flush against the keyboard.
+   Large values here make iOS Safari yank the page toward the top while
+   typing, so keep them modest. */
+html{scroll-padding-bottom:24px;scroll-padding-top:12px}
 body{font-family:'Poppins',sans-serif;background:#07071a;color:#eee;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;overflow-x:hidden}
 /* Tall, input-heavy screens scroll from the top instead of being centred,
    so every field (and the keyboard's headroom) stays reachable. */
@@ -44,7 +46,7 @@ body::before{content:'';position:fixed;inset:0;background:
 .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:22px;width:100%;backdrop-filter:blur(12px)}
 
 /* ──────────────────────────────────────────────────── INPUTS ── */
-input,textarea{width:100%;padding:13px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.13);font-size:1rem;background:rgba(255,255,255,.06);color:#eee;font-family:'Poppins',sans-serif;transition:border .2s,box-shadow .2s;scroll-margin-bottom:220px;scroll-margin-top:80px}
+input,textarea{width:100%;padding:13px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.13);font-size:1rem;background:rgba(255,255,255,.06);color:#eee;font-family:'Poppins',sans-serif;transition:border .2s,box-shadow .2s;scroll-margin-bottom:24px;scroll-margin-top:24px}
 input:focus,textarea:focus{outline:none;border-color:#818cf8;box-shadow:0 0 0 3px rgba(129,140,248,.15)}
 input::placeholder,textarea::placeholder{color:#4b5563}
 
@@ -831,24 +833,25 @@ function copyCode(txt) {
 }
 
 // ─── MOBILE KEYBOARD SCROLL FIX ───────────────────────────────────────────────
-// Keep the focused field in the visible area above the on-screen keyboard.
-function keepFieldVisible(smooth) {
+// If the keyboard covers the focused field, gently scroll it up into view.
+// We ONLY ever nudge a field that is hidden *below* the keyboard – never pull
+// the page upward – otherwise iOS Safari jumps to the top while typing.
+function keepFieldVisible() {
   const el = document.activeElement;
   if (!el || !(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
-  const vv        = window.visualViewport;
-  const viewTop   = vv ? vv.offsetTop : 0;
-  const viewH     = vv ? vv.height : window.innerHeight;   // area NOT covered by keyboard
-  const rect      = el.getBoundingClientRect();
-  const margin    = 24;
-  let delta = 0;
-  if (rect.bottom > viewTop + viewH - margin) delta = rect.bottom - (viewTop + viewH - margin); // hidden below keyboard
-  else if (rect.top < viewTop + margin)       delta = rect.top - (viewTop + margin);            // above the fold
-  if (Math.abs(delta) > 2) window.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'auto' });
+  const vv      = window.visualViewport;
+  const viewTop = vv ? vv.offsetTop : 0;
+  const viewH   = vv ? vv.height : window.innerHeight;   // area NOT covered by keyboard
+  const rect    = el.getBoundingClientRect();
+  const overlap = rect.bottom - (viewTop + viewH - 16);  // >0 → hidden below keyboard
+  if (overlap > 2) window.scrollBy({ top: overlap, behavior: 'smooth' });
 }
-document.addEventListener('focusin', () => setTimeout(() => keepFieldVisible(true), 150));
+// Run once when a field is focused and once when the keyboard opens/resizes.
+// Deliberately NOT on visualViewport 'scroll' – that fires on every keystroke
+// on iOS and caused the page to keep jumping while typing.
+document.addEventListener('focusin', () => setTimeout(keepFieldVisible, 200));
 if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', () => setTimeout(() => keepFieldVisible(false), 50));
-  window.visualViewport.addEventListener('scroll', () => keepFieldVisible(false));
+  window.visualViewport.addEventListener('resize', () => setTimeout(keepFieldVisible, 60));
 }
 
 // ─── PLAYER RENDERING ──────────────────────────────────────────────────────────
