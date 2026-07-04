@@ -361,6 +361,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
         <div class="gr-text"><div class="gr-name">Najgorsze skojarzenia</div><div class="gr-desc">Wpisz i wybierz najśmieszniejszą</div></div>
         <div class="gr-check">✓</div>
       </div>
+      <div class="game-row" data-game="who" onclick="selectGame('who')">
+        <div class="gr-emoji">🙋</div>
+        <div class="gr-text"><div class="gr-name">Kto z nas?</div><div class="gr-desc">Głosuj, kto najprędzej to zrobi</div></div>
+        <div class="gr-check">✓</div>
+      </div>
     </div>
 
     <div class="settings-divider"></div>
@@ -783,6 +788,24 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <p class="waiting-text">Kolejna runda za chwilę...</p>
 </div>
 
+<!-- ══════════════════════════════════════ KTO Z NAS? ══ -->
+<div class="screen" id="screen-who-vote">
+  <p class="section-title" id="wv-counter"></p>
+  <div class="logo" style="font-size:1.2rem;text-align:center">Kto z nas? 🙋</div>
+  <div class="card" id="wv-prompt" style="text-align:center;font-weight:700;font-size:1.15rem"></div>
+  <div class="timer" id="wv-timer"></div>
+  <div id="wv-options" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+  <p class="waiting-text" id="wv-progress"></p>
+</div>
+<div class="screen" id="screen-who-reveal">
+  <div style="font-size:2.2rem">🙋</div>
+  <div class="logo" style="font-size:1.3rem">Wyniki rundy</div>
+  <div class="card" id="wr-prompt" style="text-align:center;font-weight:700"></div>
+  <div id="wr-list" style="width:100%;display:flex;flex-direction:column;gap:8px"></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px"><p class="section-title">Ranking</p><div class="scoreboard" id="wr-scoreboard"></div></div>
+  <p class="waiting-text">Kolejna runda za chwilę...</p>
+</div>
+
 <!-- ══════════════════════════════════════ ARCADE: KONIEC ══ -->
 <div class="screen" id="screen-arcade-finished">
   <div style="font-size:3rem">🏆</div>
@@ -836,7 +859,8 @@ function showToast(html) {
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
 }
 // Screens that top-align + scroll (must be defined before any showScreen call).
-const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished', 'screen-truths-tell', 'screen-truths-guess', 'screen-truths-reveal', 'screen-assoc-write', 'screen-assoc-vote', 'screen-assoc-reveal']);
+const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished', 'screen-truths-tell', 'screen-truths-guess', 'screen-truths-reveal', 'screen-assoc-write', 'screen-assoc-vote', 'screen-assoc-reveal', 'screen-who-vote', 'screen-who-reveal']);
+const NO_LEAVE_SCREENS = new Set(['screen-home','screen-reconnecting','screen-lobby-admin','screen-lobby-player','screen-pm-lobby','screen-arcade-lobby']);
 
 // Attempt rejoin on load
 let reconnectTimer = null;
@@ -865,6 +889,7 @@ const GAME_UI = {
   czolko:{e:'🎯',n:'Czółko'}, panstwa:{e:'🌍',n:'Państwa-Miasta'},
   quiz:{e:'🧠',n:'Quiz wiedzy'}, bluff:{e:'🤥',n:'Zmyślacz'}, draw:{e:'🎨',n:'Kalambury'},
   truths:{e:'🕵️',n:'2 prawdy 1 kłamstwo'}, assoc:{e:'😂',n:'Najgorsze skojarzenia'},
+  who:{e:'🙋',n:'Kto z nas?'},
 };
 // Short how-to shown in every lobby.
 const GAME_HOWTO = {
@@ -875,6 +900,7 @@ const GAME_HOWTO = {
   draw:    'Po kolei każdy rysuje wylosowane hasło, a reszta zgaduje w czacie. Punkty za szybkie zgadywanie i za rysowanie.',
   truths:  'Po kolei każdy podaje o sobie 2 prawdy i 1 kłamstwo. Reszta zgaduje, które zdanie to kłamstwo. Punkty za trafienie i za nabranie innych.',
   assoc:   'Do zdania z luką wpisz najśmieszniejszą odpowiedź. Potem wszyscy głosują na najlepszą (nie na swoją). Punkty za każdy głos.',
+  who:     'W każdej rundzie widzicie hasło "Kto z nas...?" i głosujecie na gracza, który najbardziej pasuje. Śmieszny finał: kto dostał najwięcej głosów. Punkty za każdy oddany na Ciebie głos.',
 };
 function selectGame(g) {
   selectedGame = g;
@@ -1381,9 +1407,9 @@ socket.on('gameEnded', ({ scoreboard }) => {
 });
 
 // ─── ARCADE GAMES (Quiz / Zmyślacz / Kalambury) ───────────────────────────────
-const ARCADE_GAMES = new Set(['quiz','bluff','draw','truths','assoc']);
-const ARCADE_META  = { quiz:{emoji:'🧠',title:'Quiz wiedzy'}, bluff:{emoji:'🤥',title:'Zmyślacz'}, draw:{emoji:'🎨',title:'Kalambury'}, truths:{emoji:'🕵️',title:'2 prawdy 1 kłamstwo'}, assoc:{emoji:'😂',title:'Najgorsze skojarzenia'} };
-const ARCADE_MID_SCREENS = ['screen-quiz','screen-quiz-reveal','screen-bluff-write','screen-bluff-guess','screen-bluff-reveal','screen-draw','screen-draw-reveal','screen-truths-tell','screen-truths-guess','screen-truths-reveal','screen-assoc-write','screen-assoc-vote','screen-assoc-reveal'];
+const ARCADE_GAMES = new Set(['quiz','bluff','draw','truths','assoc','who']);
+const ARCADE_META  = { quiz:{emoji:'🧠',title:'Quiz wiedzy'}, bluff:{emoji:'🤥',title:'Zmyślacz'}, draw:{emoji:'🎨',title:'Kalambury'}, truths:{emoji:'🕵️',title:'2 prawdy 1 kłamstwo'}, assoc:{emoji:'😂',title:'Najgorsze skojarzenia'}, who:{emoji:'🙋',title:'Kto z nas?'} };
+const ARCADE_MID_SCREENS = ['screen-quiz','screen-quiz-reveal','screen-bluff-write','screen-bluff-guess','screen-bluff-reveal','screen-draw','screen-draw-reveal','screen-truths-tell','screen-truths-guess','screen-truths-reveal','screen-assoc-write','screen-assoc-vote','screen-assoc-reveal','screen-who-vote','screen-who-reveal'];
 let arcGame = null, arcSettings = {}, arcSettingOptions = null, quizCur = null, quizAnswered = false, bluffSubmitted = false, bluffPicked = null;
 
 function startCountdown(elId, endsAt) {
@@ -1905,6 +1931,47 @@ socket.on('assocReveal', (d) => {
 });
 document.getElementById('aw-input').addEventListener('keydown', e => { if (e.key === 'Enter') assocSubmit(); });
 
+// ── KTO Z NAS? ────────────────────────────────────────────────────────────────
+let whoPicked = null;
+function renderWhoVote(d) {
+  whoPicked = d.picked || null;
+  document.getElementById('wv-counter').textContent = `Runda ${d.index+1} / ${d.total}`;
+  document.getElementById('wv-prompt').textContent = d.prompt;
+  const box = document.getElementById('wv-options'); box.innerHTML = '';
+  d.players.forEach(p => {
+    const b = document.createElement('button');
+    const me = p.id === myId;
+    b.className = 'bluff-opt' + (whoPicked === p.id ? ' picked' : '');
+    b.textContent = p.nickname + (me ? ' (Ty)' : '') + (p.connected ? '' : ' 🔌');
+    if (whoPicked) b.disabled = true;
+    else b.onclick = () => whoChoose(p.id, b);
+    box.appendChild(b);
+  });
+  document.getElementById('wv-progress').textContent = '';
+  startCountdown('wv-timer', d.endsAt);
+  showScreen('screen-who-vote');
+}
+function whoChoose(id, btn) {
+  if (whoPicked) return; whoPicked = id;
+  socket.emit('whoVote', { targetId: id });
+  document.querySelectorAll('#wv-options .bluff-opt').forEach(b => b.disabled = true);
+  btn.classList.add('picked');
+}
+socket.on('whoVote', renderWhoVote);
+socket.on('whoVoteProgress', ({ have, need }) => { const el = document.getElementById('wv-progress'); if (el && !whoPicked) el.textContent = `Zagłosowało: ${have}/${need}`; });
+socket.on('whoReveal', (d) => {
+  document.getElementById('wr-prompt').textContent = d.prompt;
+  const box = document.getElementById('wr-list'); box.innerHTML = '';
+  if (d.noVotes) box.innerHTML = '<div class="pub-empty">Nikt nie zagłosował 🤷</div>';
+  d.rows.forEach((r, i) => {
+    const row = document.createElement('div'); row.className = 'bluff-reveal-row' + (r.top ? ' real' : '');
+    row.innerHTML = `<div class="brr-text">${r.top?'🏆 ':''}${escAttr(r.nickname)}</div><div class="brr-meta">${r.votes} gł.</div>`;
+    box.appendChild(row);
+  });
+  renderArcadeScoreboard('wr-scoreboard', d.scoreboard);
+  showScreen('screen-who-reveal');
+});
+
 // ── ARCADE REJOIN ─────────────────────────────────────────────────────────────
 socket.on('arcadeRejoin', (s) => {
   endReconnect();
@@ -1949,6 +2016,9 @@ socket.on('arcadeRejoin', (s) => {
     if (s.phase === 'writing') renderAssocWrite(s);
     else if (s.phase === 'voting') renderAssocVote(s);
     else if (s.phase === 'reveal') { document.getElementById('ar-prompt').textContent = s.prompt; document.getElementById('ar-list').innerHTML = ''; renderArcadeScoreboard('ar-scoreboard', s.scoreboard); showScreen('screen-assoc-reveal'); }
+  } else if (s.game === 'who') {
+    if (s.phase === 'voting') renderWhoVote(s);
+    else if (s.phase === 'reveal') { document.getElementById('wr-prompt').textContent = s.prompt; document.getElementById('wr-list').innerHTML = ''; renderArcadeScoreboard('wr-scoreboard', s.scoreboard); showScreen('screen-who-reveal'); }
   }
 });
 
@@ -2136,7 +2206,6 @@ socket.on('rejoinFailed', () => { backToHome(); });
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 // Screens with their own exit (home / lobbies) don't need the floating button.
-const NO_LEAVE_SCREENS = new Set(['screen-home','screen-reconnecting','screen-lobby-admin','screen-lobby-player','screen-pm-lobby','screen-arcade-lobby']);
 function showScreen(id) {
   // Only a genuine screen change should jump to the top. Re-showing the same
   // screen (e.g. a lobby re-render after a settings tap or a player joining)
