@@ -41,7 +41,7 @@ const ROUND_OPTIONS       = [3, 5, 10, 999];   // 999 = "bez limitu"
 const MAX_CATEGORIES      = 12;
 const MAX_CUSTOM_CAT_LEN  = 24;
 const POINT_STEP          = 5;                  // each net downvote lowers points by 5
-const ARCADE_GAME_TYPES   = ['quiz','bluff','draw','truths','assoc'];
+const ARCADE_GAME_TYPES   = ['quiz','bluff','draw','truths','assoc','who'];
 
 // ─── ARCADE GAMES DATA ──────────────────────────────────────────────────────
 // Poziom ŁATWY – dla każdego, bardzo proste.
@@ -906,6 +906,8 @@ const TRUTHS_REVEAL_MS= 8_000;
 const ASSOC_WRITE_MS  = 55_000;
 const ASSOC_VOTE_MS   = 35_000;
 const ASSOC_REVEAL_MS = 9_000;
+const WHO_VOTE_MS     = 25_000;
+const WHO_REVEAL_MS   = 8_000;
 
 const ARCADE_SETTING_OPTIONS = {
   quiz:   { key: 'questions', label: 'Liczba pytań',       values: [5, 10, 15] },
@@ -913,6 +915,7 @@ const ARCADE_SETTING_OPTIONS = {
   draw:   { key: 'laps',      label: 'Rund na gracza',     values: [1, 2, 3] },
   truths: { key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 8] },
   assoc:  { key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 8] },
+  who:    { key: 'rounds',    label: 'Liczba rund',        values: [7, 12, 20] },
 };
 
 const ASSOC_PROMPTS = [
@@ -946,6 +949,210 @@ const ASSOC_PROMPTS = [
   'Najgorszy pomysł na biznes: ___',
   'Co znajdą archeolodzy za 1000 lat? ___',
   'Najgorsza nazwa dla nowego telefonu: ___',
+];
+
+// "Kto z nas?" – każda runda pokazuje jedno hasło, wszyscy głosują na gracza.
+const WHO_PROMPTS = [
+  'Kto z nas najprędzej zaśnie na własnym ślubie?',
+  'Kto z nas najprędzej zostanie milionerem?',
+  'Kto z nas najprędzej wyda całą wypłatę w jeden dzień?',
+  'Kto z nas najprędzej zgubi telefon na imprezie?',
+  'Kto z nas najprędzej rozpłacze się na komedii romantycznej?',
+  'Kto z nas najprędzej zapomni o urodzinach najlepszego przyjaciela?',
+  'Kto z nas najprędzej zostanie gwiazdą TikToka?',
+  'Kto z nas najprędzej przespał ważny egzamin?',
+  'Kto z nas najprędzej zamówi jedzenie zamiast ugotować?',
+  'Kto z nas najprędzej wda się w kłótnię o politykę przy świątecznym stole?',
+  'Kto z nas najprędzej zapłacze ze śmiechu na pogrzebie?',
+  'Kto z nas najprędzej wyjedzie na drugi koniec świata bez planu?',
+  'Kto z nas najprędzej pomyli imiona swoich dzieci?',
+  'Kto z nas najprędzej kupi coś kompletnie niepotrzebnego na promocji?',
+  'Kto z nas najprędzej zgubi się w znanym mieście?',
+  'Kto z nas najprędzej zostanie aresztowany za coś głupiego?',
+  'Kto z nas najprędzej rzuci pracę, żeby zostać influencerem?',
+  'Kto z nas najprędzej zapomni wyłączyć piekarnik?',
+  'Kto z nas najprędzej powie coś nie tak na rozmowie o pracę?',
+  'Kto z nas najprędzej zakocha się w kimś poznanym przez internet?',
+  'Kto z nas najprędzej rozbije telefon w pierwszym tygodniu?',
+  'Kto z nas najprędzej wygada cudzy sekret?',
+  'Kto z nas najprędzej wróci z wakacji spalony na raka?',
+  'Kto z nas najprędzej zapomni jak się nazywa osoba, którą właśnie poznał?',
+  'Kto z nas najprędzej zostanie w piżamie cały dzień?',
+  'Kto z nas najprędzej weźmie kredyt na coś głupiego?',
+  'Kto z nas najprędzej zgubi klucze i wejdzie oknem?',
+  'Kto z nas najprędzej pokłóci się z nawigacją w samochodzie?',
+  'Kto z nas najprędzej przefarbuje włosy na zielono?',
+  'Kto z nas najprędzej zamieszka na wsi i będzie hodował kozy?',
+  'Kto z nas raczej zjadłby coś, co spadło na podłogę?',
+  'Kto z nas raczej przetańczyłby całą noc?',
+  'Kto z nas raczej zapomniałby własnego numeru telefonu?',
+  'Kto z nas raczej rozmawia sam ze sobą?',
+  'Kto z nas raczej śpiewa pod prysznicem na cały głos?',
+  'Kto z nas raczej ugotowałby obiad z tego, co znajdzie w lodówce?',
+  'Kto z nas raczej powiedziałby "to ostatni raz" i zrobił to znowu?',
+  'Kto z nas najprędzej spóźni się na własną imprezę?',
+  'Kto z nas najprędzej zjadłby najostrzejsze danie w menu?',
+  'Kto z nas najprędzej zrobi sobie tatuaż pod wpływem chwili?',
+  'Kto z nas najprędzej zostanie prezydentem?',
+  'Kto z nas najprędzej zapomni gdzie zaparkował auto?',
+  'Kto z nas najprędzej zacznie płakać ze wzruszenia?',
+  'Kto z nas najprędzej weźmie udział w reality show?',
+  'Kto z nas najprędzej wygra na loterii i i tak zbankrutuje?',
+  'Kto z nas najprędzej zaśpiewa karaoke bez wahania?',
+  'Kto z nas najprędzej zapomni hasła do wszystkiego?',
+  'Kto z nas najprędzej pokłóci się z kelnerem o rachunek?',
+  'Kto z nas najprędzej zgubi bagaż na lotnisku?',
+  'Kto z nas najprędzej odda ostatnią złotówkę potrzebującemu?',
+  'Kto z nas najprędzej przesadzi z kawą?',
+  'Kto z nas najprędzej weźmie kota ze schroniska, a potem drugiego, i trzeciego?',
+  'Kto z nas najprędzej powie "wiedziałem" po fakcie?',
+  'Kto z nas najprędzej zrobi awanturę w kolejce?',
+  'Kto z nas najprędzej zapomni parasola w dzień deszczu?',
+  'Kto z nas raczej obejrzałby cały serial w jedną noc?',
+  'Kto z nas raczej zaczepia obcych ludzi na ulicy?',
+  'Kto z nas raczej zapomniałby o umówionym spotkaniu?',
+  'Kto z nas raczej wygrałby konkurs jedzenia na czas?',
+  'Kto z nas raczej zgubiłby się we własnym domu?',
+  'Kto z nas najprędzej kupi coś, bo "wyglądało fajnie w reklamie"?',
+  'Kto z nas najprędzej wsiądzie do niewłaściwego pociągu?',
+  'Kto z nas najprędzej zaśnie w kinie?',
+  'Kto z nas najprędzej zrobi z siebie głupka na pierwszej randce?',
+  'Kto z nas najprędzej wyśle wiadomość do złej osoby?',
+  'Kto z nas najprędzej zje cały tort sam?',
+  'Kto z nas najprędzej zapomni, że coś się gotuje na kuchence?',
+  'Kto z nas najprędzej zostanie królem/królową imprezy?',
+  'Kto z nas najprędzej rozpłacze się przy zwierzęcej reklamie?',
+  'Kto z nas najprędzej pojedzie autostopem przez pół Europy?',
+  'Kto z nas najprędzej zamówi to samo co zawsze w restauracji?',
+  'Kto z nas najprędzej zgubi rękawiczkę i będzie chodził z jedną?',
+  'Kto z nas najprędzej weźmie udział w bójce na poduszki?',
+  'Kto z nas najprędzej powie coś głupiego i będzie się z tego śmiać sam?',
+  'Kto z nas najprędzej zapomni doładować telefon i zostanie bez zasięgu?',
+  'Kto z nas najprędzej zainwestuje w kryptowaluty i wszystko straci?',
+  'Kto z nas najprędzej zaproponuje wspólny wyjazd o 2 w nocy?',
+  'Kto z nas najprędzej zje coś, czego nazwy nie potrafi wymówić?',
+  'Kto z nas najprędzej pokłóci się o miejsce w kolejce do bufetu?',
+  'Kto z nas raczej rozdałby wszystkim prezenty bez okazji?',
+  'Kto z nas raczej zapomniałby zdjąć metki z nowych ubrań?',
+  'Kto z nas raczej spałby do południa w każdy weekend?',
+  'Kto z nas raczej rozmawia z roślinami?',
+  'Kto z nas raczej zjadłby deser przed obiadem?',
+  'Kto z nas najprędzej zapomni gdzie schował prezenty?',
+  'Kto z nas najprędzej wejdzie do złej łazienki?',
+  'Kto z nas najprędzej zacznie tańczyć, gdy nikt inny nie tańczy?',
+  'Kto z nas najprędzej zgubi się w supermarkecie?',
+  'Kto z nas najprędzej zapłaci za wszystkich i będzie się śmiał, że go stać?',
+  'Kto z nas najprędzej pomyli sól z cukrem?',
+  'Kto z nas najprędzej zaśnie podczas oglądania meczu?',
+  'Kto z nas najprędzej zrobi zdjęcie jedzenia zanim zacznie jeść?',
+  'Kto z nas najprędzej weźmie ślub w Las Vegas?',
+  'Kto z nas najprędzej wygra w kłótni, choć nie ma racji?',
+  'Kto z nas najprędzej zapomni jak wrócić do domu?',
+  'Kto z nas najprędzej ubierze się nieodpowiednio na okazję?',
+  'Kto z nas najprędzej zje coś prosto z lodówki o północy?',
+  'Kto z nas najprędzej zostanie gwiazdą internetu przez przypadek?',
+  'Kto z nas najprędzej pomyli lewo z prawem podczas jazdy?',
+  'Kto z nas najprędzej pójdzie spać przed 21:00?',
+  'Kto z nas najprędzej zaproponuje zamówienie pizzy zamiast gotowania?',
+  'Kto z nas raczej zgadałby się z każdym w autobusie?',
+  'Kto z nas raczej zapomniałby wyłączyć budzik w weekend?',
+  'Kto z nas raczej dokupiłby jeszcze jedną parę butów?',
+  'Kto z nas raczej odpowiedziałby na wiadomość po trzech dniach?',
+  'Kto z nas raczej zjadłby całą paczkę chipsów przed telewizorem?',
+  'Kto z nas najprędzej zamówi coś dziwnego przez internet o 3 w nocy?',
+  'Kto z nas najprędzej zapomni imienia swojego szefa?',
+  'Kto z nas najprędzej zabłądzi na własnym osiedlu?',
+  'Kto z nas najprędzej zaśpiewa hymn w niewłaściwym momencie?',
+  'Kto z nas najprędzej zainwestuje w kolejny "genialny" pomysł na biznes?',
+  'Kto z nas najprędzej zapomni zdjąć folię z nowego telefonu?',
+  'Kto z nas najprędzej zrobi coś z listy "nigdy więcej" po raz kolejny?',
+  'Kto z nas najprędzej zaśnie na plaży i się poparzy?',
+  'Kto z nas najprędzej wróci do domu z imprezy z cudzą kurtką?',
+  'Kto z nas najprędzej pomyli piątek z sobotą?',
+  'Kto z nas najprędzej zamówi jedzenie, którego nie potrafi zjeść?',
+  'Kto z nas najprędzej zgubi bilet tuż przed kontrolą?',
+  'Kto z nas najprędzej zapłaci kartą za gumę do żucia?',
+  'Kto z nas najprędzej rozpocznie dietę i zakończy ją tego samego dnia?',
+  'Kto z nas najprędzej zapomni gdzie odłożył okulary, które ma na nosie?',
+  'Kto z nas najprędzej wejdzie w szklane drzwi?',
+  'Kto z nas najprędzej zacznie mówić do siebie w sklepie?',
+  'Kto z nas najprędzej pomyli się w liczeniu do dziesięciu?',
+  'Kto z nas raczej zjadłby ostatni kawałek pizzy bez pytania?',
+  'Kto z nas raczej wygrałby konkurs na najgłośniejszy śmiech?',
+  'Kto z nas raczej zapomniałby własnej rocznicy?',
+  'Kto z nas raczej zrobiłby najwięcej selfie w ciągu dnia?',
+  'Kto z nas raczej zgubiłby pilota w ciągu minuty?',
+  'Kto z nas najprędzej zaproponuje wyjazd w góry o poranku?',
+  'Kto z nas najprędzej zapomni parasola i będzie narzekał na deszcz?',
+  'Kto z nas najprędzej zrobi sobie grzywkę i pożałuje?',
+  'Kto z nas najprędzej zamówi dokładkę, choć jest już najedzony?',
+  'Kto z nas najprędzej zaśnie podczas rozmowy telefonicznej?',
+  'Kto z nas najprędzej pomyli przyprawy podczas gotowania?',
+  'Kto z nas najprędzej rozpocznie kłótnię o to, gdzie iść na obiad?',
+  'Kto z nas najprędzej zgubi ładowarkę w hotelu?',
+  'Kto z nas najprędzej zapomni jak się nazywa film, który właśnie oglądał?',
+  'Kto z nas najprędzej odda swoją ostatnią kanapkę głodnemu psu?',
+  'Kto z nas najprędzej zaproponuje karaoke o północy?',
+  'Kto z nas najprędzej pomyli aplikacje i wyśle mem szefowi?',
+  'Kto z nas najprędzej weźmie za dużo na talerz i nie zje?',
+  'Kto z nas najprędzej zaśnie w trakcie medytacji?',
+  'Kto z nas najprędzej pokłóci się z automatem biletowym?',
+  'Kto z nas najprędzej zapomni gdzie ukrył czekoladę przed samym sobą?',
+  'Kto z nas raczej pomógłby nieznajomemu przenieść meble?',
+  'Kto z nas raczej rozmawiałby z kasjerem przez pół godziny?',
+  'Kto z nas raczej wybrałby najdłuższą kolejkę?',
+  'Kto z nas raczej zjadłby coś tylko na wyzwanie?',
+  'Kto z nas raczej zapomniałby o gotującej się wodzie?',
+  'Kto z nas najprędzej zostanie zaproszony na wesele obcych ludzi?',
+  'Kto z nas najprędzej zaśpiewa nie swoją partię w chórze?',
+  'Kto z nas najprędzej zamówi kawę, o której nazwie nawet nie słyszał?',
+  'Kto z nas najprędzej zapomni gdzie mieszka po przeprowadzce?',
+  'Kto z nas najprędzej rozpłacze się na koncercie ulubionego zespołu?',
+  'Kto z nas najprędzej weźmie udział w maratonie bez treningu?',
+  'Kto z nas najprędzej pomyli poniedziałek z niedzielą?',
+  'Kto z nas najprędzej zaśnie z otwartymi oczami na wykładzie?',
+  'Kto z nas najprędzej zgubi się wracając z toalety w restauracji?',
+  'Kto z nas najprędzej zamówi coś "na spróbowanie" i zje wszystko?',
+  'Kto z nas najprędzej zapomni jak działa jego własna kuchenka?',
+  'Kto z nas najprędzej rozpocznie taniec na środku sklepu?',
+  'Kto z nas najprędzej pomyli imię partnera z imieniem eks?',
+  'Kto z nas najprędzej zgubi telefon, trzymając go w ręce?',
+  'Kto z nas najprędzej zaproponuje wspólne wakacje całej paczce?',
+  'Kto z nas najprędzej zapomni kodu do własnego telefonu?',
+  'Kto z nas najprędzej zjeździ pół świata w poszukiwaniu idealnej kawy?',
+  'Kto z nas najprędzej pomyli przystanek i wysiądzie za wcześnie?',
+  'Kto z nas raczej rozdałby autografy, choć nikt go nie zna?',
+  'Kto z nas raczej wygrałby konkurs na najlepszą wymówkę?',
+  'Kto z nas raczej zjadłby śniadanie na kolację?',
+  'Kto z nas raczej zapomniałby zamknąć drzwi na klucz?',
+  'Kto z nas raczej rozpocząłby rozmowę z manekinem w sklepie?',
+  'Kto z nas najprędzej wyjdzie z domu w dwóch różnych butach?',
+  'Kto z nas najprędzej zapomni, po co wszedł do pokoju?',
+  'Kto z nas najprędzej zrobi zakupy głodny i kupi za dużo?',
+  'Kto z nas najprędzej zaśnie podczas czytania książki na stojąco?',
+  'Kto z nas najprędzej pomyli numer mieszkania i zapuka do sąsiada?',
+  'Kto z nas najprędzej zgubi listę zakupów w sklepie?',
+  'Kto z nas najprędzej wyśle "kocham cię" do niewłaściwego kontaktu?',
+  'Kto z nas najprędzej zamówi deser wielkości głowy?',
+  'Kto z nas najprędzej zapomni gdzie zostawił rower?',
+  'Kto z nas najprędzej zacznie śpiewać reklamę w tramwaju?',
+  'Kto z nas najprędzej pomyli cukier z solą przy pieczeniu ciasta?',
+  'Kto z nas najprędzej rozpocznie remont i nigdy go nie skończy?',
+  'Kto z nas najprędzej zaśnie na siłowni?',
+  'Kto z nas najprędzej zgubi bilet do kina zanim wejdzie do sali?',
+  'Kto z nas najprędzej zapomni imienia własnego psa w stresie?',
+  'Kto z nas najprędzej zaproponuje wspólne bieganie o 6 rano?',
+  'Kto z nas najprędzej zje coś prosto z półki w sklepie?',
+  'Kto z nas najprędzej pomyli lewą nogę z prawą na lekcji tańca?',
+  'Kto z nas raczej zaśpiewałby na scenie bez zaproszenia?',
+  'Kto z nas raczej zapomniałby, że coś już opowiadał trzy razy?',
+  'Kto z nas raczej zjadłby całe pudełko lodów w jeden wieczór?',
+  'Kto z nas raczej zgubiłby się na mapie własnego miasta?',
+  'Kto z nas raczej rozpocząłby rozmowę o kosmosie przy śniadaniu?',
+  'Kto z nas najprędzej zostanie sławny z zupełnie głupiego powodu?',
+  'Kto z nas najprędzej zapomni wziąć prezentu na własne przyjęcie?',
+  'Kto z nas najprędzej pomyli szampon z żelem pod prysznic?',
+  'Kto z nas najprędzej zaśnie zaraz po powiedzeniu "tylko na chwilę zamknę oczy"?',
 ];
 
 function shuffle(arr) {
@@ -1376,6 +1583,62 @@ function assocMaybeAdvanceVote(code) {
   if (have >= need && need > 0) assocReveal(code);
 }
 
+// ── KTO Z NAS? ───────────────────────────────────────────────────────────────
+function whoStart(code) {
+  const lobby = lobbies[code];
+  lobby.players.forEach(p => { p.score = 0; });
+  const n = Math.min(lobby.settings.rounds, WHO_PROMPTS.length);
+  lobby.prompts = shuffle(WHO_PROMPTS).slice(0, n);
+  lobby.qIndex = -1;
+  whoBeginVoting(code);
+}
+function whoBeginVoting(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.qIndex += 1;
+  if (lobby.qIndex >= lobby.prompts.length) return whoFinish(code);
+  lobby.phase = 'voting'; lobby.votes = {};
+  lobby.endsAt = Date.now() + WHO_VOTE_MS;
+  io.to(code).emit('whoVote', {
+    index: lobby.qIndex, total: lobby.prompts.length,
+    prompt: lobby.prompts[lobby.qIndex], players: arcadePlayers(lobby), endsAt: lobby.endsAt,
+  });
+  lobby.timer = setTimeout(() => whoReveal(code), WHO_VOTE_MS);
+}
+function whoReveal(code) {
+  const lobby = lobbies[code];
+  if (lobby.phase !== 'voting') return;
+  clearGameTimer(lobby);
+  lobby.phase = 'reveal';
+  const counts = {};
+  Object.values(lobby.votes || {}).forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+  // Each player earns 100 points per vote they received this round.
+  lobby.players.forEach(p => { p.score += (counts[p.playerId] || 0) * 100; });
+  const max = Math.max(0, ...Object.values(counts));
+  const rows = lobby.players
+    .map(p => ({ nickname: p.nickname, votes: counts[p.playerId] || 0, top: max > 0 && (counts[p.playerId] || 0) === max }))
+    .filter(r => r.votes > 0)
+    .sort((a, b) => b.votes - a.votes);
+  io.to(code).emit('whoReveal', {
+    prompt: lobby.prompts[lobby.qIndex], rows,
+    noVotes: rows.length === 0,
+    scoreboard: scoreboardOf(lobby), last: lobby.qIndex >= lobby.prompts.length - 1,
+  });
+  lobby.timer = setTimeout(() => lobby.qIndex >= lobby.prompts.length - 1 ? whoFinish(code) : whoBeginVoting(code), WHO_REVEAL_MS);
+}
+function whoFinish(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.phase = 'finished';
+  io.to(code).emit('arcadeFinished', { game: 'who', scoreboard: scoreboardOf(lobby) });
+}
+function whoMaybeAdvanceVote(code) {
+  const lobby = lobbies[code];
+  const need = lobby.players.filter(p => p.connected).length;
+  const have = lobby.players.filter(p => p.connected && lobby.votes[p.playerId]).length;
+  if (have >= need && need > 0) whoReveal(code);
+}
+
 // Keep an arcade game moving after a player leaves/disconnects mid-round.
 function arcadeAfterDepart(code, pid) {
   const lobby = lobbies[code]; if (!lobby) return;
@@ -1394,6 +1657,8 @@ function arcadeAfterDepart(code, pid) {
   } else if (lobby.game === 'assoc') {
     if (lobby.phase === 'writing') assocMaybeAdvanceWrite(code);
     else if (lobby.phase === 'voting') assocMaybeAdvanceVote(code);
+  } else if (lobby.game === 'who') {
+    if (lobby.phase === 'voting') whoMaybeAdvanceVote(code);
   }
 }
 
@@ -1428,6 +1693,9 @@ function arcadeRejoinSnapshot(lobby, pid, isAdmin, code) {
   } else if (lobby.game === 'assoc') {
     if (lobby.phase === 'writing')  return { ...base, index: lobby.qIndex, total: lobby.prompts.length, prompt: lobby.prompts[lobby.qIndex], endsAt: lobby.endsAt, submitted: !!(lobby.answers[pid] || '').trim() };
     if (lobby.phase === 'voting')   return { ...base, index: lobby.qIndex, total: lobby.prompts.length, prompt: lobby.prompts[lobby.qIndex], options: lobby.options.map(o => ({ id: o.id, text: o.text, mine: o.ownerId === pid })), picked: lobby.votes[pid] || null, endsAt: lobby.endsAt };
+    if (lobby.phase === 'reveal')   return { ...base, prompt: lobby.prompts[lobby.qIndex] };
+  } else if (lobby.game === 'who') {
+    if (lobby.phase === 'voting')   return { ...base, index: lobby.qIndex, total: lobby.prompts.length, prompt: lobby.prompts[lobby.qIndex], players: arcadePlayers(lobby), picked: lobby.votes[pid] || null, endsAt: lobby.endsAt };
     if (lobby.phase === 'reveal')   return { ...base, prompt: lobby.prompts[lobby.qIndex] };
   }
   return base;
@@ -1796,6 +2064,7 @@ io.on('connection', socket => {
     else if (lobby.game === 'draw')   drawStart(code);
     else if (lobby.game === 'truths') truthsStart(code);
     else if (lobby.game === 'assoc')  assocStart(code);
+    else if (lobby.game === 'who')    whoStart(code);
     broadcastPublicLobbies();
   });
 
@@ -1970,6 +2239,18 @@ io.on('connection', socket => {
     const have = lobby.players.filter(p => p.connected && lobby.votes[p.playerId]).length;
     io.to(code).emit('assocVoteProgress', { have, need });
     assocMaybeAdvanceVote(code);
+  });
+
+  // KTO Z NAS?
+  socket.on('whoVote', ({ targetId }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'who' || lobby.phase !== 'voting' || !socket.playerId) return;
+    if (!lobby.players.some(p => p.playerId === targetId)) return;   // must vote for a real player
+    lobby.votes[socket.playerId] = targetId;
+    const need = lobby.players.filter(p => p.connected).length;
+    const have = lobby.players.filter(p => p.connected && lobby.votes[p.playerId]).length;
+    io.to(code).emit('whoVoteProgress', { have, need });
+    whoMaybeAdvanceVote(code);
   });
 
   // ── LEAVE LOBBY (voluntary exit) ─────────────────────────────────────────────
