@@ -1177,6 +1177,7 @@ function broadcastArcadeLobby(code) {
   io.to(code).emit('arcadeLobby', {
     game: lobby.game, admin: lobby.admin, players: arcadePlayers(lobby),
     settings: lobby.settings, settingOptions: ARCADE_SETTING_OPTIONS[lobby.game], code,
+    customPrompts: lobby.customPrompts || [],
   });
   broadcastPublicLobbies();
 }
@@ -1587,8 +1588,11 @@ function assocMaybeAdvanceVote(code) {
 function whoStart(code) {
   const lobby = lobbies[code];
   lobby.players.forEach(p => { p.score = 0; });
-  const n = Math.min(lobby.settings.rounds, WHO_PROMPTS.length);
-  lobby.prompts = shuffle(WHO_PROMPTS).slice(0, n);
+  const custom = lobby.customPrompts || [];
+  const n = Math.min(lobby.settings.rounds, WHO_PROMPTS.length + custom.length);
+  // Own questions are guaranteed in; the rest is filled with random bank prompts.
+  const fill = shuffle(WHO_PROMPTS).slice(0, Math.max(0, n - custom.length));
+  lobby.prompts = shuffle([...custom, ...fill]).slice(0, n);
   lobby.qIndex = -1;
   whoBeginVoting(code);
 }
@@ -1668,6 +1672,7 @@ function arcadeRejoinSnapshot(lobby, pid, isAdmin, code) {
     game: lobby.game, code, isAdmin, phase: lobby.phase,
     settings: lobby.settings, settingOptions: ARCADE_SETTING_OPTIONS[lobby.game],
     players: arcadePlayers(lobby), scoreboard: scoreboardOf(lobby),
+    customPrompts: lobby.customPrompts || [],
   };
   if (lobby.phase === 'waiting' || lobby.phase === 'finished') return base;
   if (lobby.game === 'quiz') {
@@ -1722,7 +1727,7 @@ io.on('connection', socket => {
       const settings = gameType === 'quiz'  ? { questions: 10, difficulty: 'medium' }
                      : gameType === 'draw'  ? { laps: 2 }
                      :                        { rounds: 5 };   // bluff / truths / assoc
-      lobbies[code] = { game: gameType, admin: pid, players: [basePlayer], phase: 'waiting', settings, timer: null };
+      lobbies[code] = { game: gameType, admin: pid, players: [basePlayer], phase: 'waiting', settings, timer: null, customPrompts: [] };
     }
 
     // Public / private visibility + optional password (public only).
@@ -2251,6 +2256,28 @@ io.on('connection', socket => {
     const have = lobby.players.filter(p => p.connected && lobby.votes[p.playerId]).length;
     io.to(code).emit('whoVoteProgress', { have, need });
     whoMaybeAdvanceVote(code);
+  });
+  // Admin adds a custom "Kto z nas...?" prompt (used in this lobby's game).
+  socket.on('whoAddPrompt', ({ text }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'who' || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
+    lobby.customPrompts = lobby.customPrompts || [];
+    let clean = (text || '').replace(/\s+/g, ' ').trim().slice(0, 140);
+    if (!clean) return socket.emit('error', 'Wpisz treść pytania!');
+    if (!/[?？]$/.test(clean)) clean += '?';
+    const dupe = p => p.toLowerCase() === clean.toLowerCase();
+    if (lobby.customPrompts.some(dupe) || WHO_PROMPTS.some(dupe))
+      return socket.emit('error', 'Takie pytanie już jest!');
+    if (lobby.customPrompts.length >= 50) return socket.emit('error', 'Maksymalnie 50 własnych pytań!');
+    lobby.customPrompts.push(clean);
+    broadcastArcadeLobby(code);
+  });
+  socket.on('whoRemovePrompt', ({ index }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'who' || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
+    if (!Array.isArray(lobby.customPrompts) || index < 0 || index >= lobby.customPrompts.length) return;
+    lobby.customPrompts.splice(index, 1);
+    broadcastArcadeLobby(code);
   });
 
   // ── LEAVE LOBBY (voluntary exit) ─────────────────────────────────────────────
