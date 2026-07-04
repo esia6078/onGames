@@ -621,6 +621,16 @@ button:disabled{opacity:.45;cursor:not-allowed}
     </div>
     <p class="vis-hint" id="hc-hint">Mieszanka kategorii o średniej trudności.</p>
   </div>
+  <div class="card" style="display:flex;flex-direction:column;gap:10px" id="arc-who-card">
+    <p class="section-title">Własne pytania</p>
+    <p class="vis-hint" style="margin:0">Dodaj swoje hasła „Kto z nas…?” — trafią do tej gry.</p>
+    <div id="arc-who-add-row" style="display:flex;gap:8px">
+      <input id="arc-who-input" placeholder="Kto z nas...?" maxlength="140" style="text-align:center">
+      <button class="btn-sec" style="width:auto;padding:13px 18px;white-space:nowrap" onclick="whoAddPrompt()">➕ Dodaj</button>
+    </div>
+    <div id="arc-who-list" style="display:flex;flex-direction:column;gap:6px"></div>
+    <p class="error" id="arc-who-error"></p>
+  </div>
   <button class="btn-green" id="arc-btn-start" onclick="arcadeStart()" style="display:none">🚀 Rozpocznij grę</button>
   <p class="waiting-text" id="arc-lobby-wait" style="display:none">⏳ Czekaj, aż admin rozpocznie grę...</p>
   <button class="btn-ghost" onclick="leaveLobby()">⬅ Wyjdź z lobby</button>
@@ -1460,6 +1470,42 @@ function renderArcadeLobby(o) {
   document.getElementById('arc-lobby-wait').style.display  = isAdmin ? 'none' : 'block';
   document.getElementById('arc-settings-card').style.display = arcSettingOptions ? 'flex' : 'none';
   renderDifficulty();
+  renderWhoPrompts(o.customPrompts || []);
+}
+function renderWhoPrompts(prompts) {
+  const card = document.getElementById('arc-who-card'); if (!card) return;
+  const isWho = arcGame === 'who';
+  card.style.display = isWho ? 'flex' : 'none';
+  if (!isWho) return;
+  document.getElementById('arc-who-add-row').style.display = isAdmin ? 'flex' : 'none';
+  document.getElementById('arc-who-error').textContent = '';
+  const list = document.getElementById('arc-who-list'); list.innerHTML = '';
+  if (!prompts.length) {
+    list.innerHTML = '<p class="vis-hint" style="margin:0;opacity:.7">Brak własnych pytań — używamy tylko gotowych.</p>';
+    return;
+  }
+  prompts.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:8px 12px';
+    const txt = document.createElement('span');
+    txt.style.cssText = 'flex:1;font-size:.86rem;text-align:left'; txt.textContent = p;
+    row.appendChild(txt);
+    if (isAdmin) {
+      const x = document.createElement('button');
+      x.textContent = '✕';
+      x.style.cssText = 'background:none;border:none;color:#f87171;font-size:1rem;cursor:pointer;padding:0 4px;width:auto';
+      x.onclick = () => socket.emit('whoRemovePrompt', { index: i });
+      row.appendChild(x);
+    }
+    list.appendChild(row);
+  });
+}
+function whoAddPrompt() {
+  if (!isAdmin) return;
+  const input = document.getElementById('arc-who-input');
+  const v = input.value.trim(); if (!v) return;
+  socket.emit('whoAddPrompt', { text: v });
+  input.value = '';
 }
 const DIFF_HINT = {
   easy:   '🙂 Bardzo proste pytania — dla każdego (i dla dzieci).',
@@ -1930,6 +1976,7 @@ socket.on('assocReveal', (d) => {
   showScreen('screen-assoc-reveal');
 });
 document.getElementById('aw-input').addEventListener('keydown', e => { if (e.key === 'Enter') assocSubmit(); });
+document.getElementById('arc-who-input').addEventListener('keydown', e => { if (e.key === 'Enter') whoAddPrompt(); });
 
 // ── KTO Z NAS? ────────────────────────────────────────────────────────────────
 let whoPicked = null;
