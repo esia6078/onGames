@@ -188,6 +188,36 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .vn-bar{flex:1;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden}
 .vn-fill{height:100%;width:0%;background:linear-gradient(90deg,#d946ef,#38bdf8);border-radius:3px;transition:width .25s linear}
 .vn-time{flex:0 0 auto;font-size:.82rem;color:#cbd5e1;font-variant-numeric:tabular-nums;min-width:36px;text-align:right}
+/* ── Monopoly ── */
+#screen-mono{max-width:520px;gap:8px;padding-top:6px}
+.mono-strip{display:flex;gap:6px;width:100%;overflow-x:auto;padding-bottom:2px}
+.mono-pchip{flex:0 0 auto;display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:4px 8px;font-size:.74rem}
+.mono-pchip.cur{border-color:#fbbf24;background:rgba(251,191,36,.14)}
+.mono-pchip.bank{opacity:.4;text-decoration:line-through}
+.mono-pchip b{font-variant-numeric:tabular-nums}
+.mono-board{display:grid;grid-template-columns:repeat(11,1fr);grid-template-rows:repeat(11,1fr);aspect-ratio:1;width:100%;gap:1px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;overflow:hidden;user-select:none}
+.mc{position:relative;background:#0e1428;display:flex;flex-direction:column;font-size:6.4px;line-height:1.02;overflow:hidden;cursor:pointer}
+.mc-bar{height:6px;flex:0 0 auto}
+.mc-name{flex:1;padding:1px 1px 0;overflow:hidden;font-weight:600;color:#dbe4f0}
+.mc-sub{font-size:6px;color:#8fa0b8;padding:0 1px 1px;white-space:nowrap}
+.mc-corner{align-items:center;justify-content:center;text-align:center;font-size:7px;background:#141d38}
+.mc-corner .big{font-size:13px}
+.mc.cur-cell{outline:2px solid #fbbf24;outline-offset:-2px;z-index:2}
+.mc-owner{position:absolute;top:0;right:0;font-size:7px;line-height:1;background:rgba(0,0,0,.45);border-radius:0 0 0 3px;padding:0 1px}
+.mc-houses{position:absolute;top:6px;left:0;font-size:6px;line-height:1;color:#fff;background:rgba(0,0,0,.35);padding:0 1px;border-radius:0 3px 3px 0}
+.mc-tokens{display:flex;flex-wrap:wrap;gap:0;font-size:8.5px;line-height:.9;padding:0 1px 1px;margin-top:auto}
+.mono-center{grid-row:2/11;grid-column:2/11;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:radial-gradient(circle at 50% 40%,#16213f,#0b1020);border-radius:4px}
+.mono-center .logo{font-size:1.3rem;transform:rotate(-8deg)}
+.mono-dice{display:flex;gap:8px}
+.mono-die{width:34px;height:34px;border-radius:8px;background:#f8fafc;color:#0b1020;font-weight:800;font-size:1.2rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.mono-actions{display:flex;flex-direction:column;gap:8px;width:100%}
+.mono-actions .row{display:flex;gap:8px}
+.mono-actions button{flex:1}
+.mono-turn{font-size:.9rem;font-weight:700;text-align:center}
+.mono-log{width:100%;max-height:112px;overflow-y:auto;background:rgba(0,0,0,.25);border-radius:10px;padding:8px 10px;font-size:.74rem;line-height:1.45;color:#cbd5e1;display:flex;flex-direction:column;gap:2px}
+.mono-info-rent{width:100%;font-size:.82rem;border-collapse:collapse}
+.mono-info-rent td{padding:2px 4px;border-bottom:1px solid rgba(255,255,255,.08)}
+.mono-info-rent td:last-child{text-align:right;font-variant-numeric:tabular-nums}
 
 /* Word reveal GRID (new – shows all assignments) */
 .reveal-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:720px;padding:0 16px}
@@ -386,6 +416,9 @@ button:disabled{opacity:.45;cursor:not-allowed}
       </div>
       <div class="game-tile" data-game="dance" style="--c:#e879f9;--cb:rgba(232,121,249,.16)" onclick="selectGame('dance')">
         <div class="gt-badge">🕺</div><div class="gt-name">Tańczereczki</div><div class="gt-desc">Tańcz i wykryj impostora</div><div class="gt-check">✓</div>
+      </div>
+      <div class="game-tile" data-game="monopoly" style="--c:#4ade80;--cb:rgba(74,222,128,.16)" onclick="selectGame('monopoly')">
+        <div class="gt-badge">🎩</div><div class="gt-name">Monopoly</div><div class="gt-desc">Kupuj, buduj, zbankrutuj innych</div><div class="gt-check">✓</div>
       </div>
     </div>
 
@@ -893,6 +926,49 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <p class="waiting-text">Kolejna runda za chwilę...</p>
 </div>
 
+<!-- ══════════════════════════════════════ MONOPOLY: LOBBY ══ -->
+<div class="screen" id="screen-mono-lobby">
+  <div style="font-size:2.5rem" id="mono-lobby-deco">🎩</div>
+  <div class="logo" style="font-size:1.6rem">Monopoly</div>
+  <div class="code-box" id="mono-lobby-code" onclick="copyCode(this.textContent)" title="Kliknij aby skopiować"></div>
+  <p class="code-hint">Kliknij kod aby skopiować 👆</p>
+  <div class="howto"><b>📖 Jak grać:</b> <span>Rzucaj kostką, kupuj ulice, zbieraj kolory i buduj domy. Płać czynsz i podatki. Ostatni z pieniędzmi wygrywa!</span></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:10px">
+    <p class="section-title">Gracze (2–8)</p>
+    <div class="players-list" id="mono-lobby-players"></div>
+  </div>
+  <button class="btn-green" id="mono-btn-start" onclick="monoStartGame()" style="display:none">🚀 Rozpocznij grę</button>
+  <p class="waiting-text" id="mono-lobby-wait" style="display:none">⏳ Czekaj, aż admin rozpocznie grę...</p>
+  <button class="btn-ghost" onclick="leaveLobby()">⬅ Wyjdź z lobby</button>
+</div>
+
+<!-- ══════════════════════════════════════ MONOPOLY: GRA ══ -->
+<div class="screen" id="screen-mono">
+  <div class="mono-strip" id="mono-strip"></div>
+  <div class="mono-board" id="mono-board"></div>
+  <div class="mono-turn" id="mono-turn"></div>
+  <div class="mono-actions" id="mono-actions"></div>
+  <div class="mono-log" id="mono-log"></div>
+</div>
+<!-- Monopoly: karta pola -->
+<div class="modal-overlay hidden" id="mono-info-modal" onclick="if(event.target===this)closeMonoInfo()">
+  <div class="card info-card">
+    <button class="info-x" onclick="closeMonoInfo()" aria-label="Zamknij">✕</button>
+    <div class="info-emoji" id="mono-info-emoji">🏠</div>
+    <div class="info-title" id="mono-info-title"></div>
+    <div id="mono-info-body" style="width:100%"></div>
+    <div id="mono-info-actions" class="mono-actions"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ MONOPOLY: KONIEC ══ -->
+<div class="screen" id="screen-mono-finished">
+  <div style="font-size:3rem">🏆</div>
+  <div class="logo" style="font-size:1.6rem">Koniec gry!</div>
+  <div class="card" id="mono-winner" style="text-align:center;font-weight:700;font-size:1.2rem"></div>
+  <button class="btn-ghost" onclick="leaveLobby()">⬅ Wyjdź z lobby</button>
+</div>
+
 <!-- ══════════════════════════════════════ ARCADE: KONIEC ══ -->
 <div class="screen" id="screen-arcade-finished">
   <div style="font-size:3rem">🏆</div>
@@ -946,8 +1022,8 @@ function showToast(html, top) {
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
 }
 // Screens that top-align + scroll (must be defined before any showScreen call).
-const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished', 'screen-truths-tell', 'screen-truths-guess', 'screen-truths-reveal', 'screen-assoc-write', 'screen-assoc-vote', 'screen-assoc-reveal', 'screen-who-vote', 'screen-who-reveal', 'screen-dance-ready', 'screen-dance', 'screen-dance-vote', 'screen-dance-reveal']);
-const NO_LEAVE_SCREENS = new Set(['screen-home','screen-reconnecting','screen-lobby-admin','screen-lobby-player','screen-pm-lobby','screen-arcade-lobby']);
+const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished', 'screen-truths-tell', 'screen-truths-guess', 'screen-truths-reveal', 'screen-assoc-write', 'screen-assoc-vote', 'screen-assoc-reveal', 'screen-who-vote', 'screen-who-reveal', 'screen-dance-ready', 'screen-dance', 'screen-dance-vote', 'screen-dance-reveal', 'screen-mono', 'screen-mono-lobby', 'screen-mono-finished']);
+const NO_LEAVE_SCREENS = new Set(['screen-home','screen-reconnecting','screen-lobby-admin','screen-lobby-player','screen-pm-lobby','screen-arcade-lobby','screen-mono-lobby','screen-mono-finished']);
 // The per-game info "i" shows everywhere except the home/reconnecting screens.
 const INFO_HIDE_SCREENS = new Set(['screen-home','screen-reconnecting']);
 
@@ -978,7 +1054,7 @@ const GAME_UI = {
   czolko:{e:'🎯',n:'Czółko'}, panstwa:{e:'🌍',n:'Państwa-Miasta'},
   quiz:{e:'🧠',n:'Quiz wiedzy'}, bluff:{e:'🤥',n:'Zmyślacz'}, draw:{e:'🎨',n:'Kalambury'},
   truths:{e:'🕵️',n:'2 prawdy 1 kłamstwo'}, assoc:{e:'😂',n:'Najgorsze skojarzenia'},
-  who:{e:'🙋',n:'Kto z nas?'}, dance:{e:'🕺',n:'Tańczereczki'},
+  who:{e:'🙋',n:'Kto z nas?'}, dance:{e:'🕺',n:'Tańczereczki'}, monopoly:{e:'🎩',n:'Monopoly'},
 };
 // Short how-to shown in every lobby.
 const GAME_HOWTO = {
@@ -990,6 +1066,7 @@ const GAME_HOWTO = {
   truths:  'Po kolei każdy podaje o sobie 2 prawdy i 1 kłamstwo. Reszta zgaduje, które zdanie to kłamstwo. Punkty za trafienie i za nabranie innych.',
   assoc:   'Do zdania z luką wpisz najśmieszniejszą odpowiedź. Potem wszyscy głosują na najlepszą (nie na swoją). Punkty za każdy głos.',
   who:     'W każdej rundzie widzicie hasło "Kto z nas...?" i głosujecie na gracza, który najbardziej pasuje. Śmieszny finał: kto dostał najwięcej głosów. Punkty za każdy oddany na Ciebie głos.',
+  monopoly:'Klasyczne Monopoly. Rzucaj kostką, kupuj ulice, dworce i media. Zbierz cały kolor, żeby budować domy i hotele — wtedy czynsz rośnie. Płać czynsz, podatki i karty Szansy/Kasy. Kto zbankrutuje, odpada. Wygrywa ostatni gracz z pieniędzmi!',
   dance:   'Każdy dostaje muzykę na słuchawki i tańczy do niej na środku. Jedna osoba (impostor) ma INNĄ piosenkę! Obserwujcie się nawzajem. Gdy 80% kliknie „Gotowy” (albo skończy się czas) — głosujecie, kto był impostorem. Punkty dla tych, którzy go wykryją, i dla impostora, który się nie wyda. Najlepiej ze słuchawkami i min. 3 graczami!',
 };
 function selectGame(g) {
@@ -2652,6 +2729,218 @@ socket.on('danceReveal', (d) => {
   showScreen('screen-dance-reveal');
 });
 
+// ══════════════════════════ MONOPOLY (klient) ══════════════════════════
+const MONO_BOARD = [
+  { t:'go', name:'START' },
+  { t:'prop', name:'Ulica Konopacka', group:'brown', price:60, rent:[2,10,30,90,160,250], h:50 },
+  { t:'chest', name:'Kasa Społeczna' },
+  { t:'prop', name:'Ulica Stalowa', group:'brown', price:60, rent:[4,20,60,180,320,450], h:50 },
+  { t:'tax', name:'Podatek dochodowy', amount:200 },
+  { t:'rail', name:'Dworzec Zachodni', price:200 },
+  { t:'prop', name:'Ulica Radzymińska', group:'lblue', price:100, rent:[6,30,90,270,400,550], h:50 },
+  { t:'chance', name:'Szansa' },
+  { t:'prop', name:'Ulica Jagiellońska', group:'lblue', price:100, rent:[6,30,90,270,400,550], h:50 },
+  { t:'prop', name:'Ulica Targowa', group:'lblue', price:120, rent:[8,40,100,300,450,600], h:50 },
+  { t:'jail', name:'Więzienie' },
+  { t:'prop', name:'Ulica Sienna', group:'pink', price:140, rent:[10,50,150,450,625,750], h:100 },
+  { t:'util', name:'Elektrownia', price:150 },
+  { t:'prop', name:'Ulica Marszałkowska', group:'pink', price:140, rent:[10,50,150,450,625,750], h:100 },
+  { t:'prop', name:'Plac Bankowy', group:'pink', price:160, rent:[12,60,180,500,700,900], h:100 },
+  { t:'rail', name:'Dworzec Główny', price:200 },
+  { t:'prop', name:'Ulica Świętokrzyska', group:'orange', price:180, rent:[14,70,200,550,750,950], h:100 },
+  { t:'chest', name:'Kasa Społeczna' },
+  { t:'prop', name:'Ulica Wolska', group:'orange', price:180, rent:[14,70,200,550,750,950], h:100 },
+  { t:'prop', name:'Ulica Chłodna', group:'orange', price:200, rent:[16,80,220,600,800,1000], h:100 },
+  { t:'parking', name:'Parking' },
+  { t:'prop', name:'Ulica Puławska', group:'red', price:220, rent:[18,90,250,700,875,1050], h:150 },
+  { t:'chance', name:'Szansa' },
+  { t:'prop', name:'Aleje Jerozolimskie', group:'red', price:220, rent:[18,90,250,700,875,1050], h:150 },
+  { t:'prop', name:'Ulica Grójecka', group:'red', price:240, rent:[20,100,300,750,925,1100], h:150 },
+  { t:'rail', name:'Dworzec Wschodni', price:200 },
+  { t:'prop', name:'Ulica Nowy Świat', group:'yellow', price:260, rent:[22,110,330,800,975,1150], h:150 },
+  { t:'prop', name:'Ulica Krakowskie Przedmieście', group:'yellow', price:260, rent:[22,110,330,800,975,1150], h:150 },
+  { t:'util', name:'Wodociągi', price:150 },
+  { t:'prop', name:'Plac Trzech Krzyży', group:'yellow', price:280, rent:[24,120,360,850,1025,1200], h:150 },
+  { t:'gotojail', name:'Idź do więzienia' },
+  { t:'prop', name:'Ulica Mokotowska', group:'green', price:300, rent:[26,130,390,900,1100,1275], h:200 },
+  { t:'prop', name:'Ulica Marszałka', group:'green', price:300, rent:[26,130,390,900,1100,1275], h:200 },
+  { t:'chest', name:'Kasa Społeczna' },
+  { t:'prop', name:'Aleja Ujazdowska', group:'green', price:320, rent:[28,150,450,1000,1200,1400], h:200 },
+  { t:'rail', name:'Dworzec Gdański', price:200 },
+  { t:'chance', name:'Szansa' },
+  { t:'prop', name:'Ulica Foksal', group:'dblue', price:350, rent:[35,175,500,1100,1300,1500], h:200 },
+  { t:'tax', name:'Podatek luksusowy', amount:100 },
+  { t:'prop', name:'Ulica Belwederska', group:'dblue', price:400, rent:[50,200,600,1400,1700,2000], h:200 },
+];
+const MONO_GROUP_COLORS = { brown:'#8B5A2B', lblue:'#7FC7E8', pink:'#E44B9A', orange:'#F08A24', red:'#E23B3B', yellow:'#F0C808', green:'#33A15B', dblue:'#3B5BDB' };
+let monoS = null;
+function money(v){ return '$' + v; }
+function monoStartGame(){ socket.emit('monoStart'); }
+function monoCellRC(pos){
+  if (pos<=10) return { row:11, col:11-pos };
+  if (pos<=20) return { row:11-(pos-10), col:1 };
+  if (pos<=30) return { row:1, col:1+(pos-20) };
+  return { row:1+(pos-30), col:11 };
+}
+function monoNickOf(id){ const p=(monoS.players||[]).find(x=>x.id===id); return p?p.nick:'?'; }
+function monoTokenOf(id){ const p=(monoS.players||[]).find(x=>x.id===id); return p?p.token:''; }
+function renderMonoLobby(players){
+  const box=document.getElementById('mono-lobby-players'); if(!box) return;
+  box.innerHTML='';
+  players.forEach((p,i)=>{
+    const color=COLORS[i%COLORS.length], emoji=EMOJIS[i%EMOJIS.length];
+    let badge=''; if(p.id===myId) badge='<div class="player-item-badge">TY</div>'; else if(p.connected===false) badge='<div class="player-item-offline">offline</div>';
+    const el=document.createElement('div'); el.className='player-item';
+    el.innerHTML='<div class="player-avatar" style="background:'+color+'22;color:'+color+'">'+emoji+'</div><div class="player-item-name">'+escAttr(p.nickname)+'</div>'+badge;
+    box.appendChild(el);
+  });
+  document.getElementById('mono-lobby-deco').textContent = isAdmin ? '👑' : '⏳';
+  document.getElementById('mono-btn-start').style.display = (isAdmin && players.length>=2) ? 'block' : 'none';
+  document.getElementById('mono-lobby-wait').style.display = isAdmin ? 'none' : 'block';
+}
+socket.on('monoState', renderMono);
+function renderMono(s){
+  monoS = s;
+  if (s.gamePhase==='finished'){
+    const w = s.winner ? monoNickOf(s.winner) : '—';
+    document.getElementById('mono-winner').innerHTML = '👑 Zwycięzca: <b>'+escAttr(w)+'</b>';
+    showScreen('screen-mono-finished'); return;
+  }
+  renderMonoStrip(s);
+  renderMonoBoard(s);
+  renderMonoActions(s);
+  const log=document.getElementById('mono-log'); log.innerHTML='';
+  s.log.forEach(l=>{ const d=document.createElement('div'); d.textContent=l; log.appendChild(d); });
+  log.scrollTop = log.scrollHeight;
+  showScreen('screen-mono');
+}
+function renderMonoStrip(s){
+  const strip=document.getElementById('mono-strip'); strip.innerHTML='';
+  s.players.forEach(p=>{
+    const c=document.createElement('div');
+    c.className='mono-pchip'+(p.id===s.current?' cur':'')+(p.bankrupt?' bank':'');
+    c.innerHTML=p.token+' '+escAttr(p.nick)+(p.id===s.you?' (Ty)':'')+' <b>'+money(p.money)+'</b>'+(p.jail?' 🔒':'');
+    strip.appendChild(c);
+  });
+}
+function renderMonoBoard(s){
+  const board=document.getElementById('mono-board'); board.innerHTML='';
+  for(let pos=0;pos<40;pos++){
+    const sp=MONO_BOARD[pos]; const rc=monoCellRC(pos);
+    const cell=document.createElement('div'); cell.className='mc';
+    cell.style.gridRow=rc.row; cell.style.gridColumn=rc.col;
+    cell.onclick=()=>openMonoInfo(pos);
+    const corner = (pos===0||pos===10||pos===20||pos===30);
+    if(corner){
+      cell.classList.add('mc-corner');
+      const icon = pos===0?'🏳️':pos===10?'🔒':pos===20?'🅿️':'🚔';
+      const lbl = pos===0?'START':pos===10?'Więz.':pos===20?'Parking':'Idź siedzieć';
+      cell.innerHTML='<div class="big">'+icon+'</div><div>'+lbl+'</div>';
+    } else if(sp.t==='prop'){
+      cell.innerHTML='<div class="mc-bar" style="background:'+MONO_GROUP_COLORS[sp.group]+'"></div>'+
+        '<div class="mc-name">'+escAttr(sp.name.replace(/^Ulica |^Aleje |^Aleja |^Plac /,''))+'</div>'+
+        '<div class="mc-sub">'+money(sp.price)+'</div>';
+    } else if(sp.t==='rail'){
+      cell.innerHTML='<div class="mc-name" style="padding-top:2px">🚂 '+escAttr(sp.name.replace('Dworzec ',''))+'</div><div class="mc-sub">'+money(sp.price)+'</div>';
+    } else if(sp.t==='util'){
+      cell.innerHTML='<div class="mc-name" style="padding-top:2px">'+(pos===12?'⚡':'🚰')+' '+escAttr(sp.name)+'</div><div class="mc-sub">'+money(sp.price)+'</div>';
+    } else if(sp.t==='chance'){
+      cell.innerHTML='<div class="mc-name mc-corner" style="height:100%">❓<br>Szansa</div>';
+    } else if(sp.t==='chest'){
+      cell.innerHTML='<div class="mc-name mc-corner" style="height:100%">📦<br>Kasa</div>';
+    } else if(sp.t==='tax'){
+      cell.innerHTML='<div class="mc-name mc-corner" style="height:100%">💰<br>'+money(sp.amount)+'</div>';
+    }
+    // właściciel
+    const owner=s.owner[pos];
+    if(owner) { const od=document.createElement('div'); od.className='mc-owner'; od.textContent=monoTokenOf(owner); cell.appendChild(od); }
+    // domy / hotel
+    const h=s.houses[pos]||0;
+    if(h>0){ const hd=document.createElement('div'); hd.className='mc-houses'; hd.textContent=h===5?'🏨':('🏠'+h); cell.appendChild(hd); }
+    // pionki
+    const here=s.players.filter(p=>!p.bankrupt && p.pos===pos);
+    if(here.length){ const td=document.createElement('div'); td.className='mc-tokens'; td.textContent=here.map(p=>p.token).join(''); cell.appendChild(td); if(here.some(p=>p.id===s.current)) cell.classList.add('cur-cell'); }
+    board.appendChild(cell);
+  }
+  // środek
+  const center=document.createElement('div'); center.className='mono-center';
+  const d=s.dice||[0,0];
+  center.innerHTML='<div class="logo">🎩 MONOPOLY</div>'+
+    ((d[0]&&d[1])?('<div class="mono-dice"><div class="mono-die">'+d[0]+'</div><div class="mono-die">'+d[1]+'</div></div>'):'');
+  board.appendChild(center);
+}
+function renderMonoActions(s){
+  const box=document.getElementById('mono-actions'); box.innerHTML='';
+  const turnEl=document.getElementById('mono-turn');
+  const meP=s.players.find(p=>p.id===s.you);
+  if(s.current!==s.you){ turnEl.textContent='⏳ Kolej gracza: '+monoNickOf(s.current); return; }
+  turnEl.textContent='🎯 Twoja kolej!';
+  const btn=(label,fn,cls)=>{ const b=document.createElement('button'); b.className=cls||'btn-main'; b.textContent=label; b.onclick=fn; return b; };
+  const row=(...els)=>{ const r=document.createElement('div'); r.className='row'; els.forEach(e=>r.appendChild(e)); box.appendChild(r); };
+  const ph=s.gamePhase;
+  if(ph==='preroll'){
+    if(meP.jail){
+      row(btn('🎲 Rzuć (dublet = wolność)',()=>socket.emit('monoRoll')));
+      const opts=[btn('💵 Zapłać 0',()=>socket.emit('monoPayJail'),'btn-sec')];
+      if(meP.jailCards>0) opts.push(btn('🎟️ Użyj karty',()=>socket.emit('monoUseJailCard'),'btn-sec'));
+      row(...opts);
+    } else row(btn('🎲 Rzuć kostką',()=>socket.emit('monoRoll')));
+  } else if(ph==='buy'){
+    row(btn('🏠 Kup '+escAttr(s.pending.name)+' ('+money(s.pending.price)+')',()=>socket.emit('monoBuy'),'btn-green'));
+    row(btn('❌ Nie kupuj',()=>socket.emit('monoDecline'),'btn-ghost'));
+  } else if(ph==='action'){
+    const dbl=s.doubles>0 && s.doubles<3;
+    row(btn(dbl?'🎲 Rzuć ponownie (dublet!)':'➡️ Zakończ turę',()=>socket.emit('monoEndTurn')));
+    const hint=document.createElement('p'); hint.className='waiting-text'; hint.style.margin='0'; hint.textContent='💡 Dotknij swojej ulicy, aby budować / sprzedawać.'; box.appendChild(hint);
+  } else if(ph==='debt'){
+    const amt=s.pending?s.pending.amount:0;
+    const p=document.createElement('div'); p.className='mono-turn'; p.style.color='#fca5a5';
+    p.textContent='⚠️ Musisz zapłacić '+money(amt)+'. Sprzedaj domy (dotknij ulicy) lub bankrutuj.';
+    box.appendChild(p);
+    row(btn('💀 Bankrutuj i odpadnij',()=>{ if(confirm('Na pewno? Odpadasz z gry.')) socket.emit('monoBankrupt'); },'btn-ghost'));
+  }
+}
+function openMonoInfo(pos){
+  const s=monoS; if(!s) return; const sp=MONO_BOARD[pos];
+  document.getElementById('mono-info-title').textContent = sp.name;
+  const emojiEl=document.getElementById('mono-info-emoji');
+  emojiEl.textContent = sp.t==='rail'?'🚂':sp.t==='util'?(pos===12?'⚡':'🚰'):sp.t==='tax'?'💰':sp.t==='chance'?'❓':sp.t==='chest'?'📦':sp.t==='go'?'🏳️':sp.t==='jail'?'🔒':sp.t==='parking'?'🅿️':sp.t==='gotojail'?'🚔':'🏠';
+  const body=document.getElementById('mono-info-body'); body.innerHTML='';
+  const owner=s.owner[pos]; const h=s.houses[pos]||0;
+  if(sp.t==='prop'){
+    let rows='<tr><td>Cena</td><td>'+money(sp.price)+'</td></tr>';
+    rows+='<tr><td>Czynsz</td><td>'+money(sp.rent[0])+'</td></tr>';
+    rows+='<tr><td>Cały kolor (×2)</td><td>'+money(sp.rent[0]*2)+'</td></tr>';
+    for(let i=1;i<=4;i++) rows+='<tr><td>'+i+' dom'+(i>1?'y':'')+'</td><td>'+money(sp.rent[i])+'</td></tr>';
+    rows+='<tr><td>Hotel</td><td>'+money(sp.rent[5])+'</td></tr>';
+    rows+='<tr><td>Koszt domu</td><td>'+money(sp.h)+'</td></tr>';
+    body.innerHTML='<div class="mc-bar" style="height:8px;border-radius:4px;background:'+MONO_GROUP_COLORS[sp.group]+';margin-bottom:8px"></div><table class="mono-info-rent">'+rows+'</table>';
+  } else if(sp.t==='rail'){
+    body.innerHTML='<table class="mono-info-rent"><tr><td>Cena</td><td>'+money(sp.price)+'</td></tr><tr><td>1 dworzec</td><td>5</td></tr><tr><td>2 dworce</td><td>0</td></tr><tr><td>3 dworce</td><td>00</td></tr><tr><td>4 dworce</td><td>00</td></tr></table>';
+  } else if(sp.t==='util'){
+    body.innerHTML='<table class="mono-info-rent"><tr><td>Cena</td><td>'+money(sp.price)+'</td></tr><tr><td>1 medium</td><td>4× oczka</td></tr><tr><td>2 media</td><td>10× oczka</td></tr></table>';
+  } else if(sp.t==='tax'){
+    body.innerHTML='<p class="vis-hint">Zapłać '+money(sp.amount)+' do banku.</p>';
+  } else if(sp.t==='chance'){ body.innerHTML='<p class="vis-hint">Losujesz kartę Szansy.</p>'; }
+  else if(sp.t==='chest'){ body.innerHTML='<p class="vis-hint">Losujesz kartę Kasy Społecznej.</p>'; }
+  else if(sp.t==='go'){ body.innerHTML='<p class="vis-hint">Przechodząc, odbierz 00.</p>'; }
+  else if(sp.t==='jail'){ body.innerHTML='<p class="vis-hint">Więzienie / tylko odwiedziny.</p>'; }
+  else if(sp.t==='parking'){ body.innerHTML='<p class="vis-hint">Darmowy parking — nic się nie dzieje.</p>'; }
+  else if(sp.t==='gotojail'){ body.innerHTML='<p class="vis-hint">Idziesz prosto do więzienia!</p>'; }
+  if(owner){ const o=document.createElement('p'); o.className='vis-hint'; o.style.marginTop='6px'; o.textContent='Właściciel: '+monoTokenOf(owner)+' '+monoNickOf(owner)+(h>0?(h===5?' • hotel':' • '+h+' dom'+(h>1?'y':'')):''); body.appendChild(o); }
+  else if(sp.t==='prop'||sp.t==='rail'||sp.t==='util'){ const o=document.createElement('p'); o.className='vis-hint'; o.style.marginTop='6px'; o.textContent='Do kupienia'; body.appendChild(o); }
+  // akcje budowy/sprzedaży
+  const act=document.getElementById('mono-info-actions'); act.innerHTML='';
+  const myTurn = s.current===s.you && ['preroll','action','debt'].includes(s.gamePhase);
+  if(sp.t==='prop' && owner===s.you && myTurn){
+    const full = MONO_BOARD.every((x,i)=> x.t!=='prop' || x.group!==sp.group || s.owner[i]===s.you);
+    if(full && h<5){ const b=document.createElement('button'); b.className='btn-green'; b.textContent='🏗️ Buduj '+(h===4?'hotel':'dom')+' ('+money(sp.h)+')'; b.onclick=()=>{ socket.emit('monoBuild',{pos}); closeMonoInfo(); }; act.appendChild(b); }
+    if(h>0){ const b=document.createElement('button'); b.className='btn-sec'; b.textContent='💰 Sprzedaj '+(h===5?'hotel':'dom')+' (+'+money(Math.floor(sp.h/2))+')'; b.onclick=()=>{ socket.emit('monoSellHouse',{pos}); closeMonoInfo(); }; act.appendChild(b); }
+  }
+  document.getElementById('mono-info-modal').classList.remove('hidden');
+}
+function closeMonoInfo(){ document.getElementById('mono-info-modal').classList.add('hidden'); }
+
 // ── ARCADE REJOIN ─────────────────────────────────────────────────────────────
 socket.on('arcadeRejoin', (s) => {
   endReconnect();
@@ -2713,6 +3002,13 @@ socket.on('lobbyCreated', ({ code, playerId, game, allCategories: cats, maxRound
   currentGame = game; isAdmin = true; currentCode = code; saveSession({ code });
 
   if (ARCADE_GAMES.has(game)) { arcSettings = settings; arcSettingOptions = settingOptions; return; }
+  if (game === 'monopoly') {
+    document.getElementById('mono-lobby-code').textContent = code;
+    document.getElementById('mono-lobby-deco').textContent = '👑';
+    document.getElementById('mono-btn-start').style.display = 'none';
+    document.getElementById('mono-lobby-wait').style.display = 'none';
+    showScreen('screen-mono-lobby'); return;
+  }
   if (game === 'panstwa') {
     allCategories      = cats;
     selectedCategories = cats.slice(0, 6);
@@ -2736,6 +3032,13 @@ socket.on('joinedLobby', ({ code, playerId, game, allCategories: cats, maxRounds
   currentGame = game; isAdmin = false; currentCode = code; saveSession({ code });
 
   if (ARCADE_GAMES.has(game)) { arcSettings = settings; arcSettingOptions = settingOptions; return; }
+  if (game === 'monopoly') {
+    document.getElementById('mono-lobby-code').textContent = code;
+    document.getElementById('mono-lobby-deco').textContent = '⏳';
+    document.getElementById('mono-btn-start').style.display = 'none';
+    document.getElementById('mono-lobby-wait').style.display = 'block';
+    showScreen('screen-mono-lobby'); return;
+  }
   if (game === 'panstwa') {
     allCategories      = cats;
     selectedCategories = cats.slice(0, 6);
@@ -2759,6 +3062,7 @@ socket.on('updateLobby', ({ game, admin, players, categories, availableCategorie
   const onCzolkoLobby = document.getElementById('screen-lobby-admin').classList.contains('active') ||
                         document.getElementById('screen-lobby-player').classList.contains('active');
 
+  if (game === 'monopoly') { renderMonoLobby(players); return; }
   if (game === 'panstwa') {
     if (availableCategories) allCategories = availableCategories;
     selectedCategories = (categories || []).slice();
@@ -2804,6 +3108,12 @@ socket.on('rejoinState', (state) => {
   endReconnect();
   currentGame = state.game; isAdmin = !!state.isAdmin; currentCode = state.code;
 
+  if (state.game === 'monopoly') {
+    document.getElementById('mono-lobby-code').textContent = state.code;
+    renderMonoLobby(state.players);
+    showScreen('screen-mono-lobby');
+    return;
+  }
   if (state.game === 'czolko') {
     if (state.phase === 'waiting') {
       document.getElementById('lobby-code-display').textContent = state.code;
