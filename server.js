@@ -1956,7 +1956,7 @@ function monoStart(code) {
     pending:null, log:[], pl,
     chance: shuffle(MONO_CHANCE.map((_,i)=>i)), chanceP:0,
     chest:  shuffle(MONO_CHEST.map((_,i)=>i)),  chestP:0,
-    winner:null,
+    winner:null, trade:null,
   };
   lobby.phase = 'playing';
   monoLog(lobby, `🎲 Gra rozpoczęta! Zaczyna ${monoNick(lobby, order[0])}.`);
@@ -1978,7 +1978,29 @@ function monoStateFor(lobby, pid) {
       connected: (lobby.players.find(p=>p.playerId===id)||{}).connected !== false,
     })),
     owner: lobby.owner, houses: lobby.houses,
+    tradePending: !!m.trade,
   };
+}
+// ── handel ──
+function monoGroupHasHouses(lobby, group) {
+  for (let i=0;i<40;i++){ const s=MONO_BOARD[i]; if (s.t==='prop'&&s.group===group&&(lobby.houses[i]||0)>0) return true; }
+  return false;
+}
+function monoPropTradeable(lobby, pos) {
+  const s = MONO_BOARD[pos]; if (!s) return false;
+  if (s.t==='prop') return !monoGroupHasHouses(lobby, s.group);
+  return s.t==='rail' || s.t==='util';
+}
+function monoExecTrade(code) {
+  const lobby = lobbies[code]; const m = lobby.mono; const t = m.trade; if (!t) return;
+  const from = monoP(lobby, t.from), to = monoP(lobby, t.to);
+  t.giveProps.forEach(pos => { lobby.owner[pos] = t.to; });
+  t.getProps.forEach(pos => { lobby.owner[pos] = t.from; });
+  from.money += t.getMoney - t.giveMoney;
+  to.money   += t.giveMoney - t.getMoney;
+  monoLog(lobby, `🤝 ${monoNick(lobby,t.from)} i ${monoNick(lobby,t.to)} zawarli transakcję.`);
+  m.trade = null;
+  monoBroadcast(code);
 }
 function monoBroadcast(code) {
   const lobby = lobbies[code]; if (!lobby || !lobby.mono) return;
@@ -2092,6 +2114,7 @@ function monoBankrupt(code, pid) {
   p.money = 0; p.bankrupt = true;
   monoLog(lobby, `💀 ${monoNick(lobby,pid)} bankrutuje!${cred?` Majątek przejmuje ${monoNick(lobby,cred)}.`:''}`);
   m.pending = null; m._doneFn = null;
+  if (m.trade && (m.trade.from===pid || m.trade.to===pid)) m.trade = null;
   const active = monoActive(lobby);
   if (active.length <= 1) { m.phase='finished'; m.winner = active[0]||null; lobby.phase='finished'; monoLog(lobby, `🏆 Wygrywa ${monoNick(lobby, m.winner)}!`); return monoBroadcast(code); }
   // Był to bankrut aktualnego gracza → następna kolej.
@@ -2123,6 +2146,7 @@ function monoAfterDepart(code, pid) {
   // Traktuj wyjście jak bankructwo (zwrot majątku do banku).
   monoPositionsOf(lobby, pid).forEach(pos => { lobby.houses[pos]=0; delete lobby.owner[pos]; });
   p.bankrupt = true; p.money = 0;
+  if (m.trade && (m.trade.from===pid || m.trade.to===pid)) m.trade = null;
   monoLog(lobby, `👋 ${monoNick(lobby,pid)} opuścił grę.`);
   const active = monoActive(lobby);
   if (active.length <= 1) { m.phase='finished'; m.winner=active[0]||null; lobby.phase='finished'; if (m.winner) monoLog(lobby, `🏆 Wygrywa ${monoNick(lobby,m.winner)}!`); return monoBroadcast(code); }
@@ -2819,6 +2843,53 @@ io.on('connection', socket => {
     const code = socket.lobbyCode, lobby = lobbies[code]; if (!monoIsCurrent(lobby)) return;
     if (lobby.mono.phase!=='debt') return;
     monoBankrupt(code, socket.playerId);
+  });
+  // Handel — dowolny gracz może zaproponować wymianę innemu (w każdej chwili).
+  socket.on('monoProposeTrade', ({ to, giveProps, giveMoney, getProps, getMoney }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game!=='monopoly' || lobby.phase!=='playing') return;
+    const m = lobby.mono; const from = socket.playerId;
+    if (m.trade) return socket.emit('error', 'Trwa już inna wymiana — poczekaj.');
+    if (!m.pl[from] || m.pl[from].bankrupt || !m.pl[to] || m.pl[to].bankrupt || from===to) return;
+    giveProps = (giveProps||[]).map(Number); getProps = (getProps||[]).map(Number);
+    giveMoney = Math.max(0, Math.floor(giveMoney||0)); getMoney = Math.max(0, Math.floor(getMoney||0));
+    if (giveProps.length+getProps.length===0 && giveMoney===0 && getMoney===0) return;
+    if (!giveProps.every(pos => lobby.owner[pos]===from && monoPropTradeable(lobby,pos))) return socket.emit('error', 'Nie możesz oddać tych pól (domy?).');
+    if (!getProps.every(pos => lobby.owner[pos]===to && monoPropTradeable(lobby,pos)))   return socket.emit('error', 'Te pola nie należą do gracza.');
+    if (giveMoney > m.pl[from].money) return socket.emit('error', 'Za mało gotówki.');
+    if (getMoney  > m.pl[to].money)   return socket.emit('error', 'Partner nie ma tyle gotówki.');
+    m.trade = { from, to, giveProps, getProps, giveMoney, getMoney };
+    const detail = {
+      from, fromNick: monoNick(lobby, from),
+      giveProps, getProps, giveMoney, getMoney,
+      giveNames: giveProps.map(p=>MONO_BOARD[p].name), getNames: getProps.map(p=>MONO_BOARD[p].name),
+    };
+    io.to((lobby.players.find(p=>p.playerId===to)||{}).socketId).emit('monoTradeOffer', detail);
+    monoLog(lobby, `🤝 ${monoNick(lobby,from)} proponuje wymianę graczowi ${monoNick(lobby,to)}.`);
+    monoBroadcast(code);
+  });
+  socket.on('monoRespondTrade', ({ accept }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game!=='monopoly' || !lobby.mono || !lobby.mono.trade) return;
+    const m = lobby.mono; if (m.trade.to !== socket.playerId) return;
+    const t = m.trade;
+    if (!accept) {
+      m.trade = null; monoLog(lobby, `❌ ${monoNick(lobby,t.to)} odrzucił wymianę.`);
+      io.to((lobby.players.find(p=>p.playerId===t.from)||{}).socketId).emit('monoTradeResult', { accepted:false });
+      return monoBroadcast(code);
+    }
+    // Re-walidacja przed wykonaniem.
+    const ok = t.giveProps.every(pos=>lobby.owner[pos]===t.from) && t.getProps.every(pos=>lobby.owner[pos]===t.to)
+      && m.pl[t.from].money>=t.giveMoney && m.pl[t.to].money>=t.getMoney;
+    if (!ok) { m.trade=null; return monoBroadcast(code); }
+    io.to((lobby.players.find(p=>p.playerId===t.from)||{}).socketId).emit('monoTradeResult', { accepted:true });
+    monoExecTrade(code);
+  });
+  socket.on('monoCancelTrade', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || !lobby.mono || !lobby.mono.trade) return;
+    if (lobby.mono.trade.from !== socket.playerId) return;
+    lobby.mono.trade = null; monoBroadcast(code);
   });
 
   // ── LEAVE LOBBY (voluntary exit) ─────────────────────────────────────────────

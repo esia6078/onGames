@@ -79,6 +79,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .game-tile .gt-name{font-weight:700;font-size:.9rem;line-height:1.12}
 .game-tile .gt-desc{font-size:.68rem;color:#9ca3af;line-height:1.18}
 .game-tile .gt-check{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,.15);color:transparent;font-size:.6rem;font-weight:800;display:flex;align-items:center;justify-content:center}
+.game-tile .gt-info{position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;border:1px solid rgba(147,197,253,.5);background:rgba(59,130,246,.16);color:#93c5fd;font-size:.72rem;font-weight:800;font-style:italic;font-family:Georgia,serif;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2}
+.game-tile .gt-info:active{transform:scale(.9)}
 .game-tile.selected{border-color:var(--c);background:var(--cb)}
 .game-tile.selected .gt-badge{box-shadow:0 0 0 3px var(--cb)}
 .game-tile.selected .gt-check{background:var(--c);border-color:var(--c);color:#0b1020}
@@ -218,6 +220,28 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .mono-info-rent{width:100%;font-size:.82rem;border-collapse:collapse}
 .mono-info-rent td{padding:2px 4px;border-bottom:1px solid rgba(255,255,255,.08)}
 .mono-info-rent td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.mono-boardwrap{width:100%;display:flex;justify-content:center}
+.mono-side{width:100%;display:flex;flex-direction:column;gap:8px}
+.mono-myprops{display:flex;flex-direction:column;gap:5px;width:100%}
+.mono-pcard{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:5px 8px;font-size:.78rem}
+.mono-pcard .bar{width:6px;height:24px;border-radius:3px;flex:0 0 auto}
+.mono-pcard .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mono-pcard .hh{flex:0 0 auto;font-size:.72rem;color:#cbd5e1}
+.mono-pcard button{width:auto;padding:4px 9px;font-size:.72rem;flex:0 0 auto;margin:0}
+.mono-sec-title{font-size:.72rem;color:#8fa0b8;text-transform:uppercase;letter-spacing:1px;margin:2px 0}
+.trade-cols{display:flex;gap:10px;width:100%}
+.trade-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.trade-item{display:flex;align-items:center;gap:5px;font-size:.74rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:4px 6px;cursor:pointer}
+.trade-item.sel{border-color:#4ade80;background:rgba(74,222,128,.14)}
+.trade-item .bar{width:5px;height:16px;border-radius:2px;flex:0 0 auto}
+.trade-item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trade-money{width:100%;text-align:center;margin-top:2px}
+@media (min-width:820px){
+  #screen-mono{flex-direction:row;align-items:flex-start;justify-content:center;max-width:1120px;width:97vw;gap:20px;padding-top:12px}
+  .mono-boardwrap{flex:0 0 auto;width:min(76vh,640px)}
+  .mono-side{flex:1 1 0;max-width:460px;align-self:stretch}
+  .mono-log{max-height:none;flex:1}
+}
 
 /* Word reveal GRID (new – shows all assignments) */
 .reveal-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:720px;padding:0 16px}
@@ -390,34 +414,34 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
     <p class="section-title">Wybierz grę</p>
     <div class="game-grid" id="game-picker">
-      <div class="game-tile selected" data-game="czolko" style="--c:#f472b6;--cb:rgba(244,114,182,.16)" onclick="selectGame('czolko')">
+      <div class="game-tile selected" data-game="czolko" style="--c:#f472b6;--cb:rgba(244,114,182,.16)" onclick="selectGame('czolko')"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('czolko')">i</div>
         <div class="gt-badge">🎯</div><div class="gt-name">Czółko</div><div class="gt-desc">Zgadnij swoje hasło</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-tile" data-game="panstwa" style="--c:#34d399;--cb:rgba(52,211,153,.16)" onclick="selectGame('panstwa')">
+      <div class="game-tile" data-game="panstwa" style="--c:#34d399;--cb:rgba(52,211,153,.16)" onclick="selectGame('panstwa')"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('panstwa')">i</div>
         <div class="gt-badge">🌍</div><div class="gt-name">Państwa-Miasta</div><div class="gt-desc">Słowa na daną literę</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-tile" data-game="quiz" style="--c:#60a5fa;--cb:rgba(96,165,250,.16)" onclick="selectGame('quiz')">
+      <div class="game-tile" data-game="quiz" style="--c:#60a5fa;--cb:rgba(96,165,250,.16)" onclick="selectGame('quiz')"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('quiz')">i</div>
         <div class="gt-badge">🧠</div><div class="gt-name">Quiz wiedzy</div><div class="gt-desc">Teleturniej na czas</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-tile" data-game="bluff" style="--c:#fbbf24;--cb:rgba(251,191,36,.16)" onclick="selectGame('bluff')">
+      <div class="game-tile" data-game="bluff" style="--c:#fbbf24;--cb:rgba(251,191,36,.16)" onclick="selectGame('bluff')"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('bluff')">i</div>
         <div class="gt-badge">🤥</div><div class="gt-name">Zmyślacz</div><div class="gt-desc">Zgaduj, co jest prawdą</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-tile" data-game="draw" style="--c:#f87171;--cb:rgba(248,113,113,.16)" onclick="selectGame('draw')">
+      <div class="game-tile" data-game="draw" style="--c:#f87171;--cb:rgba(248,113,113,.16)" onclick="selectGame('draw')"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('draw')">i</div>
         <div class="gt-badge">🎨</div><div class="gt-name">Kalambury</div><div class="gt-desc">Rysuj i zgaduj hasła</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-tile" data-game="truths" style="--c:#a78bfa;--cb:rgba(167,139,250,.16)" onclick="selectGame('truths')">
+      <div class="game-tile" data-game="truths" style="--c:#a78bfa;--cb:rgba(167,139,250,.16)" onclick="selectGame('truths')"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('truths')">i</div>
         <div class="gt-badge">🕵️</div><div class="gt-name">2 prawdy 1 kłamstwo</div><div class="gt-desc">Wykryj kłamstwo</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-tile" data-game="assoc" style="--c:#fb923c;--cb:rgba(251,146,60,.16)" onclick="selectGame('assoc')">
+      <div class="game-tile" data-game="assoc" style="--c:#fb923c;--cb:rgba(251,146,60,.16)" onclick="selectGame('assoc')"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('assoc')">i</div>
         <div class="gt-badge">😂</div><div class="gt-name">Skojarzenia</div><div class="gt-desc">Najśmieszniejsza wygrywa</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-tile" data-game="who" style="--c:#22d3ee;--cb:rgba(34,211,238,.16)" onclick="selectGame('who')">
+      <div class="game-tile" data-game="who" style="--c:#22d3ee;--cb:rgba(34,211,238,.16)" onclick="selectGame('who')"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('who')">i</div>
         <div class="gt-badge">🙋</div><div class="gt-name">Kto z nas?</div><div class="gt-desc">Głosuj na gracza</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-tile" data-game="dance" style="--c:#e879f9;--cb:rgba(232,121,249,.16)" onclick="selectGame('dance')">
+      <div class="game-tile" data-game="dance" style="--c:#e879f9;--cb:rgba(232,121,249,.16)" onclick="selectGame('dance')"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('dance')">i</div>
         <div class="gt-badge">🕺</div><div class="gt-name">Tańczereczki</div><div class="gt-desc">Tańcz i wykryj impostora</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-tile" data-game="monopoly" style="--c:#4ade80;--cb:rgba(74,222,128,.16)" onclick="selectGame('monopoly')">
+      <div class="game-tile" data-game="monopoly" style="--c:#4ade80;--cb:rgba(74,222,128,.16)" onclick="selectGame('monopoly')"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('monopoly')">i</div>
         <div class="gt-badge">🎩</div><div class="gt-name">Monopoly</div><div class="gt-desc">Kupuj, buduj, zbankrutuj innych</div><div class="gt-check">✓</div>
       </div>
     </div>
@@ -944,11 +968,37 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
 <!-- ══════════════════════════════════════ MONOPOLY: GRA ══ -->
 <div class="screen" id="screen-mono">
-  <div class="mono-strip" id="mono-strip"></div>
-  <div class="mono-board" id="mono-board"></div>
-  <div class="mono-turn" id="mono-turn"></div>
-  <div class="mono-actions" id="mono-actions"></div>
-  <div class="mono-log" id="mono-log"></div>
+  <div class="mono-boardwrap"><div class="mono-board" id="mono-board"></div></div>
+  <div class="mono-side">
+    <div class="mono-strip" id="mono-strip"></div>
+    <div class="mono-turn" id="mono-turn"></div>
+    <div class="mono-actions" id="mono-actions"></div>
+    <button class="btn-sec" id="mono-trade-btn" onclick="openTrade()" style="display:none">🤝 Zaproponuj handel</button>
+    <div class="mono-myprops" id="mono-myprops"></div>
+    <div class="mono-log" id="mono-log"></div>
+  </div>
+</div>
+<!-- Monopoly: budowanie handlu -->
+<div class="modal-overlay hidden" id="mono-trade-modal" onclick="if(event.target===this)closeTrade()">
+  <div class="card info-card" style="max-width:440px">
+    <button class="info-x" onclick="closeTrade()" aria-label="Zamknij">✕</button>
+    <div class="info-title">🤝 Handel</div>
+    <div id="mono-trade-partners" style="width:100%"></div>
+    <div id="mono-trade-build" style="width:100%;display:none"></div>
+  </div>
+</div>
+<!-- Monopoly: przychodząca oferta -->
+<div class="modal-overlay hidden" id="mono-offer-modal">
+  <div class="card info-card" style="max-width:420px">
+    <div class="info-title">🤝 Oferta wymiany</div>
+    <div id="mono-offer-body" style="width:100%"></div>
+    <div class="mono-actions">
+      <div class="row">
+        <button class="btn-green" onclick="respondTrade(true)">✅ Akceptuj</button>
+        <button class="btn-ghost" onclick="respondTrade(false)">❌ Odrzuć</button>
+      </div>
+    </div>
+  </div>
 </div>
 <!-- Monopoly: karta pola -->
 <div class="modal-overlay hidden" id="mono-info-modal" onclick="if(event.target===this)closeMonoInfo()">
@@ -2809,10 +2859,39 @@ function renderMono(s){
   renderMonoStrip(s);
   renderMonoBoard(s);
   renderMonoActions(s);
+  renderMonoMyProps(s);
+  const others = s.players.filter(p=>p.id!==s.you && !p.bankrupt).length;
+  const meBank = (s.players.find(p=>p.id===s.you)||{}).bankrupt;
+  document.getElementById('mono-trade-btn').style.display = (others>0 && !meBank) ? 'block' : 'none';
   const log=document.getElementById('mono-log'); log.innerHTML='';
   s.log.forEach(l=>{ const d=document.createElement('div'); d.textContent=l; log.appendChild(d); });
   log.scrollTop = log.scrollHeight;
   showScreen('screen-mono');
+  // odśwież otwarty builder handlu (np. po zmianie stanu)
+  if (!document.getElementById('mono-trade-modal').classList.contains('hidden') && tradePartner) renderTradeBuild();
+}
+const MONO_GROUP_PL = { brown:'brązowe', lblue:'jasnoniebieskie', pink:'różowe', orange:'pomarańczowe', red:'czerwone', yellow:'żółte', green:'zielone', dblue:'granatowe' };
+function monoBar(pos){ const sp=MONO_BOARD[pos]; return sp.t==='prop'?MONO_GROUP_COLORS[sp.group]:sp.t==='rail'?'#cbd5e1':sp.t==='util'?'#94a3b8':'#475569'; }
+function monoShortName(pos){ return MONO_BOARD[pos].name.replace(/^Ulica |^Aleje |^Aleja |^Plac |^Dworzec /,''); }
+function renderMonoMyProps(s){
+  const box=document.getElementById('mono-myprops'); box.innerHTML='';
+  const mine=Object.keys(s.owner).map(Number).filter(pos=>s.owner[pos]===s.you).sort((a,b)=>a-b);
+  const title=document.createElement('div'); title.className='mono-sec-title'; title.textContent='🏘️ Twoje posiadłości ('+mine.length+')'; box.appendChild(title);
+  if(!mine.length){ const e=document.createElement('div'); e.className='waiting-text'; e.style.margin='0'; e.textContent='Jeszcze nic nie masz — kupuj pola!'; box.appendChild(e); return; }
+  const myTurn = s.current===s.you && ['preroll','action','debt'].includes(s.gamePhase);
+  mine.forEach(pos=>{
+    const sp=MONO_BOARD[pos]; const h=s.houses[pos]||0;
+    const card=document.createElement('div'); card.className='mono-pcard';
+    card.innerHTML='<div class="bar" style="background:'+monoBar(pos)+'"></div><div class="nm">'+escAttr(monoShortName(pos))+'</div>'+
+      (h>0?'<div class="hh">'+(h===5?'🏨':'🏠'+h)+'</div>':'');
+    if(sp.t==='prop' && myTurn){
+      const full=MONO_BOARD.every((x,i)=> x.t!=='prop' || x.group!==sp.group || s.owner[i]===s.you);
+      if(full && h<5){ const b=document.createElement('button'); b.className='btn-green'; b.textContent='🏗️'; b.title='Buduj ('+money(sp.h)+')'; b.onclick=()=>socket.emit('monoBuild',{pos}); card.appendChild(b); }
+      if(h>0){ const b=document.createElement('button'); b.className='btn-sec'; b.textContent='💰'; b.title='Sprzedaj'; b.onclick=()=>socket.emit('monoSellHouse',{pos}); card.appendChild(b); }
+    }
+    const info=document.createElement('button'); info.className='btn-ghost'; info.textContent='ℹ'; info.style.padding='4px 8px'; info.onclick=()=>openMonoInfo(pos); card.appendChild(info);
+    box.appendChild(card);
+  });
 }
 function renderMonoStrip(s){
   const strip=document.getElementById('mono-strip'); strip.innerHTML='';
@@ -2940,6 +3019,60 @@ function openMonoInfo(pos){
   document.getElementById('mono-info-modal').classList.remove('hidden');
 }
 function closeMonoInfo(){ document.getElementById('mono-info-modal').classList.add('hidden'); }
+// ── Handel (klient) ──
+let tradePartner=null, tradeGive=new Set(), tradeGet=new Set(), incomingOffer=null;
+function monoGroupHasHousesClient(group){ for(let i=0;i<40;i++){ const s=MONO_BOARD[i]; if(s.t==='prop'&&s.group===group&&(monoS.houses[i]||0)>0) return true; } return false; }
+function monoPropTradeableClient(pos){ const s=MONO_BOARD[pos]; if(s.t==='prop') return !monoGroupHasHousesClient(s.group); return s.t==='rail'||s.t==='util'; }
+function monoOwnedTradeable(owner){ return Object.keys(monoS.owner).map(Number).filter(pos=>monoS.owner[pos]===owner && monoPropTradeableClient(pos)).sort((a,b)=>a-b); }
+function openTrade(){
+  if(!monoS) return;
+  tradePartner=null; tradeGive=new Set(); tradeGet=new Set();
+  document.getElementById('mono-trade-build').style.display='none';
+  const box=document.getElementById('mono-trade-partners'); box.innerHTML='<div class="mono-sec-title">Z kim handlujesz?</div>';
+  const others=monoS.players.filter(p=>p.id!==monoS.you && !p.bankrupt);
+  const wrap=document.createElement('div'); wrap.className='mono-actions';
+  others.forEach(p=>{ const b=document.createElement('button'); b.className='btn-sec'; b.textContent=p.token+' '+p.nick+' ('+money(p.money)+')'; b.onclick=()=>selectTradePartner(p.id); wrap.appendChild(b); });
+  box.appendChild(wrap);
+  document.getElementById('mono-trade-modal').classList.remove('hidden');
+}
+function selectTradePartner(id){ tradePartner=id; tradeGive=new Set(); tradeGet=new Set(); document.getElementById('mono-trade-partners').style.display='none'; document.getElementById('mono-trade-build').style.display='block'; renderTradeBuild(); }
+function renderTradeBuild(){
+  const p=monoS.players.find(x=>x.id===tradePartner); if(!p) return;
+  const mineArr=monoOwnedTradeable(monoS.you), theirArr=monoOwnedTradeable(tradePartner);
+  const col=(title,arr,set,who)=>{
+    let html='<div class="trade-col"><div class="mono-sec-title">'+title+'</div>';
+    if(!arr.length) html+='<div class="waiting-text" style="margin:0;font-size:.7rem">brak pól</div>';
+    arr.forEach(pos=>{ html+='<div class="trade-item'+(set.has(pos)?' sel':'')+'" onclick="toggleTrade('+who+','+pos+')"><div class="bar" style="background:'+monoBar(pos)+'"></div><div class="nm">'+escAttr(monoShortName(pos))+'</div></div>'; });
+    html+='</div>'; return html;
+  };
+  const meMoney=(monoS.players.find(x=>x.id===monoS.you)||{}).money||0;
+  document.getElementById('mono-trade-build').innerHTML=
+    '<div class="mono-sec-title">Wymiana z '+escAttr(p.token+' '+p.nick)+'</div>'+
+    '<div class="trade-cols">'+col('➡️ Dajesz',mineArr,tradeGive,0)+col('⬅️ Chcesz',theirArr,tradeGet,1)+'</div>'+
+    '<div class="trade-cols"><div class="trade-col"><input id="trade-give-money" class="trade-money" type="number" min="0" max="'+meMoney+'" placeholder="$ dajesz" inputmode="numeric"></div>'+
+    '<div class="trade-col"><input id="trade-get-money" class="trade-money" type="number" min="0" max="'+p.money+'" placeholder="$ chcesz" inputmode="numeric"></div></div>'+
+    '<div class="mono-actions" style="margin-top:8px"><button class="btn-green" onclick="proposeTrade()">📨 Zaproponuj</button><button class="btn-ghost" onclick="closeTrade()">Anuluj</button></div>';
+}
+function toggleTrade(who,pos){ const set=who===0?tradeGive:tradeGet; if(set.has(pos))set.delete(pos); else set.add(pos); renderTradeBuild(); }
+function proposeTrade(){
+  const gm=parseInt((document.getElementById('trade-give-money')||{}).value)||0;
+  const rm=parseInt((document.getElementById('trade-get-money')||{}).value)||0;
+  if(tradeGive.size+tradeGet.size===0 && gm===0 && rm===0){ showToast('Wybierz coś do wymiany.'); return; }
+  socket.emit('monoProposeTrade',{ to:tradePartner, giveProps:[...tradeGive], giveMoney:gm, getProps:[...tradeGet], getMoney:rm });
+  closeTrade(); showToast('🤝 Wysłano ofertę wymiany.');
+}
+function closeTrade(){ document.getElementById('mono-trade-modal').classList.add('hidden'); document.getElementById('mono-trade-partners').style.display='block'; }
+socket.on('monoTradeOffer', d=>{
+  incomingOffer=d;
+  const gives=d.giveNames.length?d.giveNames.join(', '):'—', gets=d.getNames.length?d.getNames.join(', '):'—';
+  document.getElementById('mono-offer-body').innerHTML=
+    '<p style="text-align:center"><b>'+escAttr(d.fromNick)+'</b> proponuje wymianę:</p>'+
+    '<table class="mono-info-rent"><tr><td>✅ Dostajesz</td><td>'+escAttr(gives)+(d.giveMoney?' + '+money(d.giveMoney):'')+'</td></tr>'+
+    '<tr><td>➡️ Oddajesz</td><td>'+escAttr(gets)+(d.getMoney?' + '+money(d.getMoney):'')+'</td></tr></table>';
+  document.getElementById('mono-offer-modal').classList.remove('hidden');
+});
+function respondTrade(accept){ socket.emit('monoRespondTrade',{accept}); document.getElementById('mono-offer-modal').classList.add('hidden'); }
+socket.on('monoTradeResult', ({accepted})=>{ showToast(accepted?'✅ Twoja oferta została przyjęta!':'❌ Oferta odrzucona.'); });
 
 // ── ARCADE REJOIN ─────────────────────────────────────────────────────────────
 socket.on('arcadeRejoin', (s) => {
@@ -3219,13 +3352,15 @@ function showScreen(id) {
   if (INFO_HIDE_SCREENS.has(id)) closeInfo();
   if (changed) window.scrollTo(0, 0);
 }
-function openInfo() {
-  const g = currentGame || (typeof arcGame !== 'undefined' && arcGame) || selectedGame;
+function openInfoFor(g) {
   const ui = GAME_UI[g] || { e: '🎮', n: 'Gra' };
   document.getElementById('info-emoji').textContent = ui.e;
   document.getElementById('info-title').textContent = ui.n;
   document.getElementById('info-body').textContent  = GAME_HOWTO[g] || 'Baw się dobrze!';
   document.getElementById('info-modal').classList.remove('hidden');
+}
+function openInfo() {
+  openInfoFor(currentGame || (typeof arcGame !== 'undefined' && arcGame) || selectedGame);
 }
 function closeInfo() { document.getElementById('info-modal')?.classList.add('hidden'); }
 function leaveGame() {
