@@ -293,6 +293,12 @@ button:disabled{opacity:.45;cursor:not-allowed}
 /* ──────────────────────────────────────────────── MODAL ── */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(8px);animation:fadeIn .2s ease}
 .modal-overlay.hidden{display:none}
+#info-btn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:10px;z-index:150;width:34px;height:34px;padding:0;font-size:1.05rem;font-weight:800;font-style:italic;font-family:Georgia,'Times New Roman',serif;color:#93c5fd;background:rgba(20,20,40,.72);border:1px solid rgba(96,165,250,.5);border-radius:50%;backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;cursor:pointer}
+.info-card{position:relative;max-width:370px;width:100%;display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center}
+.info-x{position:absolute;top:-8px;right:-8px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);color:#fff;font-size:1rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.info-emoji{font-size:2.6rem;line-height:1}
+.info-title{font-size:1.3rem;font-weight:800}
+.info-body{font-size:.94rem;line-height:1.55;color:#d1d5db;text-align:left}
 </style>
 </head>
 <body>
@@ -302,6 +308,19 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
 <!-- ══════════════════════════════════════ LEAVE (in-game) ══ -->
 <button id="leave-btn" onclick="leaveGame()" style="display:none">🚪 Opuść</button>
+
+<!-- ══════════════════════════════════════ INFO (per-game) ══ -->
+<button id="info-btn" onclick="openInfo()" title="Jak grać?" aria-label="Jak grać?">i</button>
+<div class="modal-overlay hidden" id="info-modal" onclick="if(event.target===this)closeInfo()">
+  <div class="card info-card">
+    <button class="info-x" onclick="closeInfo()" aria-label="Zamknij">✕</button>
+    <div class="info-emoji" id="info-emoji">🎮</div>
+    <div class="info-title" id="info-title"></div>
+    <div class="section-title">📖 Jak grać</div>
+    <div class="info-body" id="info-body"></div>
+    <button class="btn-main" onclick="closeInfo()">✓ Rozumiem</button>
+  </div>
+</div>
 
 <!-- ══════════════════════════════════════ WORD REVEAL OVERLAY ══ -->
 <div class="word-reveal hidden" id="word-reveal">
@@ -917,6 +936,8 @@ function showToast(html) {
 // Screens that top-align + scroll (must be defined before any showScreen call).
 const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished', 'screen-truths-tell', 'screen-truths-guess', 'screen-truths-reveal', 'screen-assoc-write', 'screen-assoc-vote', 'screen-assoc-reveal', 'screen-who-vote', 'screen-who-reveal', 'screen-dance', 'screen-dance-vote', 'screen-dance-reveal']);
 const NO_LEAVE_SCREENS = new Set(['screen-home','screen-reconnecting','screen-lobby-admin','screen-lobby-player','screen-pm-lobby','screen-arcade-lobby']);
+// The per-game info "i" shows everywhere except the home/reconnecting screens.
+const INFO_HIDE_SCREENS = new Set(['screen-home','screen-reconnecting']);
 
 // Attempt rejoin on load
 let reconnectTimer = null;
@@ -2831,8 +2852,20 @@ function showScreen(id) {
   document.body.classList.toggle('scroll-top', SCROLL_TOP_SCREENS.has(id));
   const lb = document.getElementById('leave-btn');
   if (lb) lb.style.display = NO_LEAVE_SCREENS.has(id) ? 'none' : 'block';
+  const ib = document.getElementById('info-btn');
+  if (ib) ib.style.display = INFO_HIDE_SCREENS.has(id) ? 'none' : 'flex';
+  if (INFO_HIDE_SCREENS.has(id)) closeInfo();
   if (changed) window.scrollTo(0, 0);
 }
+function openInfo() {
+  const g = currentGame || (typeof arcGame !== 'undefined' && arcGame) || selectedGame;
+  const ui = GAME_UI[g] || { e: '🎮', n: 'Gra' };
+  document.getElementById('info-emoji').textContent = ui.e;
+  document.getElementById('info-title').textContent = ui.n;
+  document.getElementById('info-body').textContent  = GAME_HOWTO[g] || 'Baw się dobrze!';
+  document.getElementById('info-modal').classList.remove('hidden');
+}
+function closeInfo() { document.getElementById('info-modal')?.classList.add('hidden'); }
 function leaveGame() {
   if (!confirm('Opuścić grę i wrócić do menu głównego?')) return;
   socket.emit('leaveLobby');
