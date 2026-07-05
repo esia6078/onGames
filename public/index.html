@@ -180,6 +180,12 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .dance-stage{display:flex;gap:6px;justify-content:center;align-items:flex-end;font-size:3rem;min-height:70px}
 .dance-emoji{display:inline-block;animation:danceBounce .5s ease-in-out infinite alternate}
 @keyframes danceBounce{from{transform:translateY(0) rotate(-8deg)}to{transform:translateY(-14px) rotate(8deg)}}
+.vn-player{display:flex;align-items:center;gap:12px;width:100%;max-width:320px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:10px 14px}
+.vn-btn{flex:0 0 auto;width:44px;height:44px;border-radius:50%;border:none;background:linear-gradient(135deg,#d946ef,#38bdf8);color:#fff;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+.vn-btn:active{transform:scale(.94)}
+.vn-bar{flex:1;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden}
+.vn-fill{height:100%;width:0%;background:linear-gradient(90deg,#d946ef,#38bdf8);border-radius:3px;transition:width .25s linear}
+.vn-time{flex:0 0 auto;font-size:.82rem;color:#cbd5e1;font-variant-numeric:tabular-nums;min-width:36px;text-align:right}
 
 /* Word reveal GRID (new – shows all assignments) */
 .reveal-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:720px;padding:0 16px}
@@ -838,12 +844,21 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <div id="dc-live" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%">
     <div class="dance-stage"><span class="dance-emoji">🕺</span><span class="dance-emoji" style="animation-delay:.25s">💃</span><span class="dance-emoji" style="animation-delay:.5s">🕺</span></div>
     <div class="card" id="dc-role" style="text-align:center;font-weight:700"></div>
+    <!-- Odtwarzacz w stylu wiadomości głosowej: tylko ▶/❚❚ + pasek + czas, bez tytułu! -->
+    <div class="vn-player">
+      <button class="vn-btn" id="dc-vn-btn" onclick="danceTogglePlay()" aria-label="Play/pauza">▶</button>
+      <div class="vn-bar"><div class="vn-fill" id="dc-vn-fill"></div></div>
+      <span class="vn-time" id="dc-vn-time">0:00</span>
+    </div>
     <div class="timer" id="dc-timer"></div>
     <button class="btn-main" id="dc-ready-btn" onclick="danceReady()">✅ Gotowy do głosowania</button>
     <div id="dc-ready-done" class="assign-submitted-badge" style="display:none">✅ Gotowy! Czekam na resztę...</div>
     <p class="waiting-text" id="dc-ready-progress"></p>
   </div>
 </div>
+<!-- Ukryty odtwarzacz YouTube (dźwięk gra w tle, gracz go nie widzi).
+     YT.Player podmienia #yt-holder na <iframe>, więc pozycjonujemy WRAPPER. -->
+<div style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;pointer-events:none" aria-hidden="true"><div id="yt-holder"></div></div>
 <div class="screen" id="screen-dance-vote">
   <p class="section-title" id="dv-counter"></p>
   <div style="font-size:2rem">🔎</div>
@@ -922,7 +937,7 @@ const NO_LEAVE_SCREENS = new Set(['screen-home','screen-reconnecting','screen-lo
 // Attempt rejoin on load
 let reconnectTimer = null;
 function endReconnect() { if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; } }
-function backToHome() { endReconnect(); if (typeof danceStopTrack === 'function') danceStopTrack(); clearSession(); showScreen('screen-home'); socket.emit('browsePublic'); }
+function backToHome() { endReconnect(); if (typeof danceStopAll === 'function') danceStopAll(); clearSession(); showScreen('screen-home'); socket.emit('browsePublic'); }
 
 const savedSession = getSession();
 if (savedSession && savedSession.code) {
@@ -1519,6 +1534,7 @@ function renderArcadeLobby(o) {
   document.getElementById('arc-settings-card').style.display = arcSettingOptions ? 'flex' : 'none';
   renderDifficulty();
   renderWhoPrompts(o.customPrompts || []);
+  if (o.game === 'dance' && typeof danceLoadYT === 'function') danceLoadYT();   // rozgrzej odtwarzacz YT
 }
 function renderWhoPrompts(prompts) {
   const card = document.getElementById('arc-who-card'); if (!card) return;
@@ -1582,9 +1598,9 @@ socket.on('arcadeLobby', (o) => {
   const cur = document.querySelector('.screen.active')?.id;
   if (!ARCADE_MID_SCREENS.includes(cur)) showScreen('screen-arcade-lobby');
 });
-socket.on('arcadeReturnLobby', () => { if (typeof danceStopTrack === 'function') danceStopTrack(); showScreen('screen-arcade-lobby'); });
+socket.on('arcadeReturnLobby', () => { if (typeof danceStopAll === 'function') danceStopAll(); showScreen('screen-arcade-lobby'); });
 socket.on('arcadeFinished', ({ scoreboard }) => {
-  if (typeof danceStopTrack === 'function') danceStopTrack();
+  if (typeof danceStopAll === 'function') danceStopAll();
   renderArcadeScoreboard('arc-final-scoreboard', scoreboard);
   document.getElementById('arc-btn-again').style.display = isAdmin ? 'block' : 'none';
   document.getElementById('arc-again-wait').style.display = isAdmin ? 'none' : 'block';
@@ -2069,25 +2085,179 @@ socket.on('whoReveal', (d) => {
 });
 
 // ── TAŃCZERECZKI ──────────────────────────────────────────────────────────────
-// Utwory są SYNTETYZOWANE w przeglądarce (Web Audio) — brak plików, działa offline.
-// Każdy ma inny nastrój i tempo, żeby impostor był widoczny po ruchu. Kolejność
-// i długość musi się zgadzać z DANCE_TRACK_COUNT na serwerze.
+// Prawdziwe hity lecą z YouTube (ukryty odtwarzacz). Gracz widzi tylko odtwarzacz
+// w stylu wiadomości głosowej (▶/❚❚ + pasek + czas) — bez tytułu, żeby nie
+// zdradzać impostora. Jeśli dany film się nie załaduje (region/blokada), gramy
+// awaryjnie muzykę syntetyzowaną — gra działa zawsze. Kolejność DANCE_SONGS musi
+// się zgadzać z DANCE_TRACK_COUNT na serwerze.
+const DANCE_SONGS = [
+  {id:"kJQP7kiw5Fk",t:"Luis Fonsi – Despacito"},
+  {id:"JGwWNGJdvx8",t:"Ed Sheeran – Shape of You"},
+  {id:"RgKAFK5djSk",t:"Wiz Khalifa – See You Again"},
+  {id:"OPf0YbXqDm0",t:"Mark Ronson – Uptown Funk"},
+  {id:"9bZkp7q19f0",t:"PSY – Gangnam Style"},
+  {id:"CevxZvSJLk8",t:"Katy Perry – Roar"},
+  {id:"0KSOMA3QBU0",t:"Katy Perry – Dark Horse"},
+  {id:"09R8_2nJtjg",t:"Maroon 5 – Sugar"},
+  {id:"e-ORhEE9VVg",t:"Taylor Swift – Blank Space"},
+  {id:"nfWlot6h_JM",t:"Taylor Swift – Shake It Off"},
+  {id:"YQHsXMglC9A",t:"Adele – Hello"},
+  {id:"rYEDA3JcQqw",t:"Adele – Rolling in the Deep"},
+  {id:"hLQl3WQQoQ0",t:"Adele – Someone Like You"},
+  {id:"fRh_vgS2dFE",t:"Justin Bieber – Sorry"},
+  {id:"kffacxfA7G4",t:"Justin Bieber – Baby"},
+  {id:"DK_0jXPuIr0",t:"Justin Bieber – Love Yourself"},
+  {id:"UqyT8IEBkvY",t:"Bruno Mars – 24K Magic"},
+  {id:"PMivT7MJ41M",t:"Bruno Mars – That’s What I Like"},
+  {id:"LjhCEhWiKXk",t:"Bruno Mars – Just The Way You Are"},
+  {id:"SR6iYWJxHqs",t:"Bruno Mars – Grenade"},
+  {id:"2Vv-BfVoq4g",t:"Ed Sheeran – Perfect"},
+  {id:"lp-EO5I60KA",t:"Ed Sheeran – Thinking Out Loud"},
+  {id:"orJSJGHjBLI",t:"Ed Sheeran – Bad Habits"},
+  {id:"nfs8NYg7yQM",t:"Charlie Puth – Attention"},
+  {id:"3AtDnEC4zak",t:"Charlie Puth – We Don’t Talk Anymore"},
+  {id:"Pkh8UtuejGw",t:"Shawn Mendes & Camila Cabello – Señorita"},
+  {id:"BQ0mxQXmLsk",t:"Camila Cabello – Havana"},
+  {id:"nYh-n7EOtMA",t:"Sia – Cheap Thrills"},
+  {id:"2vjPBrBU-TM",t:"Sia – Chandelier"},
+  {id:"7PCkvCPvDXk",t:"Meghan Trainor – All About That Bass"},
+  {id:"YqeW9_5kURI",t:"Major Lazer & DJ Snake – Lean On"},
+  {id:"4NRXx6U8ABQ",t:"The Weeknd – Blinding Lights"},
+  {id:"34Na4j8AVgA",t:"The Weeknd – Starboy"},
+  {id:"XXYlFuWEuKI",t:"The Weeknd – Save Your Tears"},
+  {id:"k2qgadSvNyU",t:"Dua Lipa – New Rules"},
+  {id:"TUVcZfQe-Kw",t:"Dua Lipa – Levitating"},
+  {id:"oygrmJFKYZY",t:"Dua Lipa – Don’t Start Now"},
+  {id:"FM7MFYoylVs",t:"The Chainsmokers & Coldplay – Something Just Like This"},
+  {id:"PT2_F-1esPk",t:"The Chainsmokers – Closer"},
+  {id:"7wtfhZwyrcc",t:"Imagine Dragons – Believer"},
+  {id:"fKopy74weus",t:"Imagine Dragons – Thunder"},
+  {id:"ktvTqknDobU",t:"Imagine Dragons – Radioactive"},
+  {id:"60ItHLz5WEA",t:"Alan Walker – Faded"},
+  {id:"aDaOgu2CQtI",t:"Alan Walker – Alone"},
+  {id:"papuvlVeZg8",t:"Clean Bandit – Rockabye"},
+  {id:"aatr_2MstrI",t:"Clean Bandit – Symphony"},
+  {id:"HL1UzIK-flA",t:"Rihanna – Work"},
+  {id:"lWA2pjMjpBs",t:"Rihanna – Diamonds"},
+  {id:"tg00YEETFzg",t:"Rihanna – We Found Love"},
+  {id:"uelHwf8o7_U",t:"Eminem – Love The Way You Lie"},
+  {id:"j5-yKhDd64s",t:"Eminem – Not Afraid"},
+  {id:"XbGs_qK2PQA",t:"Eminem – Rap God"},
+  {id:"8UVNT4wvIGY",t:"Gotye – Somebody That I Used To Know"},
+  {id:"IcrbM1l_BoI",t:"Avicii – Wake Me Up"},
+  {id:"UtF6Jej8yb4",t:"Avicii – The Nights"},
+  {id:"JRfuAukYTKg",t:"David Guetta – Titanium"},
+  {id:"RBumgq5yVrA",t:"Passenger – Let Her Go"},
+  {id:"hT_nvWreIhg",t:"OneRepublic – Counting Stars"},
+  {id:"ZbZSe6N_BXs",t:"Pharrell Williams – Happy"},
+  {id:"nlcIKh6sBtc",t:"Lorde – Royals"},
+  {id:"My2FRPA3Gf8",t:"Miley Cyrus – Wrecking Ball"},
+  {id:"450p7goxZqg",t:"John Legend – All of Me"},
+  {id:"pB-5XG-DbAA",t:"Sam Smith – Stay With Me"},
+  {id:"NUsoVlDFqZg",t:"Enrique Iglesias – Bailando"},
+  {id:"pRpeEdMmmQ0",t:"Shakira – Waka Waka"},
+  {id:"DUT5rEU6pqM",t:"Shakira – Hips Don’t Lie"},
+  {id:"wnJ6LuUFpMo",t:"J Balvin & Willy William – Mi Gente"},
+  {id:"ixkoVwKQaJg",t:"DJ Snake, Selena, Ozuna, Cardi B – Taki Taki"},
+  {id:"aJOTlE1K90k",t:"Maroon 5 – Girls Like You"},
+  {id:"SlPhMPnQ58k",t:"Maroon 5 – Memories"},
+  {id:"ApXoWvfEYVU",t:"Post Malone & Swae Lee – Sunflower"},
+  {id:"wXhTHyIgQ_U",t:"Post Malone – Circles"},
+  {id:"DyDfgMOUjCI",t:"Billie Eilish – Bad Guy"},
+  {id:"r7qovpFAGrQ",t:"Lil Nas X – Old Town Road"},
+  {id:"zABLecsR5UE",t:"Lewis Capaldi – Someone You Loved"},
+  {id:"q0hyYWKXF0Q",t:"Tones and I – Dance Monkey"},
+  {id:"kTJczUoc26U",t:"The Kid LAROI & Justin Bieber – Stay"},
+  {id:"mRD0-GxqHVo",t:"Glass Animals – Heat Waves"},
+  {id:"H5v3kku4y6Q",t:"Harry Styles – As It Was"},
+  {id:"ZmDBbnmKpqQ",t:"Olivia Rodrigo – drivers license"},
+  {id:"gdZLi9oWNZg",t:"BTS – Dynamite"},
+  {id:"2S24-y0Ij3Y",t:"BLACKPINK – Kill This Love"},
+  {id:"IHNzOHi8sJs",t:"BLACKPINK – DDU-DU DDU-DU"},
+  {id:"Zi_XLOBDo_Y",t:"Michael Jackson – Billie Jean"},
+  {id:"oRdxUFDoQe0",t:"Michael Jackson – Beat It"},
+  {id:"sOnqjkJTMaA",t:"Michael Jackson – Thriller"},
+  {id:"h_D3VFfhvs4",t:"Michael Jackson – Smooth Criminal"},
+  {id:"fJ9rUzIMcZQ",t:"Queen – Bohemian Rhapsody"},
+  {id:"1w7OgIMMRc4",t:"Guns N’ Roses – Sweet Child O’ Mine"},
+  {id:"hTWKbfoikeg",t:"Nirvana – Smells Like Teen Spirit"},
+  {id:"djV11Xbc914",t:"a-ha – Take On Me"},
+  {id:"dQw4w9WgXcQ",t:"Rick Astley – Never Gonna Give You Up"},
+  {id:"FTQbiNvZqaY",t:"Toto – Africa"},
+  {id:"1k8craCGpgs",t:"Journey – Don’t Stop Believin’"},
+  {id:"btPJPFnesV4",t:"Survivor – Eye of the Tiger"},
+  {id:"9jK-NcRmVcw",t:"Europe – The Final Countdown"},
+  {id:"lDK9QqIzhwk",t:"Bon Jovi – Livin’ on a Prayer"},
+  {id:"xFYQQPAOz7Y",t:"ABBA – Dancing Queen"},
+  {id:"unfzfe8f9NI",t:"ABBA – Mamma Mia"},
+  {id:"CD-E-LDc384",t:"Village People – Y.M.C.A."},
+  {id:"I_izvAbhExY",t:"Bee Gees – Stayin’ Alive"},
+  {id:"eH3giaIzONA",t:"Whitney Houston – I Wanna Dance with Somebody"},
+  {id:"79fzeNUqQbQ",t:"Madonna – Like a Prayer"},
+  {id:"4fndeDfaWCg",t:"Backstreet Boys – I Want It That Way"},
+  {id:"gJLIiF15wjQ",t:"Spice Girls – Wannabe"},
+  {id:"C-u5WLJ9Yk4",t:"Britney Spears – …Baby One More Time"},
+  {id:"LOZuxwVk7TU",t:"Britney Spears – Toxic"},
+  {id:"RB-RcX5DS5A",t:"The Killers – Mr. Brightside"},
+  {id:"SDTZ7iX4vTQ",t:"Foster the People – Pumped Up Kicks"},
+  {id:"YykjpeuMNEk",t:"The Cranberries – Zombie"},
+  {id:"GxldQ9eX2wo",t:"James Arthur – Say You Won’t Let Go"},
+  {id:"YkgkThdzX-8",t:"Coldplay – Viva la Vida"},
+  {id:"k4V3Mo61fJM",t:"Coldplay – The Scientist"},
+  {id:"1G4isv_Fylg",t:"Coldplay – Paradise"},
+  {id:"yd8jh9QYfEs",t:"Katy Perry – Firework"},
+  {id:"QGJuMBdaqIw",t:"Katy Perry – Teenage Dream"},
+  {id:"iP6XpLQM2Cs",t:"LMFAO – Party Rock Anthem"},
+  {id:"wyx6JDQCslE",t:"LMFAO – Sexy and I Know It"},
+  {id:"bnVUHWCynig",t:"Black Eyed Peas – I Gotta Feeling"},
+  {id:"kxopViU98Xo",t:"PSY – Gentleman"},
+  {id:"qrO4YZeyl0I",t:"Lady Gaga – Bad Romance"},
+  {id:"bESGLojNYSo",t:"Lady Gaga – Poker Face"},
+  {id:"4m1EFMoRFvY",t:"Beyoncé – Single Ladies"},
+  {id:"5NV6Rdv1a3I",t:"Daft Punk – Get Lucky"},
+  {id:"PWgvGjAhvIw",t:"OutKast – Hey Ya!"},
+  {id:"ru0K8uYEZWw",t:"Justin Timberlake – Can’t Stop the Feeling!"},
+  {id:"3tmd-ClpJxA",t:"Taylor Swift – Look What You Made Me Do"},
+  {id:"QcIy9NiNbmo",t:"Taylor Swift – Bad Blood"},
+  {id:"QYh6mYIJG2Y",t:"Ariana Grande – 7 rings"},
+  {id:"gl1aHhXnN1k",t:"Ariana Grande – thank u, next"},
+  {id:"ffxKSjUwKdU",t:"Ariana Grande – No Tears Left to Cry"},
+  {id:"uxpDa-c-4Mc",t:"Drake – Hotline Bling"},
+  {id:"xpVfcZ0ZcFM",t:"Drake – God’s Plan"},
+  {id:"pXRviuL6vMY",t:"Twenty One Pilots – Stressed Out"},
+  {id:"UprcpdwuwCg",t:"Twenty One Pilots – Heathens"},
+  {id:"IPXIgEAGe4U",t:"Panic! At The Disco – High Hopes"},
+  {id:"AJtDXIazrMo",t:"Ellie Goulding – Love Me Like You Do"},
+  {id:"ALZHF5UqnU4",t:"Marshmello – Alone"},
+  {id:"m7Bc3pLyij0",t:"Marshmello & Bastille – Happier"},
+  {id:"jzD_yyEcp0M",t:"Marshmello & Anne-Marie – Friends"},
+  {id:"nSDgHBxUbVQ",t:"Ed Sheeran – Photograph"},
+  {id:"PEGccV-NOm8",t:"Cardi B – Bodak Yellow"},
+  {id:"LDZX4ooRsWs",t:"Nicki Minaj – Anaconda"},
+  {id:"ebXbLfLACGM",t:"Calvin Harris – Summer"},
+  {id:"2Abk1jAONjw",t:"will.i.am & Britney – Scream & Shout"},
+  {id:"09839DpTctU",t:"OMI – Cheerleader"},
+  {id:"jofNR_WkoCE",t:"Fun. – We Are Young"},
+  {id:"CvBfHwUxHIk",t:"Rihanna – Umbrella"},
+  {id:"nCkpzqqog4k",t:"Sam Smith – I’m Not the Only One"},
+];
+// Awaryjne, generowane w przeglądarce podkłady (gdy YouTube zawiedzie).
 const DANCE_TRACKS = [
-  { emoji:'🪩', name:'Disco',      bpm:120, wave:'sawtooth', root:110.0, seq:[0,7,12,7,3,7,12,10] },
-  { emoji:'🎧', name:'House',      bpm:126, wave:'square',   root:98.0,  seq:[0,0,12,0,5,5,12,7] },
-  { emoji:'🤠', name:'Country',    bpm:96,  wave:'triangle', root:130.8, seq:[0,4,7,4,0,4,7,9] },
-  { emoji:'🎸', name:'Rock',       bpm:140, wave:'sawtooth', root:82.4,  seq:[0,0,3,5,0,0,7,5] },
-  { emoji:'🌴', name:'Reggae',     bpm:74,  wave:'triangle', root:110.0, seq:[0,7,3,7,0,7,3,10] },
-  { emoji:'🕌', name:'Orient',     bpm:104, wave:'square',   root:146.8, seq:[0,1,4,5,7,5,4,1] },
-  { emoji:'🎺', name:'Salsa',      bpm:110, wave:'sawtooth', root:123.5, seq:[0,3,7,10,7,3,0,3] },
-  { emoji:'🤖', name:'Techno',     bpm:132, wave:'square',   root:65.4,  seq:[0,0,0,12,0,0,0,7] },
-  { emoji:'🎻', name:'Walczyk',    bpm:88,  wave:'triangle', root:196.0, seq:[0,4,7,0,4,7,0,4] },
-  { emoji:'🔥', name:'Trap',       bpm:70,  wave:'sawtooth', root:55.0,  seq:[0,0,3,0,0,3,5,3] },
-  { emoji:'🌊', name:'Chillout',   bpm:80,  wave:'sine',     root:146.8, seq:[0,5,7,9,7,5,4,2] },
-  { emoji:'🎉', name:'Polka',      bpm:118, wave:'square',   root:174.6, seq:[0,7,0,7,4,7,4,0] },
+  { bpm:120, wave:'sawtooth', root:110.0, seq:[0,7,12,7,3,7,12,10] },
+  { bpm:126, wave:'square',   root:98.0,  seq:[0,0,12,0,5,5,12,7] },
+  { bpm:96,  wave:'triangle', root:130.8, seq:[0,4,7,4,0,4,7,9] },
+  { bpm:140, wave:'sawtooth', root:82.4,  seq:[0,0,3,5,0,0,7,5] },
+  { bpm:74,  wave:'triangle', root:110.0, seq:[0,7,3,7,0,7,3,10] },
+  { bpm:104, wave:'square',   root:146.8, seq:[0,1,4,5,7,5,4,1] },
+  { bpm:110, wave:'sawtooth', root:123.5, seq:[0,3,7,10,7,3,0,3] },
+  { bpm:132, wave:'square',   root:65.4,  seq:[0,0,0,12,0,0,0,7] },
+  { bpm:88,  wave:'triangle', root:196.0, seq:[0,4,7,0,4,7,0,4] },
+  { bpm:70,  wave:'sawtooth', root:55.0,  seq:[0,0,3,0,0,3,5,3] },
+  { bpm:80,  wave:'sine',     root:146.8, seq:[0,5,7,9,7,5,4,2] },
+  { bpm:118, wave:'square',   root:174.6, seq:[0,7,0,7,4,7,4,0] },
 ];
 let danceAudioCtx = null;
-let danceLoop = null;   // { timer, ctx, master, t, stepDur, nextTime, stepIdx }
+let danceLoop = null;
 function danceGetCtx() {
   if (!danceAudioCtx) { try { danceAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
   if (danceAudioCtx.state === 'suspended') danceAudioCtx.resume();
@@ -2111,7 +2281,7 @@ function danceStartTrack(idx) {
   danceStopTrack();
   const ctx = danceGetCtx(); if (!ctx) return;
   const t = DANCE_TRACKS[idx] || DANCE_TRACKS[0];
-  const stepDur = (60 / t.bpm) / 2;                 // ósemki
+  const stepDur = (60 / t.bpm) / 2;
   const master = ctx.createGain();
   master.gain.setValueAtTime(0.0001, ctx.currentTime);
   master.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.6);
@@ -2138,29 +2308,120 @@ function danceStopTrack() {
   try { danceLoop.master.gain.exponentialRampToValueAtTime(0.0001, danceLoop.ctx.currentTime + 0.2); danceLoop.master.disconnect(); } catch (e) {}
   danceLoop = null;
 }
+
+// —— YouTube (ukryty odtwarzacz) ——
+let ytPlayer = null, ytPlayerReady = false, ytPendingId = null;
+function danceLoadYT() {
+  if (window.YT && window.YT.Player) { danceInitYtPlayer(); return; }
+  if (document.getElementById('yt-api-script')) return;
+  const s = document.createElement('script'); s.id = 'yt-api-script'; s.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(s);
+}
+window.onYouTubeIframeAPIReady = function () { danceInitYtPlayer(); };
+function danceInitYtPlayer() {
+  if (ytPlayer || !(window.YT && window.YT.Player)) return;
+  try {
+    ytPlayer = new YT.Player('yt-holder', {
+      height: '1', width: '1',
+      playerVars: { playsinline: 1, controls: 0, disablekb: 1, rel: 0, fs: 0 },
+      events: {
+        onReady: () => { ytPlayerReady = true; if (ytPendingId) { const id = ytPendingId; ytPendingId = null; danceYtPlay(id); } },
+        onStateChange: danceYtState, onError: danceYtError,
+      },
+    });
+  } catch (e) {}
+}
+function danceYtPlay(id) {
+  if (!ytPlayer || !ytPlayerReady) { ytPendingId = id; return; }
+  try { ytPlayer.loadVideoById(id); ytPlayer.playVideo(); } catch (e) { danceFallbackToSynth(); }
+}
+function danceYtState(e) {
+  if (!window.YT) return;
+  if (e.data === YT.PlayerState.PLAYING) { danceYtPlaying = true; clearTimeout(danceFallbackTimer); danceSetPlayBtn(true); }
+  else if (e.data === YT.PlayerState.PAUSED) { danceSetPlayBtn(false); }
+  else if (e.data === YT.PlayerState.ENDED) { try { ytPlayer.playVideo(); } catch (_) {} }   // zapętl
+}
+function danceYtError() { danceFallbackToSynth(); }
+
+// —— sterowanie odtwarzaniem rundy ——
 let danceCur = null, danceReadyDone = false, dancePicked = null;
+let danceSong = null, danceMode = null, danceYtPlaying = false;
+let danceProgTimer = null, danceFallbackTimer = null, danceRoundStart = 0, danceEndsAt = 0;
+function fmtTime(s) { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+function danceSetPlayBtn(playing) { const b = document.getElementById('dc-vn-btn'); if (b) b.textContent = playing ? '❚❚' : '▶'; }
+function danceStartMusic() {
+  danceMode = null; danceYtPlaying = false;
+  if (danceSong && danceSong.id) {
+    danceMode = 'yt';
+    danceYtPlay(danceSong.id);
+    clearTimeout(danceFallbackTimer);
+    danceFallbackTimer = setTimeout(() => { if (!danceYtPlaying) danceFallbackToSynth(); }, 4500);
+  } else {
+    danceFallbackToSynth();
+  }
+  danceStartProgress(); danceSetPlayBtn(true);
+}
+function danceFallbackToSynth() {
+  clearTimeout(danceFallbackTimer); ytPendingId = null;
+  try { if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo(); } catch (e) {}
+  danceMode = 'synth';
+  danceStartTrack(danceCur ? (danceCur.trackIndex % DANCE_TRACKS.length) : 0);
+  danceSetPlayBtn(true);
+}
+function danceStartProgress() {
+  clearInterval(danceProgTimer);
+  danceProgTimer = setInterval(danceUpdateProgress, 250); danceUpdateProgress();
+}
+function danceUpdateProgress() {
+  let cur = 0, dur = 0;
+  if (danceMode === 'yt' && ytPlayer && ytPlayer.getDuration) {
+    try { cur = ytPlayer.getCurrentTime() || 0; dur = ytPlayer.getDuration() || 0; } catch (e) {}
+  }
+  if (!dur) { const total = (danceEndsAt - danceRoundStart) / 1000; cur = (Date.now() - danceRoundStart) / 1000; dur = total > 0 ? total : 75; }
+  const pct = dur > 0 ? Math.min(100, cur / dur * 100) : 0;
+  const f = document.getElementById('dc-vn-fill'); if (f) f.style.width = pct + '%';
+  const t = document.getElementById('dc-vn-time'); if (t) t.textContent = fmtTime(cur);
+}
+function danceTogglePlay() {
+  if (danceMode === 'yt' && ytPlayer) {
+    try { const st = ytPlayer.getPlayerState(); if (st === 1) { ytPlayer.pauseVideo(); danceSetPlayBtn(false); } else { ytPlayer.playVideo(); danceSetPlayBtn(true); } } catch (e) {}
+  } else if (danceMode === 'synth') {
+    if (danceLoop) { danceStopTrack(); danceSetPlayBtn(false); }
+    else { danceStartTrack(danceCur ? (danceCur.trackIndex % DANCE_TRACKS.length) : 0); danceSetPlayBtn(true); }
+  } else { danceStartMusic(); }
+}
+function danceStopAll() {
+  clearTimeout(danceFallbackTimer); clearInterval(danceProgTimer); danceProgTimer = null;
+  ytPendingId = null; danceMode = null; danceYtPlaying = false;
+  danceStopTrack();
+  try { if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo(); } catch (e) {}
+  const f = document.getElementById('dc-vn-fill'); if (f) f.style.width = '0%';
+  const t = document.getElementById('dc-vn-time'); if (t) t.textContent = '0:00';
+}
 function renderDanceStart(d) {
+  danceStopAll();
   danceCur = d; danceReadyDone = !!d.youReady; dancePicked = null;
+  danceSong = DANCE_SONGS[d.trackIndex] || null;
+  danceRoundStart = Date.now(); danceEndsAt = d.endsAt;
+  danceLoadYT();
   document.getElementById('dc-counter').textContent = `Runda ${d.round + 1} / ${d.total}`;
   document.getElementById('dc-role').innerHTML = d.amImpostor
     ? '🤫 Masz <b>INNĄ</b> piosenkę — jesteś impostorem!<br>Udawaj, że tańczysz jak reszta.'
     : '🎧 Tańcz do swojej muzyki i obserwuj innych.';
-  // Krok 1 (gest użytkownika) vs krok 2 (już tańczy — np. po powrocie do gry)
-  const live = danceLoop || d.youReady;
-  document.getElementById('dc-pre').style.display  = live ? 'none' : 'flex';
-  document.getElementById('dc-live').style.display = live ? 'flex' : 'none';
+  document.getElementById('dc-pre').style.display  = 'flex';
+  document.getElementById('dc-live').style.display = 'none';
   document.getElementById('dc-ready-btn').style.display  = danceReadyDone ? 'none' : 'block';
   document.getElementById('dc-ready-done').style.display = danceReadyDone ? 'block' : 'none';
   document.getElementById('dc-ready-progress').textContent = '';
-  if (live && !danceLoop) danceStartTrack(d.trackIndex);
+  danceSetPlayBtn(false);
   startCountdown('dc-timer', d.endsAt);
   showScreen('screen-dance');
 }
 function danceBeginDancing() {
   if (!danceCur) return;
-  danceStartTrack(danceCur.trackIndex);
   document.getElementById('dc-pre').style.display  = 'none';
   document.getElementById('dc-live').style.display = 'flex';
+  danceStartMusic();
 }
 function danceReady() {
   if (danceReadyDone) return; danceReadyDone = true;
@@ -2171,7 +2432,7 @@ function danceReady() {
 socket.on('danceStart', renderDanceStart);
 socket.on('danceReadyProgress', ({ have, need }) => { const el = document.getElementById('dc-ready-progress'); if (el) el.textContent = `Gotowych: ${have}/${need}`; });
 function renderDanceVote(d) {
-  danceStopTrack();
+  danceStopAll();
   dancePicked = d.picked || null;
   document.getElementById('dv-counter').textContent = `Runda ${d.round + 1} / ${d.total}`;
   const box = document.getElementById('dv-options'); box.innerHTML = '';
@@ -2180,7 +2441,7 @@ function renderDanceVote(d) {
     const b = document.createElement('button');
     b.className = 'bluff-opt' + (dancePicked === p.id ? ' picked' : '');
     b.textContent = p.nickname + (me ? ' (Ty)' : '') + (p.connected ? '' : ' 🔌');
-    if (me || dancePicked) b.disabled = true;         // nie na siebie
+    if (me || dancePicked) b.disabled = true;
     else b.onclick = () => danceChoose(p.id, b);
     box.appendChild(b);
   });
@@ -2197,13 +2458,13 @@ function danceChoose(id, btn) {
 socket.on('danceVote', renderDanceVote);
 socket.on('danceVoteProgress', ({ have, need }) => { const el = document.getElementById('dv-progress'); if (el && !dancePicked) el.textContent = `Zagłosowało: ${have}/${need}`; });
 socket.on('danceReveal', (d) => {
-  danceStopTrack();
+  danceStopAll();
   document.getElementById('dr2-emoji').textContent    = d.caught ? '🎉' : '🕵️';
   document.getElementById('dr2-headline').textContent = d.caught ? 'Impostor złapany!' : 'Impostor uciekł!';
   document.getElementById('dr2-impostor').innerHTML   = `Impostorem był… <b>${escAttr(d.impostorNick)}</b> ${d.caught ? '😅' : '😎'}`;
-  const mt = DANCE_TRACKS[d.mainTrack], it = DANCE_TRACKS[d.impTrack];
-  document.getElementById('dr2-tracks').innerHTML = mt && it
-    ? `Wszyscy: ${mt.emoji} ${escAttr(mt.name)} • Impostor: ${it.emoji} ${escAttr(it.name)}` : '';
+  const mt = DANCE_SONGS[d.mainTrack], it = DANCE_SONGS[d.impTrack];
+  document.getElementById('dr2-tracks').innerHTML = (mt && it)
+    ? `🎶 Wszyscy: ${escAttr(mt.t)}<br>🎭 Impostor: ${escAttr(it.t)}` : '';
   const box = document.getElementById('dr2-list'); box.innerHTML = '';
   d.rows.forEach(r => {
     const row = document.createElement('div'); row.className = 'bluff-reveal-row' + (r.impostor ? ' real' : '');
@@ -2264,7 +2525,7 @@ socket.on('arcadeRejoin', (s) => {
   } else if (s.game === 'dance') {
     if (s.phase === 'dancing') renderDanceStart(s);
     else if (s.phase === 'voting') renderDanceVote(s);
-    else if (s.phase === 'reveal') { danceStopTrack(); document.getElementById('dr2-list').innerHTML = ''; document.getElementById('dr2-tracks').innerHTML = ''; document.getElementById('dr2-impostor').textContent = ''; renderArcadeScoreboard('dr2-scoreboard', s.scoreboard); showScreen('screen-dance-reveal'); }
+    else if (s.phase === 'reveal') { danceStopAll(); document.getElementById('dr2-list').innerHTML = ''; document.getElementById('dr2-tracks').innerHTML = ''; document.getElementById('dr2-impostor').textContent = ''; renderArcadeScoreboard('dr2-scoreboard', s.scoreboard); showScreen('screen-dance-reveal'); }
   }
 });
 

@@ -42,7 +42,7 @@ const MAX_CATEGORIES      = 12;
 const MAX_CUSTOM_CAT_LEN  = 24;
 const POINT_STEP          = 5;                  // each net downvote lowers points by 5
 const ARCADE_GAME_TYPES   = ['quiz','bluff','draw','truths','assoc','who','dance'];
-const DANCE_TRACK_COUNT   = 12;   // must match DANCE_TRACKS length on the client
+const DANCE_TRACK_COUNT   = 149;  // must match DANCE_SONGS length on the client
 
 // ─── ARCADE GAMES DATA ──────────────────────────────────────────────────────
 // Poziom ŁATWY – dla każdego, bardzo proste.
