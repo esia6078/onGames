@@ -927,6 +927,9 @@ button:disabled{opacity:.45;cursor:not-allowed}
   </div>
   <div class="timer" id="dc-timer"></div>
   <p class="waiting-text" id="dc-hint">🕺 Tańcz do swojej muzyki i obserwuj innych — potem głosowanie!</p>
+  <button class="btn-sec" id="dc-skip-btn" onclick="danceSkip()">⏭️ Kończymy — czas głosować!</button>
+  <div id="dc-skip-done" class="assign-submitted-badge" style="display:none">✅ Głos oddany. Czekamy na resztę...</div>
+  <p class="waiting-text" id="dc-skip-progress"></p>
 </div>
 <!-- Ukryty odtwarzacz YouTube (dźwięk gra w tle, gracz go nie widzi).
      YT.Player podmienia #yt-holder na <iframe>, więc pozycjonujemy WRAPPER. -->
@@ -2720,9 +2723,10 @@ function danceReadyUp() {
 socket.on('danceReadyPhase', renderDanceReady);
 socket.on('danceReadyProgress', ({ have, need }) => { const el = document.getElementById('dr-ready-progress'); if (el) el.textContent = 'Gotowych: ' + have + '/' + need; });
 // Start rundy — muzyka rusza od razu (dźwięk odblokowany w bramie „Gotowy").
+let danceSkipDone = false;
 function renderDanceStart(d) {
   danceStopAll();
-  danceCur = d; dancePicked = null;
+  danceCur = d; dancePicked = null; danceSkipDone = !!d.youSkipped;
   danceSong = DANCE_SONGS[d.trackIndex] || null;
   danceRoundStart = Date.now(); danceEndsAt = d.endsAt;
   danceLoadYT();
@@ -2730,11 +2734,21 @@ function renderDanceStart(d) {
   document.getElementById('dc-role').innerHTML = d.amImpostor
     ? '🤫 Masz <b>INNĄ</b> piosenkę — jesteś impostorem!<br>Udawaj, że tańczysz jak reszta.'
     : '🎧 Tańcz do swojej muzyki i obserwuj innych.';
+  document.getElementById('dc-skip-btn').style.display  = danceSkipDone ? 'none' : 'block';
+  document.getElementById('dc-skip-done').style.display = danceSkipDone ? 'block' : 'none';
+  document.getElementById('dc-skip-progress').textContent = '';
   startCountdown('dc-timer', d.endsAt);
   showScreen('screen-dance');
   danceStartMusic(d.startAt || 0);   // automatycznie, równocześnie u wszystkich
 }
+function danceSkip() {
+  if (danceSkipDone) return; danceSkipDone = true;
+  socket.emit('danceSkipVote');
+  document.getElementById('dc-skip-btn').style.display  = 'none';
+  document.getElementById('dc-skip-done').style.display = 'block';
+}
 socket.on('danceStart', renderDanceStart);
+socket.on('danceSkipProgress', ({ have, need }) => { const el = document.getElementById('dc-skip-progress'); if (el) el.textContent = 'Za głosowaniem: ' + have + '/' + need + ' (trzeba 80%)'; });
 function renderDanceVote(d) {
   danceStopAll();
   dancePicked = d.picked || null;

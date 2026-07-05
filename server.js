@@ -1690,7 +1690,7 @@ function danceBeginRound(code) {
   lobby.mainTrack = mainTrack; lobby.impTrack = impTrack;
   // Losowy punkt startu utworu, żeby „zaczynało się już od muzyki”, nie od intra.
   lobby.startAt = 18 + Math.floor(Math.random() * 30);   // 18–47 s
-  lobby.phase = 'dancing'; lobby.votes = {};
+  lobby.phase = 'dancing'; lobby.votes = {}; lobby.skip = {};
   const dur = danceMs(lobby);
   lobby.endsAt = Date.now() + dur;
   lobby.players.forEach(p => {
@@ -1699,9 +1699,17 @@ function danceBeginRound(code) {
       round: lobby.qIndex, total: lobby.settings.rounds,
       trackIndex: amImp ? impTrack : mainTrack, amImpostor: amImp,
       players: arcadePlayers(lobby), endsAt: lobby.endsAt, startAt: lobby.startAt,
+      skipNeed: danceReadyNeed(lobby),
     });
   });
   lobby.timer = setTimeout(() => danceToVoting(code), dur);
+}
+// 80% ekipy chce zakończyć muzykę → przejdź do głosowania wcześniej.
+function danceMaybeAdvanceSkip(code) {
+  const lobby = lobbies[code];
+  if (!lobby || lobby.phase !== 'dancing') return;
+  const have = lobby.players.filter(p => p.connected && lobby.skip && lobby.skip[p.playerId]).length;
+  if (have >= danceReadyNeed(lobby)) danceToVoting(code);
 }
 function danceToVoting(code) {
   const lobby = lobbies[code];
@@ -1785,6 +1793,7 @@ function arcadeAfterDepart(code, pid) {
   } else if (lobby.game === 'dance') {
     if (pid === lobby.impostorId && (lobby.phase === 'dancing' || lobby.phase === 'voting')) danceReveal(code);
     else if (lobby.phase === 'ready') danceMaybeAdvanceReady(code);   // ktoś wyszedł → próg 80% mógł zostać osiągnięty
+    else if (lobby.phase === 'dancing') danceMaybeAdvanceSkip(code);
     else if (lobby.phase === 'voting') danceMaybeAdvanceVote(code);
   }
 }
@@ -1828,7 +1837,7 @@ function arcadeRejoinSnapshot(lobby, pid, isAdmin, code) {
   } else if (lobby.game === 'dance') {
     const amImp = pid === lobby.impostorId;
     if (lobby.phase === 'ready')    return { ...base, players: arcadePlayers(lobby), need: danceReadyNeed(lobby), endsAt: lobby.endsAt, youReady: !!lobby.ready[pid] };
-    if (lobby.phase === 'dancing')  return { ...base, round: lobby.qIndex, total: lobby.settings.rounds, trackIndex: amImp ? lobby.impTrack : lobby.mainTrack, amImpostor: amImp, players: arcadePlayers(lobby), endsAt: lobby.endsAt, startAt: lobby.startAt };
+    if (lobby.phase === 'dancing')  return { ...base, round: lobby.qIndex, total: lobby.settings.rounds, trackIndex: amImp ? lobby.impTrack : lobby.mainTrack, amImpostor: amImp, players: arcadePlayers(lobby), endsAt: lobby.endsAt, startAt: lobby.startAt, skipNeed: danceReadyNeed(lobby), youSkipped: !!(lobby.skip && lobby.skip[pid]) };
     if (lobby.phase === 'voting')   return { ...base, round: lobby.qIndex, total: lobby.settings.rounds, players: arcadePlayers(lobby), picked: lobby.votes[pid] || null, endsAt: lobby.endsAt };
     if (lobby.phase === 'reveal')   return { ...base, round: lobby.qIndex, total: lobby.settings.rounds };
   }
@@ -2747,6 +2756,16 @@ io.on('connection', socket => {
     const have = lobby.players.filter(p => p.connected && lobby.ready[p.playerId]).length;
     io.to(code).emit('danceReadyProgress', { have, need: danceReadyNeed(lobby) });
     danceMaybeAdvanceReady(code);
+  });
+  // W trakcie tańca: „kończymy muzykę i głosujemy" — gdy 80% za, przejście do głosowania.
+  socket.on('danceSkipVote', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'dance' || lobby.phase !== 'dancing' || !socket.playerId) return;
+    lobby.skip = lobby.skip || {};
+    lobby.skip[socket.playerId] = true;
+    const have = lobby.players.filter(p => p.connected && lobby.skip[p.playerId]).length;
+    io.to(code).emit('danceSkipProgress', { have, need: danceReadyNeed(lobby) });
+    danceMaybeAdvanceSkip(code);
   });
   // Admin ustawia długość tańca (przed startem gry).
   socket.on('danceSetTime', ({ ms }) => {
