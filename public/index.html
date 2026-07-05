@@ -277,6 +277,9 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
 /* ──────────────────────────────────────────────── TOASTS ── */
 .toast-wrap{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:300;width:calc(100% - 24px);max-width:420px;pointer-events:none}
+.toast-wrap.toast-top{top:calc(env(safe-area-inset-top,0px) + 12px);bottom:auto}
+.field-error{border-color:#f87171 !important;box-shadow:0 0 0 3px rgba(248,113,113,.25);animation:shakeX .32s}
+@keyframes shakeX{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 .toast{background:rgba(20,20,40,.92);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:10px 14px;font-size:.82rem;color:#e5e7eb;box-shadow:0 6px 24px rgba(0,0,0,.4);backdrop-filter:blur(8px);animation:toastIn .2s ease;text-align:center}
 .toast b{color:#fff}
 .toast .t-up{color:#34d399;font-weight:700}
@@ -305,6 +308,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
 <!-- ══════════════════════════════════════ TOAST NOTIFICATIONS ══ -->
 <div class="toast-wrap" id="toast-wrap"></div>
+<div class="toast-wrap toast-top" id="toast-top"></div>
 
 <!-- ══════════════════════════════════════ LEAVE (in-game) ══ -->
 <button id="leave-btn" onclick="leaveGame()" style="display:none">🚪 Opuść</button>
@@ -648,6 +652,15 @@ button:disabled{opacity:.45;cursor:not-allowed}
     <div id="arc-who-list" style="display:flex;flex-direction:column;gap:6px"></div>
     <p class="error" id="arc-who-error"></p>
   </div>
+  <div class="card" style="display:flex;flex-direction:column;gap:10px" id="arc-dance-card">
+    <p class="section-title">Długość tańca</p>
+    <div class="vis-toggle">
+      <div class="vis-opt" id="dtime-60" onclick="setDanceTime(60000)">1 min</div>
+      <div class="vis-opt selected" id="dtime-120" onclick="setDanceTime(120000)">2 min</div>
+      <div class="vis-opt" id="dtime-180" onclick="setDanceTime(180000)">3 min</div>
+    </div>
+    <p class="vis-hint">Ile trwa taniec w każdej rundzie, zanim przejdziecie do głosowania.</p>
+  </div>
   <button class="btn-green" id="arc-btn-start" onclick="arcadeStart()" style="display:none">🚀 Rozpocznij grę</button>
   <p class="waiting-text" id="arc-lobby-wait" style="display:none">⏳ Czekaj, aż admin rozpocznie grę...</p>
   <button class="btn-ghost" onclick="leaveLobby()">⬅ Wyjdź z lobby</button>
@@ -834,30 +847,29 @@ button:disabled{opacity:.45;cursor:not-allowed}
 </div>
 
 <!-- ══════════════════════════════════════ TAŃCZERECZKI ══ -->
+<!-- Brama „Gotowy” PRZED startem gry — klik odblokowuje dźwięk, a gdy 80% jest gotowych, muzyka rusza wszystkim równocześnie -->
+<div class="screen" id="screen-dance-ready">
+  <div style="font-size:3rem">🎧</div>
+  <div class="logo" style="font-size:1.4rem;text-align:center">Gotuj się do tańca!</div>
+  <p class="vis-hint" style="text-align:center;margin:0;max-width:340px">Załóż słuchawki. Gdy klikniesz <b>„Gotowy”</b>, a zbierze się 80% ekipy — muzyka ruszy <b>wszystkim naraz</b>. Jedna osoba dostanie inną piosenkę (impostor!).</p>
+  <div class="timer" id="dr-ready-timer"></div>
+  <button class="btn-green" id="dr-ready-btn" onclick="danceReadyUp()">✅ Jestem gotowy!</button>
+  <div id="dr-ready-done" class="assign-submitted-badge" style="display:none">✅ Gotowy! Czekamy na resztę ekipy...</div>
+  <p class="waiting-text" id="dr-ready-progress"></p>
+</div>
+<!-- Taniec: muzyka gra od razu i równocześnie u wszystkich -->
 <div class="screen" id="screen-dance">
   <p class="section-title" id="dc-counter"></p>
-  <!-- Krok 1: odsłona przycisku włączenia muzyki (potrzebny gest użytkownika) -->
-  <div id="dc-pre" style="display:flex;flex-direction:column;gap:14px;align-items:center;width:100%">
-    <div style="font-size:3rem">🎧</div>
-    <div class="logo" style="font-size:1.3rem;text-align:center">Zakładaj słuchawki!</div>
-    <p class="vis-hint" style="text-align:center;margin:0">Za chwilę poleci Twoja muzyka. Tańcz do niej i obserwuj innych.</p>
-    <button class="btn-green" id="dc-play-btn" onclick="danceBeginDancing()">🎵 Włącz muzykę i tańcz!</button>
+  <div class="dance-stage"><span class="dance-emoji">🕺</span><span class="dance-emoji" style="animation-delay:.25s">💃</span><span class="dance-emoji" style="animation-delay:.5s">🕺</span></div>
+  <div class="card" id="dc-role" style="text-align:center;font-weight:700"></div>
+  <!-- Odtwarzacz w stylu wiadomości głosowej: tylko ▶/❚❚ + pasek + czas, bez tytułu! -->
+  <div class="vn-player">
+    <button class="vn-btn" id="dc-vn-btn" onclick="danceTogglePlay()" aria-label="Play/pauza">❚❚</button>
+    <div class="vn-bar"><div class="vn-fill" id="dc-vn-fill"></div></div>
+    <span class="vn-time" id="dc-vn-time">0:00</span>
   </div>
-  <!-- Krok 2: taniec -->
-  <div id="dc-live" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%">
-    <div class="dance-stage"><span class="dance-emoji">🕺</span><span class="dance-emoji" style="animation-delay:.25s">💃</span><span class="dance-emoji" style="animation-delay:.5s">🕺</span></div>
-    <div class="card" id="dc-role" style="text-align:center;font-weight:700"></div>
-    <!-- Odtwarzacz w stylu wiadomości głosowej: tylko ▶/❚❚ + pasek + czas, bez tytułu! -->
-    <div class="vn-player">
-      <button class="vn-btn" id="dc-vn-btn" onclick="danceTogglePlay()" aria-label="Play/pauza">▶</button>
-      <div class="vn-bar"><div class="vn-fill" id="dc-vn-fill"></div></div>
-      <span class="vn-time" id="dc-vn-time">0:00</span>
-    </div>
-    <div class="timer" id="dc-timer"></div>
-    <button class="btn-main" id="dc-ready-btn" onclick="danceReady()">✅ Gotowy do głosowania</button>
-    <div id="dc-ready-done" class="assign-submitted-badge" style="display:none">✅ Gotowy! Czekam na resztę...</div>
-    <p class="waiting-text" id="dc-ready-progress"></p>
-  </div>
+  <div class="timer" id="dc-timer"></div>
+  <p class="waiting-text" id="dc-hint">🕺 Tańcz do swojej muzyki i obserwuj innych — potem głosowanie!</p>
 </div>
 <!-- Ukryty odtwarzacz YouTube (dźwięk gra w tle, gracz go nie widzi).
      YT.Player podmienia #yt-holder na <iframe>, więc pozycjonujemy WRAPPER. -->
@@ -925,8 +937,8 @@ const COLORS = ['#f87171','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6','#fb
 const EMOJIS = ['😎','🐱','🦊','🐸','🦁','🐼','🦄','🐙','🦋','🎃','🐵','🐧','🦖','🐢','🐝'];
 
 // ─── TOASTS ───────────────────────────────────────────────────────────────────
-function showToast(html) {
-  const wrap = document.getElementById('toast-wrap'); if (!wrap) return;
+function showToast(html, top) {
+  const wrap = document.getElementById(top ? 'toast-top' : 'toast-wrap'); if (!wrap) return;
   const el = document.createElement('div'); el.className = 'toast'; el.innerHTML = html;
   wrap.appendChild(el);
   // Keep at most 4 on screen.
@@ -934,7 +946,7 @@ function showToast(html) {
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
 }
 // Screens that top-align + scroll (must be defined before any showScreen call).
-const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished', 'screen-truths-tell', 'screen-truths-guess', 'screen-truths-reveal', 'screen-assoc-write', 'screen-assoc-vote', 'screen-assoc-reveal', 'screen-who-vote', 'screen-who-reveal', 'screen-dance', 'screen-dance-vote', 'screen-dance-reveal']);
+const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished', 'screen-truths-tell', 'screen-truths-guess', 'screen-truths-reveal', 'screen-assoc-write', 'screen-assoc-vote', 'screen-assoc-reveal', 'screen-who-vote', 'screen-who-reveal', 'screen-dance-ready', 'screen-dance', 'screen-dance-vote', 'screen-dance-reveal']);
 const NO_LEAVE_SCREENS = new Set(['screen-home','screen-reconnecting','screen-lobby-admin','screen-lobby-player','screen-pm-lobby','screen-arcade-lobby']);
 // The per-game info "i" shows everywhere except the home/reconnecting screens.
 const INFO_HIDE_SCREENS = new Set(['screen-home','screen-reconnecting']);
@@ -994,8 +1006,17 @@ function selectVisibility(v) {
     : 'Wejście tylko po kodzie lobby.';
 }
 function getNick() {
-  const n = document.getElementById('nickname').value.trim();
-  if (!n) { showHomeError('Wpisz nick!'); return null; }
+  const el = document.getElementById('nickname');
+  const n = el.value.trim();
+  if (!n) {
+    showToast('✏️ Najpierw wpisz swój nick!', true);      // powiadomienie na górze
+    window.scrollTo({ top: 0, behavior: 'smooth' });        // przekieruj na górę
+    el.classList.remove('field-error'); void el.offsetWidth; // restart animacji
+    el.classList.add('field-error');
+    el.focus({ preventScroll: true });
+    setTimeout(() => el.classList.remove('field-error'), 1600);
+    return null;
+  }
   return n;
 }
 function showHomeError(msg) { document.getElementById('home-error').textContent = msg; setTimeout(() => { document.getElementById('home-error').textContent = ''; }, 3000); }
@@ -1487,7 +1508,7 @@ socket.on('gameEnded', ({ scoreboard }) => {
 // ─── ARCADE GAMES (Quiz / Zmyślacz / Kalambury) ───────────────────────────────
 const ARCADE_GAMES = new Set(['quiz','bluff','draw','truths','assoc','who','dance']);
 const ARCADE_META  = { quiz:{emoji:'🧠',title:'Quiz wiedzy'}, bluff:{emoji:'🤥',title:'Zmyślacz'}, draw:{emoji:'🎨',title:'Kalambury'}, truths:{emoji:'🕵️',title:'2 prawdy 1 kłamstwo'}, assoc:{emoji:'😂',title:'Najgorsze skojarzenia'}, who:{emoji:'🙋',title:'Kto z nas?'}, dance:{emoji:'🕺',title:'Tańczereczki'} };
-const ARCADE_MID_SCREENS = ['screen-quiz','screen-quiz-reveal','screen-bluff-write','screen-bluff-guess','screen-bluff-reveal','screen-draw','screen-draw-reveal','screen-truths-tell','screen-truths-guess','screen-truths-reveal','screen-assoc-write','screen-assoc-vote','screen-assoc-reveal','screen-who-vote','screen-who-reveal','screen-dance','screen-dance-vote','screen-dance-reveal'];
+const ARCADE_MID_SCREENS = ['screen-quiz','screen-quiz-reveal','screen-bluff-write','screen-bluff-guess','screen-bluff-reveal','screen-draw','screen-draw-reveal','screen-truths-tell','screen-truths-guess','screen-truths-reveal','screen-assoc-write','screen-assoc-vote','screen-assoc-reveal','screen-who-vote','screen-who-reveal','screen-dance-ready','screen-dance','screen-dance-vote','screen-dance-reveal'];
 let arcGame = null, arcSettings = {}, arcSettingOptions = null, quizCur = null, quizAnswered = false, bluffSubmitted = false, bluffPicked = null;
 
 function startCountdown(elId, endsAt) {
@@ -1539,8 +1560,22 @@ function renderArcadeLobby(o) {
   document.getElementById('arc-settings-card').style.display = arcSettingOptions ? 'flex' : 'none';
   renderDifficulty();
   renderWhoPrompts(o.customPrompts || []);
+  renderDanceSettings();
   if (o.game === 'dance' && typeof danceLoadYT === 'function') danceLoadYT();   // rozgrzej odtwarzacz YT
 }
+function renderDanceSettings() {
+  const card = document.getElementById('arc-dance-card'); if (!card) return;
+  const isDance = arcGame === 'dance';
+  card.style.display = isDance ? 'flex' : 'none';
+  if (!isDance) return;
+  const ms = (arcSettings && arcSettings.danceMs) || 120000;
+  [60000, 120000, 180000].forEach(v => {
+    const el = document.getElementById('dtime-' + (v / 1000));
+    if (el) el.classList.toggle('selected', ms === v);
+  });
+  document.getElementById('dtime-60').closest('.vis-toggle').classList.toggle('readonly', !isAdmin);
+}
+function setDanceTime(ms) { if (!isAdmin) return; socket.emit('danceSetTime', { ms }); }
 function renderWhoPrompts(prompts) {
   const card = document.getElementById('arc-who-card'); if (!card) return;
   const isWho = arcGame === 'who';
@@ -2436,7 +2471,7 @@ function danceStopTrack() {
 }
 
 // —— YouTube (ukryty odtwarzacz) ——
-let ytPlayer = null, ytPlayerReady = false, ytPendingId = null;
+let ytPlayer = null, ytPlayerReady = false, ytPending = null, danceYtPrimed = false;
 function danceLoadYT() {
   if (window.YT && window.YT.Player) { danceInitYtPlayer(); return; }
   if (document.getElementById('yt-api-script')) return;
@@ -2451,15 +2486,15 @@ function danceInitYtPlayer() {
       height: '1', width: '1',
       playerVars: { playsinline: 1, controls: 0, disablekb: 1, rel: 0, fs: 0 },
       events: {
-        onReady: () => { ytPlayerReady = true; if (ytPendingId) { const id = ytPendingId; ytPendingId = null; danceYtPlay(id); } },
+        onReady: () => { ytPlayerReady = true; if (ytPending) { const p = ytPending; ytPending = null; danceYtPlay(p.id, p.startAt); } },
         onStateChange: danceYtState, onError: danceYtError,
       },
     });
   } catch (e) {}
 }
-function danceYtPlay(id) {
-  if (!ytPlayer || !ytPlayerReady) { ytPendingId = id; return; }
-  try { ytPlayer.loadVideoById(id); ytPlayer.playVideo(); } catch (e) { danceFallbackToSynth(); }
+function danceYtPlay(id, startAt) {
+  if (!ytPlayer || !ytPlayerReady) { ytPending = { id, startAt: startAt || 0 }; return; }
+  try { ytPlayer.unMute(); ytPlayer.loadVideoById(id, startAt || 0); ytPlayer.playVideo(); } catch (e) { danceFallbackToSynth(); }
 }
 function danceYtState(e) {
   if (!window.YT) return;
@@ -2475,11 +2510,24 @@ let danceSong = null, danceMode = null, danceYtPlaying = false;
 let danceProgTimer = null, danceFallbackTimer = null, danceRoundStart = 0, danceEndsAt = 0;
 function fmtTime(s) { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function danceSetPlayBtn(playing) { const b = document.getElementById('dc-vn-btn'); if (b) b.textContent = playing ? '❚❚' : '▶'; }
-function danceStartMusic() {
+// Klik „Gotowy" to gest użytkownika — odblokowujemy dźwięk, żeby później muzyka
+// ruszyła sama i równocześnie (bez kolejnego dotknięcia na każdą rundę).
+function danceUnlockAudio() {
+  danceGetCtx();   // Web Audio (podkład zastępczy) odblokowany
+  try {
+    if (ytPlayer && ytPlayerReady && DANCE_SONGS[0]) {
+      ytPlayer.mute();
+      ytPlayer.loadVideoById(DANCE_SONGS[0].id, 0);
+      setTimeout(() => { try { ytPlayer.pauseVideo(); } catch (e) {} }, 90);
+      danceYtPrimed = true;
+    }
+  } catch (e) {}
+}
+function danceStartMusic(startAt) {
   danceMode = null; danceYtPlaying = false;
   if (danceSong && danceSong.id) {
     danceMode = 'yt';
-    danceYtPlay(danceSong.id);
+    danceYtPlay(danceSong.id, startAt || 0);
     clearTimeout(danceFallbackTimer);
     danceFallbackTimer = setTimeout(() => { if (!danceYtPlaying) danceFallbackToSynth(); }, 4500);
   } else {
@@ -2488,7 +2536,7 @@ function danceStartMusic() {
   danceStartProgress(); danceSetPlayBtn(true);
 }
 function danceFallbackToSynth() {
-  clearTimeout(danceFallbackTimer); ytPendingId = null;
+  clearTimeout(danceFallbackTimer); ytPending = null;
   try { if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo(); } catch (e) {}
   danceMode = 'synth';
   danceStartTrack(danceCur ? (danceCur.trackIndex % DANCE_TRACKS.length) : 0);
@@ -2503,64 +2551,67 @@ function danceUpdateProgress() {
   if (danceMode === 'yt' && ytPlayer && ytPlayer.getDuration) {
     try { cur = ytPlayer.getCurrentTime() || 0; dur = ytPlayer.getDuration() || 0; } catch (e) {}
   }
-  if (!dur) { const total = (danceEndsAt - danceRoundStart) / 1000; cur = (Date.now() - danceRoundStart) / 1000; dur = total > 0 ? total : 75; }
+  if (!dur) { const total = (danceEndsAt - danceRoundStart) / 1000; cur = (Date.now() - danceRoundStart) / 1000; dur = total > 0 ? total : 120; }
   const pct = dur > 0 ? Math.min(100, cur / dur * 100) : 0;
   const f = document.getElementById('dc-vn-fill'); if (f) f.style.width = pct + '%';
   const t = document.getElementById('dc-vn-time'); if (t) t.textContent = fmtTime(cur);
 }
 function danceTogglePlay() {
   if (danceMode === 'yt' && ytPlayer) {
-    try { const st = ytPlayer.getPlayerState(); if (st === 1) { ytPlayer.pauseVideo(); danceSetPlayBtn(false); } else { ytPlayer.playVideo(); danceSetPlayBtn(true); } } catch (e) {}
+    try { const st = ytPlayer.getPlayerState(); if (st === 1) { ytPlayer.pauseVideo(); danceSetPlayBtn(false); } else { ytPlayer.unMute(); ytPlayer.playVideo(); danceSetPlayBtn(true); } } catch (e) {}
   } else if (danceMode === 'synth') {
     if (danceLoop) { danceStopTrack(); danceSetPlayBtn(false); }
     else { danceStartTrack(danceCur ? (danceCur.trackIndex % DANCE_TRACKS.length) : 0); danceSetPlayBtn(true); }
-  } else { danceStartMusic(); }
+  } else { danceStartMusic(danceCur ? danceCur.startAt : 0); }
 }
 function danceStopAll() {
   clearTimeout(danceFallbackTimer); clearInterval(danceProgTimer); danceProgTimer = null;
-  ytPendingId = null; danceMode = null; danceYtPlaying = false;
+  ytPending = null; danceMode = null; danceYtPlaying = false;
   danceStopTrack();
   try { if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo(); } catch (e) {}
   const f = document.getElementById('dc-vn-fill'); if (f) f.style.width = '0%';
   const t = document.getElementById('dc-vn-time'); if (t) t.textContent = '0:00';
 }
+// Brama „Gotowy" przed startem gry.
+function renderDanceReady(d) {
+  danceStopAll();
+  danceCur = null; danceReadyDone = !!d.youReady;
+  document.getElementById('dr-ready-btn').style.display  = danceReadyDone ? 'none' : 'block';
+  document.getElementById('dr-ready-done').style.display = danceReadyDone ? 'block' : 'none';
+  document.getElementById('dr-ready-progress').textContent = d.need ? ('Gotowych: 0/' + d.need) : '';
+  startCountdown('dr-ready-timer', d.endsAt);
+  danceLoadYT();
+  showScreen('screen-dance-ready');
+}
+function danceReadyUp() {
+  if (danceReadyDone) return; danceReadyDone = true;
+  danceUnlockAudio();          // gest → odblokowuje dźwięk na później
+  socket.emit('danceReady');
+  document.getElementById('dr-ready-btn').style.display  = 'none';
+  document.getElementById('dr-ready-done').style.display = 'block';
+}
+socket.on('danceReadyPhase', renderDanceReady);
+socket.on('danceReadyProgress', ({ have, need }) => { const el = document.getElementById('dr-ready-progress'); if (el) el.textContent = 'Gotowych: ' + have + '/' + need; });
+// Start rundy — muzyka rusza od razu (dźwięk odblokowany w bramie „Gotowy").
 function renderDanceStart(d) {
   danceStopAll();
-  danceCur = d; danceReadyDone = !!d.youReady; dancePicked = null;
+  danceCur = d; dancePicked = null;
   danceSong = DANCE_SONGS[d.trackIndex] || null;
   danceRoundStart = Date.now(); danceEndsAt = d.endsAt;
   danceLoadYT();
-  document.getElementById('dc-counter').textContent = `Runda ${d.round + 1} / ${d.total}`;
+  document.getElementById('dc-counter').textContent = 'Runda ' + (d.round + 1) + ' / ' + d.total;
   document.getElementById('dc-role').innerHTML = d.amImpostor
     ? '🤫 Masz <b>INNĄ</b> piosenkę — jesteś impostorem!<br>Udawaj, że tańczysz jak reszta.'
     : '🎧 Tańcz do swojej muzyki i obserwuj innych.';
-  document.getElementById('dc-pre').style.display  = 'flex';
-  document.getElementById('dc-live').style.display = 'none';
-  document.getElementById('dc-ready-btn').style.display  = danceReadyDone ? 'none' : 'block';
-  document.getElementById('dc-ready-done').style.display = danceReadyDone ? 'block' : 'none';
-  document.getElementById('dc-ready-progress').textContent = '';
-  danceSetPlayBtn(false);
   startCountdown('dc-timer', d.endsAt);
   showScreen('screen-dance');
-}
-function danceBeginDancing() {
-  if (!danceCur) return;
-  document.getElementById('dc-pre').style.display  = 'none';
-  document.getElementById('dc-live').style.display = 'flex';
-  danceStartMusic();
-}
-function danceReady() {
-  if (danceReadyDone) return; danceReadyDone = true;
-  socket.emit('danceReady');
-  document.getElementById('dc-ready-btn').style.display  = 'none';
-  document.getElementById('dc-ready-done').style.display = 'block';
+  danceStartMusic(d.startAt || 0);   // automatycznie, równocześnie u wszystkich
 }
 socket.on('danceStart', renderDanceStart);
-socket.on('danceReadyProgress', ({ have, need }) => { const el = document.getElementById('dc-ready-progress'); if (el) el.textContent = `Gotowych: ${have}/${need}`; });
 function renderDanceVote(d) {
   danceStopAll();
   dancePicked = d.picked || null;
-  document.getElementById('dv-counter').textContent = `Runda ${d.round + 1} / ${d.total}`;
+  document.getElementById('dv-counter').textContent = 'Runda ' + (d.round + 1) + ' / ' + d.total;
   const box = document.getElementById('dv-options'); box.innerHTML = '';
   d.players.forEach(p => {
     const me = p.id === myId;
@@ -2582,19 +2633,19 @@ function danceChoose(id, btn) {
   btn.classList.add('picked');
 }
 socket.on('danceVote', renderDanceVote);
-socket.on('danceVoteProgress', ({ have, need }) => { const el = document.getElementById('dv-progress'); if (el && !dancePicked) el.textContent = `Zagłosowało: ${have}/${need}`; });
+socket.on('danceVoteProgress', ({ have, need }) => { const el = document.getElementById('dv-progress'); if (el && !dancePicked) el.textContent = 'Zagłosowało: ' + have + '/' + need; });
 socket.on('danceReveal', (d) => {
   danceStopAll();
   document.getElementById('dr2-emoji').textContent    = d.caught ? '🎉' : '🕵️';
   document.getElementById('dr2-headline').textContent = d.caught ? 'Impostor złapany!' : 'Impostor uciekł!';
-  document.getElementById('dr2-impostor').innerHTML   = `Impostorem był… <b>${escAttr(d.impostorNick)}</b> ${d.caught ? '😅' : '😎'}`;
+  document.getElementById('dr2-impostor').innerHTML   = 'Impostorem był… <b>' + escAttr(d.impostorNick) + '</b> ' + (d.caught ? '😅' : '😎');
   const mt = DANCE_SONGS[d.mainTrack], it = DANCE_SONGS[d.impTrack];
   document.getElementById('dr2-tracks').innerHTML = (mt && it)
-    ? `🎶 Wszyscy: ${escAttr(mt.t)}<br>🎭 Impostor: ${escAttr(it.t)}` : '';
+    ? ('🎶 Wszyscy: ' + escAttr(mt.t) + '<br>🎭 Impostor: ' + escAttr(it.t)) : '';
   const box = document.getElementById('dr2-list'); box.innerHTML = '';
   d.rows.forEach(r => {
     const row = document.createElement('div'); row.className = 'bluff-reveal-row' + (r.impostor ? ' real' : '');
-    row.innerHTML = `<div class="brr-text">${r.impostor ? '🎭 ' : ''}${escAttr(r.nickname)}</div><div class="brr-meta">${r.votes} gł.</div>`;
+    row.innerHTML = '<div class="brr-text">' + (r.impostor ? '🎭 ' : '') + escAttr(r.nickname) + '</div><div class="brr-meta">' + r.votes + ' gł.</div>';
     box.appendChild(row);
   });
   renderArcadeScoreboard('dr2-scoreboard', d.scoreboard);
@@ -2649,7 +2700,8 @@ socket.on('arcadeRejoin', (s) => {
     if (s.phase === 'voting') renderWhoVote(s);
     else if (s.phase === 'reveal') { document.getElementById('wr-prompt').textContent = s.prompt; document.getElementById('wr-list').innerHTML = ''; renderArcadeScoreboard('wr-scoreboard', s.scoreboard); showScreen('screen-who-reveal'); }
   } else if (s.game === 'dance') {
-    if (s.phase === 'dancing') renderDanceStart(s);
+    if (s.phase === 'ready') renderDanceReady(s);
+    else if (s.phase === 'dancing') renderDanceStart(s);
     else if (s.phase === 'voting') renderDanceVote(s);
     else if (s.phase === 'reveal') { danceStopAll(); document.getElementById('dr2-list').innerHTML = ''; document.getElementById('dr2-tracks').innerHTML = ''; document.getElementById('dr2-impostor').textContent = ''; renderArcadeScoreboard('dr2-scoreboard', s.scoreboard); showScreen('screen-dance-reveal'); }
   }
