@@ -545,7 +545,7 @@ function broadcastLobby(code) {
 }
 
 // ─── PUBLIC LOBBY BROWSER ────────────────────────────────────────────────────
-const GAME_MAX = { panstwa: MAX_PM_PLAYERS };
+const GAME_MAX = { panstwa: MAX_PM_PLAYERS, monopoly: 8 };
 function publicLobbyList() {
   return Object.entries(lobbies)
     .filter(([, l]) => l.visibility === 'public' && l.phase === 'waiting')
@@ -1837,19 +1837,314 @@ function arcadeRejoinSnapshot(lobby, pid, isAdmin, code) {
 
 // ─── SOCKET EVENTS ───────────────────────────────────────────────────────────
 
+// ═══════════════════════════ MONOPOLY ═══════════════════════════
+const MONO_TOKENS = ['🎩','🐕','🚗','🚢','👢','🐈','🦖','🛞'];
+// t: go|prop|rail|util|tax|chance|chest|jail|parking|gotojail
+// prop rent: [baza, 1 dom, 2, 3, 4, hotel]; h = koszt domu
+const MONO_BOARD = [
+  { t:'go', name:'START' },
+  { t:'prop', name:'Ulica Konopacka', group:'brown', price:60, rent:[2,10,30,90,160,250], h:50 },
+  { t:'chest', name:'Kasa Społeczna' },
+  { t:'prop', name:'Ulica Stalowa', group:'brown', price:60, rent:[4,20,60,180,320,450], h:50 },
+  { t:'tax', name:'Podatek dochodowy', amount:200 },
+  { t:'rail', name:'Dworzec Zachodni', price:200 },
+  { t:'prop', name:'Ulica Radzymińska', group:'lblue', price:100, rent:[6,30,90,270,400,550], h:50 },
+  { t:'chance', name:'Szansa' },
+  { t:'prop', name:'Ulica Jagiellońska', group:'lblue', price:100, rent:[6,30,90,270,400,550], h:50 },
+  { t:'prop', name:'Ulica Targowa', group:'lblue', price:120, rent:[8,40,100,300,450,600], h:50 },
+  { t:'jail', name:'Więzienie' },
+  { t:'prop', name:'Ulica Sienna', group:'pink', price:140, rent:[10,50,150,450,625,750], h:100 },
+  { t:'util', name:'Elektrownia', price:150 },
+  { t:'prop', name:'Ulica Marszałkowska', group:'pink', price:140, rent:[10,50,150,450,625,750], h:100 },
+  { t:'prop', name:'Plac Bankowy', group:'pink', price:160, rent:[12,60,180,500,700,900], h:100 },
+  { t:'rail', name:'Dworzec Główny', price:200 },
+  { t:'prop', name:'Ulica Świętokrzyska', group:'orange', price:180, rent:[14,70,200,550,750,950], h:100 },
+  { t:'chest', name:'Kasa Społeczna' },
+  { t:'prop', name:'Ulica Wolska', group:'orange', price:180, rent:[14,70,200,550,750,950], h:100 },
+  { t:'prop', name:'Ulica Chłodna', group:'orange', price:200, rent:[16,80,220,600,800,1000], h:100 },
+  { t:'parking', name:'Parking' },
+  { t:'prop', name:'Ulica Puławska', group:'red', price:220, rent:[18,90,250,700,875,1050], h:150 },
+  { t:'chance', name:'Szansa' },
+  { t:'prop', name:'Aleje Jerozolimskie', group:'red', price:220, rent:[18,90,250,700,875,1050], h:150 },
+  { t:'prop', name:'Ulica Grójecka', group:'red', price:240, rent:[20,100,300,750,925,1100], h:150 },
+  { t:'rail', name:'Dworzec Wschodni', price:200 },
+  { t:'prop', name:'Ulica Nowy Świat', group:'yellow', price:260, rent:[22,110,330,800,975,1150], h:150 },
+  { t:'prop', name:'Ulica Krakowskie Przedmieście', group:'yellow', price:260, rent:[22,110,330,800,975,1150], h:150 },
+  { t:'util', name:'Wodociągi', price:150 },
+  { t:'prop', name:'Plac Trzech Krzyży', group:'yellow', price:280, rent:[24,120,360,850,1025,1200], h:150 },
+  { t:'gotojail', name:'Idź do więzienia' },
+  { t:'prop', name:'Ulica Mokotowska', group:'green', price:300, rent:[26,130,390,900,1100,1275], h:200 },
+  { t:'prop', name:'Ulica Marszałka', group:'green', price:300, rent:[26,130,390,900,1100,1275], h:200 },
+  { t:'chest', name:'Kasa Społeczna' },
+  { t:'prop', name:'Aleja Ujazdowska', group:'green', price:320, rent:[28,150,450,1000,1200,1400], h:200 },
+  { t:'rail', name:'Dworzec Gdański', price:200 },
+  { t:'chance', name:'Szansa' },
+  { t:'prop', name:'Ulica Foksal', group:'dblue', price:350, rent:[35,175,500,1100,1300,1500], h:200 },
+  { t:'tax', name:'Podatek luksusowy', amount:100 },
+  { t:'prop', name:'Ulica Belwederska', group:'dblue', price:400, rent:[50,200,600,1400,1700,2000], h:200 },
+];
+const MONO_GROUP_SIZE = {}; MONO_BOARD.forEach(s => { if (s.t==='prop') MONO_GROUP_SIZE[s.group]=(MONO_GROUP_SIZE[s.group]||0)+1; });
+// Karty: e = efekt. money | move (to pos, +200 jeśli mija start) | moveBy | jail | jailfree | eachpay (od każdego) | repair (za dom)
+const MONO_CHANCE = [
+  { text:'Idź na START. Odbierz $200.', e:{move:0} },
+  { text:'Idź do więzienia. Nie przechodzisz przez START.', e:{jail:true} },
+  { text:'Awansuj na Aleje Jerozolimskie.', e:{move:23} },
+  { text:'Cofnij się o 3 pola.', e:{moveBy:-3} },
+  { text:'Bank wypłaca Ci dywidendę $50.', e:{money:50} },
+  { text:'Mandat za przekroczenie prędkości. Zapłać $15.', e:{money:-15} },
+  { text:'Wyjdź za darmo z więzienia. Zachowaj tę kartę.', e:{jailfree:true} },
+  { text:'Idź na Dworzec Główny.', e:{move:15} },
+  { text:'Zapłać za remonty: $25 za dom, $100 za hotel.', e:{repair:[25,100]} },
+  { text:'Wygrałeś konkurs krzyżówkowy. Odbierz $100.', e:{money:100} },
+  { text:'Twoje akcje wzrosły. Odbierz $150.', e:{money:150} },
+  { text:'Opłata za szkołę. Zapłać $50.', e:{money:-50} },
+];
+const MONO_CHEST = [
+  { text:'Błąd banku na Twoją korzyść. Odbierz $200.', e:{money:200} },
+  { text:'Idź do więzienia. Nie przechodzisz przez START.', e:{jail:true} },
+  { text:'Zwrot podatku. Odbierz $75.', e:{money:75} },
+  { text:'Opłata lekarska. Zapłać $50.', e:{money:-50} },
+  { text:'Wyjdź za darmo z więzienia. Zachowaj tę kartę.', e:{jailfree:true} },
+  { text:'Idź na START. Odbierz $200.', e:{move:0} },
+  { text:'Odziedziczyłeś $100.', e:{money:100} },
+  { text:'Składka ubezpieczeniowa. Zapłać $100.', e:{money:-100} },
+  { text:'Wygrałeś drugą nagrodę w konkursie piękności. Odbierz $10.', e:{money:10} },
+  { text:'Są Twoje urodziny. Zbierz po $10 od każdego gracza.', e:{eachpay:10} },
+  { text:'Opłata za szpital. Zapłać $100.', e:{money:-100} },
+  { text:'Sprzedaż akcji. Odbierz $50.', e:{money:50} },
+];
+
+function monoP(lobby, pid) { return lobby.mono.pl[pid]; }
+function monoNick(lobby, pid) { return (lobby.players.find(p => p.playerId===pid)||{}).nickname || '?'; }
+function monoLog(lobby, msg) { lobby.mono.log.push(msg); if (lobby.mono.log.length > 40) lobby.mono.log.shift(); }
+function monoCurrent(lobby) { return lobby.mono.order[lobby.mono.turn]; }
+function monoActive(lobby) { return lobby.mono.order.filter(pid => !lobby.mono.pl[pid].bankrupt); }
+function monoPositionsOf(lobby, pid) { return Object.keys(lobby.owner).filter(pos => lobby.owner[pos]===pid).map(Number); }
+function monoCountType(lobby, pid, t) { return monoPositionsOf(lobby, pid).filter(pos => MONO_BOARD[pos].t===t).length; }
+function monoOwnsFullGroup(lobby, pid, group) {
+  for (let i=0;i<40;i++) { const s=MONO_BOARD[i]; if (s.t==='prop' && s.group===group && lobby.owner[i]!==pid) return false; }
+  return true;
+}
+function monoGroupHouseBounds(lobby, group) {
+  let min=99, max=0;
+  for (let i=0;i<40;i++){ const s=MONO_BOARD[i]; if (s.t==='prop'&&s.group===group){ const h=lobby.houses[i]||0; min=Math.min(min,h); max=Math.max(max,h);} }
+  return { min, max };
+}
+function monoRent(lobby, pos, diceSum) {
+  const s = MONO_BOARD[pos]; const owner = lobby.owner[pos];
+  if (!owner) return 0;
+  if (s.t==='rail') { const c = monoCountType(lobby, owner, 'rail'); return [25,50,100,200][Math.max(0,c-1)]; }
+  if (s.t==='util') { const c = monoCountType(lobby, owner, 'util'); return diceSum * (c===2?10:4); }
+  const h = lobby.houses[pos]||0;
+  if (h>0) return s.rent[h];
+  return monoOwnsFullGroup(lobby, owner, s.group) ? s.rent[0]*2 : s.rent[0];
+}
+function monoNetWorth(lobby, pid) {
+  const p = monoP(lobby, pid); let w = p.money;
+  monoPositionsOf(lobby, pid).forEach(pos => { const s=MONO_BOARD[pos]; w += (s.price||0); w += (lobby.houses[pos]||0)*(s.h||0); });
+  return w;
+}
+
+function monoStart(code) {
+  const lobby = lobbies[code];
+  const order = shuffle(lobby.players.map(p => p.playerId));
+  const pl = {};
+  order.forEach((pid, i) => { pl[pid] = { money:1500, pos:0, jail:false, jailTurns:0, jailCards:0, bankrupt:false, token:MONO_TOKENS[i%MONO_TOKENS.length] }; });
+  lobby.owner = {}; lobby.houses = {};
+  lobby.mono = {
+    order, turn:0, phase:'preroll', dice:[0,0], doubles:0, rolledThisTurn:false,
+    pending:null, log:[], pl,
+    chance: shuffle(MONO_CHANCE.map((_,i)=>i)), chanceP:0,
+    chest:  shuffle(MONO_CHEST.map((_,i)=>i)),  chestP:0,
+    winner:null,
+  };
+  lobby.phase = 'playing';
+  monoLog(lobby, `🎲 Gra rozpoczęta! Zaczyna ${monoNick(lobby, order[0])}.`);
+  monoBroadcast(code);
+  broadcastPublicLobbies();
+}
+function monoStateFor(lobby, pid) {
+  const m = lobby.mono;
+  return {
+    phase: lobby.phase, gamePhase: m.phase,
+    order: m.order, turn: m.turn, current: monoCurrent(lobby),
+    dice: m.dice, doubles: m.doubles, pending: m.pending,
+    winner: m.winner, log: m.log.slice(-14),
+    you: pid,
+    players: m.order.map(id => ({
+      id, nick: monoNick(lobby, id), token: m.pl[id].token,
+      money: m.pl[id].money, pos: m.pl[id].pos, jail: m.pl[id].jail,
+      jailCards: m.pl[id].jailCards, bankrupt: m.pl[id].bankrupt,
+      connected: (lobby.players.find(p=>p.playerId===id)||{}).connected !== false,
+    })),
+    owner: lobby.owner, houses: lobby.houses,
+  };
+}
+function monoBroadcast(code) {
+  const lobby = lobbies[code]; if (!lobby || !lobby.mono) return;
+  lobby.players.forEach(p => io.to(p.socketId).emit('monoState', monoStateFor(lobby, p.playerId)));
+}
+function monoDraw(lobby, code, which) {
+  const m = lobby.mono;
+  const deck = which==='chance' ? MONO_CHANCE : MONO_CHEST;
+  const idxArr = which==='chance' ? m.chance : m.chest;
+  const ptrKey = which==='chance' ? 'chanceP' : 'chestP';
+  const card = deck[idxArr[m[ptrKey]]];
+  m[ptrKey] = (m[ptrKey]+1) % idxArr.length;
+  const pid = monoCurrent(lobby); const p = monoP(lobby, pid);
+  monoLog(lobby, `🃏 ${monoNick(lobby,pid)}: ${card.text}`);
+  const e = card.e;
+  if (e.money) { if (e.money>0) p.money += e.money; else return monoCharge(lobby, code, pid, -e.money, null, () => monoAfterResolve(code)); }
+  if (typeof e.move === 'number') { monoMoveTo(lobby, code, pid, e.move, true); return monoResolveLanding(code); }
+  if (typeof e.moveBy === 'number') { p.pos = ((p.pos + e.moveBy) % 40 + 40) % 40; return monoResolveLanding(code); }
+  if (e.jail) { monoGoToJail(lobby, code, pid); return monoEndTurn(code, true); }
+  if (e.jailfree) { p.jailCards += 1; }
+  if (e.eachpay) { monoActive(lobby).forEach(o => { if (o!==pid) { const op=monoP(lobby,o); const amt=Math.min(e.eachpay, op.money); op.money-=amt; p.money+=amt; } }); }
+  if (e.repair) { const houses=monoPositionsOf(lobby,pid).reduce((a,pos)=>a+((lobby.houses[pos]||0)===5?0:(lobby.houses[pos]||0)),0); const hotels=monoPositionsOf(lobby,pid).filter(pos=>(lobby.houses[pos]||0)===5).length; const bill=houses*e.repair[0]+hotels*e.repair[1]; if (bill>0) return monoCharge(lobby, code, pid, bill, null, () => monoAfterResolve(code)); }
+  monoAfterResolve(code);
+}
+function monoMoveTo(lobby, code, pid, dest, mayCollect) {
+  const p = monoP(lobby, pid);
+  if (mayCollect && dest <= p.pos) { p.money += 200; monoLog(lobby, `💵 ${monoNick(lobby,pid)} mija START (+$200).`); }
+  p.pos = dest;
+}
+function monoGoToJail(lobby, code, pid) {
+  const p = monoP(lobby, pid); p.pos = 10; p.jail = true; p.jailTurns = 0;
+  monoLog(lobby, `🚔 ${monoNick(lobby,pid)} trafia do więzienia!`);
+}
+function monoRoll(code) {
+  const lobby = lobbies[code]; const m = lobby.mono;
+  const pid = monoCurrent(lobby); const p = monoP(lobby, pid);
+  const d1 = 1+Math.floor(Math.random()*6), d2 = 1+Math.floor(Math.random()*6);
+  m.dice = [d1, d2]; const sum = d1+d2; const dbl = d1===d2;
+  if (p.jail) {
+    if (dbl) { p.jail=false; p.jailTurns=0; monoLog(lobby, `🎲 ${monoNick(lobby,pid)} wyrzuca dublet (${d1}+${d2}) i wychodzi z więzienia!`); m.rolledThisTurn=true; monoAdvance(code, pid, sum); return; }
+    p.jailTurns += 1;
+    monoLog(lobby, `🎲 ${monoNick(lobby,pid)} nie wyrzuca dubletu (${d1}+${d2}).`);
+    if (p.jailTurns >= 3) { monoLog(lobby, `${monoNick(lobby,pid)} płaci $50 i wychodzi.`); return monoCharge(lobby, code, pid, 50, null, () => { p.jail=false; p.jailTurns=0; monoAdvance(code, pid, sum); }); }
+    m.dice=[d1,d2]; return monoEndTurn(code, true);  // zostaje w więzieniu
+  }
+  if (dbl) m.doubles += 1; else m.doubles = 0;
+  if (m.doubles === 3) { monoLog(lobby, `🎲 ${monoNick(lobby,pid)} trzeci dublet z rzędu!`); monoGoToJail(lobby, code, pid); return monoEndTurn(code, true); }
+  m.rolledThisTurn = true;
+  monoLog(lobby, `🎲 ${monoNick(lobby,pid)} wyrzuca ${d1}+${d2}=${sum}${dbl?' (dublet!)':''}.`);
+  monoAdvance(code, pid, sum);
+}
+function monoAdvance(code, pid, sum) {
+  const lobby = lobbies[code]; const p = monoP(lobby, pid);
+  const old = p.pos; p.pos = (p.pos + sum) % 40;
+  if (old + sum >= 40) { p.money += 200; monoLog(lobby, `💵 ${monoNick(lobby,pid)} mija START (+$200).`); }
+  monoResolveLanding(code);
+}
+function monoResolveLanding(code) {
+  const lobby = lobbies[code]; const m = lobby.mono;
+  const pid = monoCurrent(lobby); const p = monoP(lobby, pid);
+  const pos = p.pos; const s = MONO_BOARD[pos]; const sum = m.dice[0]+m.dice[1];
+  if (s.t==='prop' || s.t==='rail' || s.t==='util') {
+    const owner = lobby.owner[pos];
+    if (!owner) {
+      if (p.money >= s.price) { m.pending = { type:'buy', pos, price:s.price, name:s.name }; m.phase='buy'; return monoBroadcast(code); }
+      monoLog(lobby, `${monoNick(lobby,pid)} nie stać na ${s.name}.`); return monoAfterResolve(code);
+    }
+    if (owner === pid) return monoAfterResolve(code);
+    const rent = monoRent(lobby, pos, sum);
+    monoLog(lobby, `💸 ${monoNick(lobby,pid)} płaci $${rent} czynszu dla ${monoNick(lobby,owner)} (${s.name}).`);
+    return monoCharge(lobby, code, pid, rent, owner, () => monoAfterResolve(code));
+  }
+  if (s.t==='tax') { monoLog(lobby, `🏛️ ${monoNick(lobby,pid)} płaci ${s.name} $${s.amount}.`); return monoCharge(lobby, code, pid, s.amount, null, () => monoAfterResolve(code)); }
+  if (s.t==='chance') return monoDraw(lobby, code, 'chance');
+  if (s.t==='chest')  return monoDraw(lobby, code, 'chest');
+  if (s.t==='gotojail') { monoGoToJail(lobby, code, pid); return monoEndTurn(code, true); }
+  return monoAfterResolve(code);   // go / parking / jail(odwiedziny)
+}
+// Po rozpatrzeniu pola: jeśli nie ma zaległości, pozwól budować / zakończyć / rzucić ponownie.
+function monoAfterResolve(code) {
+  const lobby = lobbies[code]; const m = lobby.mono;
+  if (m.pending && m.pending.type==='debt') { m.phase='debt'; return monoBroadcast(code); }
+  m.pending = null; m.phase = 'action';
+  monoBroadcast(code);
+}
+// Pobranie kwoty; jeśli nie stać → tryb długu (sprzedaż domów / bankructwo).
+function monoCharge(lobby, code, pid, amount, toPid, done) {
+  const p = monoP(lobby, pid);
+  if (p.money >= amount) { p.money -= amount; if (toPid) monoP(lobby,toPid).money += amount; lobby.mono._done=null; return done(); }
+  lobby.mono.pending = { type:'debt', amount, to: toPid||null };
+  lobby.mono._done = done ? true : false;   // wznowienie po spłacie
+  lobby.mono._doneFn = done;
+  lobby.mono.phase = 'debt';
+  monoBroadcast(code);
+}
+function monoTrySettleDebt(code) {
+  const lobby = lobbies[code]; const m = lobby.mono; const pend = m.pending;
+  if (!pend || pend.type!=='debt') return;
+  const pid = monoCurrent(lobby); const p = monoP(lobby, pid);
+  if (p.money >= pend.amount) {
+    p.money -= pend.amount; if (pend.to) monoP(lobby,pend.to).money += pend.amount;
+    m.pending = null; const fn = m._doneFn; m._doneFn=null;
+    if (fn) fn(); else monoAfterResolve(code);
+  } else { monoBroadcast(code); }
+}
+function monoBankrupt(code, pid) {
+  const lobby = lobbies[code]; const m = lobby.mono; const p = monoP(lobby, pid);
+  const cred = (m.pending && m.pending.type==='debt') ? m.pending.to : null;
+  monoPositionsOf(lobby, pid).forEach(pos => { lobby.houses[pos]=0; if (cred) lobby.owner[pos]=cred; else delete lobby.owner[pos]; });
+  if (cred) monoP(lobby, cred).money += Math.max(0, p.money);
+  p.money = 0; p.bankrupt = true;
+  monoLog(lobby, `💀 ${monoNick(lobby,pid)} bankrutuje!${cred?` Majątek przejmuje ${monoNick(lobby,cred)}.`:''}`);
+  m.pending = null; m._doneFn = null;
+  const active = monoActive(lobby);
+  if (active.length <= 1) { m.phase='finished'; m.winner = active[0]||null; lobby.phase='finished'; monoLog(lobby, `🏆 Wygrywa ${monoNick(lobby, m.winner)}!`); return monoBroadcast(code); }
+  // Był to bankrut aktualnego gracza → następna kolej.
+  monoNextTurn(code, true);
+}
+function monoEndTurn(code, force) {
+  const lobby = lobbies[code]; const m = lobby.mono;
+  if (m.pending && m.pending.type==='debt' && !force) return;
+  const pid = monoCurrent(lobby); const p = monoP(lobby, pid);
+  // Dublet (i nie w więzieniu, nie force) → ten sam gracz rzuca ponownie.
+  if (!force && m.doubles>0 && m.doubles<3 && !p.jail && m.rolledThisTurn) {
+    m.phase='preroll'; m.rolledThisTurn=false; m.pending=null; monoLog(lobby, `↻ ${monoNick(lobby,pid)} rzuca ponownie (dublet).`); return monoBroadcast(code);
+  }
+  monoNextTurn(code, false);
+}
+function monoNextTurn(code, fromBankrupt) {
+  const lobby = lobbies[code]; const m = lobby.mono;
+  m.doubles=0; m.rolledThisTurn=false; m.pending=null; m._doneFn=null;
+  let guard=0;
+  do { m.turn = (m.turn+1) % m.order.length; guard++; }
+  while (guard <= m.order.length && monoP(lobby, m.order[m.turn]).bankrupt);
+  m.phase='preroll';
+  monoBroadcast(code);
+}
+// Wyjście/rozłączenie gracza w trakcie gry.
+function monoAfterDepart(code, pid) {
+  const lobby = lobbies[code]; if (!lobby || lobby.game!=='monopoly' || !lobby.mono || lobby.phase!=='playing') return;
+  const m = lobby.mono; const p = m.pl[pid]; if (!p || p.bankrupt) return;
+  // Traktuj wyjście jak bankructwo (zwrot majątku do banku).
+  monoPositionsOf(lobby, pid).forEach(pos => { lobby.houses[pos]=0; delete lobby.owner[pos]; });
+  p.bankrupt = true; p.money = 0;
+  monoLog(lobby, `👋 ${monoNick(lobby,pid)} opuścił grę.`);
+  const active = monoActive(lobby);
+  if (active.length <= 1) { m.phase='finished'; m.winner=active[0]||null; lobby.phase='finished'; if (m.winner) monoLog(lobby, `🏆 Wygrywa ${monoNick(lobby,m.winner)}!`); return monoBroadcast(code); }
+  if (monoCurrent(lobby)===pid) return monoNextTurn(code, true);
+  monoBroadcast(code);
+}
+
 io.on('connection', socket => {
 
   // CREATE LOBBY
   socket.on('createLobby', ({ nickname, playerId, game, visibility, password }) => {
     const pid      = playerId || generateId();
     const code     = generateCode();
-    const valid    = ['czolko','panstwa', ...ARCADE_GAME_TYPES];
+    const valid    = ['czolko','panstwa','monopoly', ...ARCADE_GAME_TYPES];
     const gameType = valid.includes(game) ? game : 'czolko';
 
     const basePlayer = { playerId: pid, socketId: socket.id, nickname, connected: true, disconnectTimer: null, word: null, score: 0 };
 
     if (gameType === 'czolko') {
       lobbies[code] = { game: 'czolko', admin: pid, players: [basePlayer], phase: 'waiting', assignments: [], assignTimeout: null, winner: null, endVotes: {}, endVoteTimeout: null };
+    } else if (gameType === 'monopoly') {
+      lobbies[code] = { game: 'monopoly', admin: pid, players: [basePlayer], phase: 'waiting', mono: null, owner: {}, houses: {} };
     } else if (gameType === 'panstwa') {
       lobbies[code] = { game: 'panstwa', admin: pid, players: [basePlayer], phase: 'waiting', categories: DEFAULT_CATEGORIES.slice(), availableCategories: ALL_CATEGORIES.slice(), maxRounds: DEFAULT_MAX_ROUNDS, roundMs: ROUND_MS, round: 0, currentLetter: null, answers: {}, roundTimeout: null, roundEndsAt: 0, stopping: false, lastResults: null, reviewData: null, reviewVotes: {}, aiVerdicts: {}, roundFinalized: false };
     } else {
@@ -1890,6 +2185,7 @@ io.on('connection', socket => {
     if (lobby.phase !== 'waiting')                           return socket.emit('error', 'Gra już trwa!');
     if (lobby.password && (password || '').trim() !== lobby.password) return socket.emit('joinNeedsPassword', { code, wrong: !!(password || '').trim() });
     if (lobby.game === 'panstwa' && lobby.players.length >= MAX_PM_PLAYERS) return socket.emit('error', 'Lobby jest pełne (max 15 graczy)!');
+    if (lobby.game === 'monopoly' && lobby.players.length >= 8) return socket.emit('error', 'Lobby jest pełne (max 8 graczy)!');
 
     const pid = playerId || generateId();
     lobby.players.push({ playerId: pid, socketId: socket.id, nickname, connected: true, disconnectTimer: null, word: null, score: 0 });
@@ -1937,6 +2233,13 @@ io.on('connection', socket => {
     if (ARCADE_GAME_TYPES.includes(lobby.game)) {
       socket.emit('arcadeRejoin', arcadeRejoinSnapshot(lobby, playerId, isAdmin, code));
       broadcastArcadeLobby(code);
+      return;
+    }
+
+    if (lobby.game === 'monopoly') {
+      if (lobby.phase === 'waiting') socket.emit('rejoinState', { ...base, phase: 'waiting' });
+      else socket.emit('monoState', monoStateFor(lobby, playerId));
+      broadcastLobby(code);
       return;
     }
 
@@ -2441,6 +2744,83 @@ io.on('connection', socket => {
     danceMaybeAdvanceVote(code);
   });
 
+  // ── MONOPOLY ─────────────────────────────────────────────────────────────────
+  function monoIsCurrent(lobby) { return lobby && lobby.game==='monopoly' && lobby.phase==='playing' && monoCurrent(lobby)===socket.playerId; }
+  socket.on('monoStart', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game!=='monopoly' || lobby.admin!==socket.playerId || lobby.phase!=='waiting') return;
+    if (lobby.players.length < 2) return socket.emit('error', 'Monopoly: potrzeba minimum 2 graczy!');
+    monoStart(code);
+  });
+  socket.on('monoRoll', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!monoIsCurrent(lobby) || lobby.mono.phase!=='preroll') return;
+    monoRoll(code);
+  });
+  socket.on('monoBuy', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code]; if (!monoIsCurrent(lobby)) return;
+    const m = lobby.mono; if (m.phase!=='buy' || !m.pending || m.pending.type!=='buy') return;
+    const pid = socket.playerId, p = monoP(lobby, pid), pos = m.pending.pos, s = MONO_BOARD[pos];
+    if (p.money < s.price || lobby.owner[pos]) return;
+    p.money -= s.price; lobby.owner[pos] = pid;
+    monoLog(lobby, `🏠 ${monoNick(lobby,pid)} kupuje ${s.name} za $${s.price}.`);
+    m.pending = null; m.phase = 'action'; monoBroadcast(code);
+  });
+  socket.on('monoDecline', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code]; if (!monoIsCurrent(lobby)) return;
+    const m = lobby.mono; if (m.phase!=='buy') return;
+    m.pending = null; m.phase = 'action'; monoBroadcast(code);
+  });
+  socket.on('monoBuild', ({ pos }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code]; if (!monoIsCurrent(lobby)) return;
+    const m = lobby.mono; if (!['preroll','action'].includes(m.phase)) return;
+    const s = MONO_BOARD[pos]; if (!s || s.t!=='prop') return;
+    const pid = socket.playerId, p = monoP(lobby, pid);
+    if (lobby.owner[pos]!==pid || !monoOwnsFullGroup(lobby, pid, s.group)) return;
+    const h = lobby.houses[pos]||0; if (h>=5) return;
+    const b = monoGroupHouseBounds(lobby, s.group); if (h !== b.min) return;    // buduj równo
+    if (p.money < s.h) return socket.emit('error', 'Za mało gotówki na dom!');
+    p.money -= s.h; lobby.houses[pos] = h+1;
+    monoLog(lobby, `🏗️ ${monoNick(lobby,pid)} buduje ${h+1===5?'hotel':'dom'} na ${s.name}.`);
+    monoBroadcast(code);
+  });
+  socket.on('monoSellHouse', ({ pos }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code]; if (!monoIsCurrent(lobby)) return;
+    const m = lobby.mono; if (!['preroll','action','debt'].includes(m.phase)) return;
+    const s = MONO_BOARD[pos]; if (!s || s.t!=='prop') return;
+    const pid = socket.playerId, p = monoP(lobby, pid);
+    if (lobby.owner[pos]!==pid) return;
+    const h = lobby.houses[pos]||0; if (h<=0) return;
+    const b = monoGroupHouseBounds(lobby, s.group); if (h !== b.max) return;    // sprzedawaj równo
+    lobby.houses[pos] = h-1; p.money += Math.floor(s.h/2);
+    monoLog(lobby, `💰 ${monoNick(lobby,pid)} sprzedaje ${h===5?'hotel':'dom'} na ${s.name} (+$${Math.floor(s.h/2)}).`);
+    if (m.phase==='debt') monoTrySettleDebt(code); else monoBroadcast(code);
+  });
+  socket.on('monoEndTurn', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code]; if (!monoIsCurrent(lobby)) return;
+    if (lobby.mono.phase!=='action') return;
+    monoEndTurn(code, false);
+  });
+  socket.on('monoPayJail', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code]; if (!monoIsCurrent(lobby)) return;
+    const m = lobby.mono; const pid = socket.playerId, p = monoP(lobby, pid);
+    if (m.phase!=='preroll' || !p.jail) return;
+    monoCharge(lobby, code, pid, 50, null, () => { p.jail=false; p.jailTurns=0; monoLog(lobby, `🔓 ${monoNick(lobby,pid)} płaci $50 i wychodzi z więzienia.`); monoBroadcast(code); });
+  });
+  socket.on('monoUseJailCard', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code]; if (!monoIsCurrent(lobby)) return;
+    const m = lobby.mono; const pid = socket.playerId, p = monoP(lobby, pid);
+    if (m.phase!=='preroll' || !p.jail || p.jailCards<=0) return;
+    p.jailCards -= 1; p.jail=false; p.jailTurns=0;
+    monoLog(lobby, `🔓 ${monoNick(lobby,pid)} używa karty i wychodzi z więzienia.`);
+    monoBroadcast(code);
+  });
+  socket.on('monoBankrupt', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code]; if (!monoIsCurrent(lobby)) return;
+    if (lobby.mono.phase!=='debt') return;
+    monoBankrupt(code, socket.playerId);
+  });
+
   // ── LEAVE LOBBY (voluntary exit) ─────────────────────────────────────────────
 
   socket.on('leaveLobby', () => {
@@ -2479,6 +2859,7 @@ io.on('connection', socket => {
     if (lobby.game === 'panstwa' && lobby.phase === 'reviewing') pmBroadcastReview(code);
     // Keep the game moving after someone leaves mid-round.
     arcadeAfterDepart(code, pid);
+    monoAfterDepart(code, pid);
     if (lobby.game === 'czolko'  && lobby.phase === 'finished') {
       const tally = czolkoVoteTally(lobby);
       io.to(code).emit('czolkoVoteUpdate', tally);
@@ -2501,6 +2882,7 @@ io.on('connection', socket => {
     // A disconnect changes the electorate size, which can complete a vote.
     if (lobby.game === 'panstwa' && lobby.phase === 'reviewing') pmBroadcastReview(code);
     arcadeAfterDepart(code, playerId);
+    monoAfterDepart(code, playerId);
     if (lobby.game === 'czolko'  && lobby.phase === 'finished') {
       const tally = czolkoVoteTally(lobby);
       io.to(code).emit('czolkoVoteUpdate', tally);
