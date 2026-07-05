@@ -71,15 +71,17 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .game-picker-grid .game-pick-card{flex:1 1 28%;min-width:90px}
 
 /* Game list (home) */
-.game-list{display:flex;flex-direction:column;gap:8px;width:100%}
-.game-row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:14px;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);cursor:pointer;transition:all .15s;user-select:none}
-.game-row .gr-emoji{font-size:1.7rem;flex:0 0 auto;width:34px;text-align:center}
-.game-row .gr-text{flex:1;min-width:0}
-.game-row .gr-name{font-weight:700;font-size:.98rem}
-.game-row .gr-desc{font-size:.74rem;color:#9ca3af}
-.game-row .gr-check{flex:0 0 auto;width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,.18);color:transparent;font-size:.8rem;font-weight:800;display:flex;align-items:center;justify-content:center}
-.game-row.selected{border-color:#818cf8;background:rgba(129,140,248,.12)}
-.game-row.selected .gr-check{background:#818cf8;border-color:#818cf8;color:#fff}
+/* Kafelki gier — 2 kolumny, każda gra w swoim kolorze dla czytelności */
+.game-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.game-tile{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:16px 10px 13px;border-radius:16px;border:2px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);cursor:pointer;transition:transform .12s,border-color .15s,background .15s;user-select:none}
+.game-tile:active{transform:scale(.97)}
+.game-tile .gt-badge{width:52px;height:52px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:1.7rem;background:var(--cb);border:1px solid var(--c)}
+.game-tile .gt-name{font-weight:700;font-size:.9rem;line-height:1.12}
+.game-tile .gt-desc{font-size:.68rem;color:#9ca3af;line-height:1.18}
+.game-tile .gt-check{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,.15);color:transparent;font-size:.6rem;font-weight:800;display:flex;align-items:center;justify-content:center}
+.game-tile.selected{border-color:var(--c);background:var(--cb)}
+.game-tile.selected .gt-badge{box-shadow:0 0 0 3px var(--cb)}
+.game-tile.selected .gt-check{background:var(--c);border-color:var(--c);color:#0b1020}
 
 /* Visibility (public/private) segmented toggle */
 .settings-divider{width:100%;height:1px;background:rgba(255,255,255,.1);margin:4px 0 2px}
@@ -328,57 +330,39 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <div class="screen active" id="screen-home">
   <div style="font-size:2.5rem;text-align:center">🎮</div>
   <div class="logo">Gry towarzyskie</div>
-  <div class="logo-sub">Czółko • Państwa-Miasta • Quiz • Zmyślacz • Kalambury</div>
+  <div class="logo-sub">9 gier • grajcie razem na telefonach 🎉</div>
 
   <div class="card" style="display:flex;flex-direction:column;gap:14px">
     <input id="nickname" placeholder="✏️ Twój nick" maxlength="16">
 
     <p class="section-title">Wybierz grę</p>
-    <div class="game-list" id="game-picker">
-      <div class="game-row selected" data-game="czolko" onclick="selectGame('czolko')">
-        <div class="gr-emoji">🎯</div>
-        <div class="gr-text"><div class="gr-name">Czółko</div><div class="gr-desc">Zgadnij swoje hasło z podpowiedzi</div></div>
-        <div class="gr-check">✓</div>
+    <div class="game-grid" id="game-picker">
+      <div class="game-tile selected" data-game="czolko" style="--c:#f472b6;--cb:rgba(244,114,182,.16)" onclick="selectGame('czolko')">
+        <div class="gt-badge">🎯</div><div class="gt-name">Czółko</div><div class="gt-desc">Zgadnij swoje hasło</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-row" data-game="panstwa" onclick="selectGame('panstwa')">
-        <div class="gr-emoji">🌍</div>
-        <div class="gr-text"><div class="gr-name">Państwa-Miasta</div><div class="gr-desc">Kategorie na daną literę</div></div>
-        <div class="gr-check">✓</div>
+      <div class="game-tile" data-game="panstwa" style="--c:#34d399;--cb:rgba(52,211,153,.16)" onclick="selectGame('panstwa')">
+        <div class="gt-badge">🌍</div><div class="gt-name">Państwa-Miasta</div><div class="gt-desc">Słowa na daną literę</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-row" data-game="quiz" onclick="selectGame('quiz')">
-        <div class="gr-emoji">🧠</div>
-        <div class="gr-text"><div class="gr-name">Quiz wiedzy</div><div class="gr-desc">Teleturniej na czas</div></div>
-        <div class="gr-check">✓</div>
+      <div class="game-tile" data-game="quiz" style="--c:#60a5fa;--cb:rgba(96,165,250,.16)" onclick="selectGame('quiz')">
+        <div class="gt-badge">🧠</div><div class="gt-name">Quiz wiedzy</div><div class="gt-desc">Teleturniej na czas</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-row" data-game="bluff" onclick="selectGame('bluff')">
-        <div class="gr-emoji">🤥</div>
-        <div class="gr-text"><div class="gr-name">Zmyślacz</div><div class="gr-desc">Wymyślaj kłamstwa i zgaduj prawdę</div></div>
-        <div class="gr-check">✓</div>
+      <div class="game-tile" data-game="bluff" style="--c:#fbbf24;--cb:rgba(251,191,36,.16)" onclick="selectGame('bluff')">
+        <div class="gt-badge">🤥</div><div class="gt-name">Zmyślacz</div><div class="gt-desc">Zgaduj, co jest prawdą</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-row" data-game="draw" onclick="selectGame('draw')">
-        <div class="gr-emoji">🎨</div>
-        <div class="gr-text"><div class="gr-name">Kalambury</div><div class="gr-desc">Rysuj i zgaduj hasła</div></div>
-        <div class="gr-check">✓</div>
+      <div class="game-tile" data-game="draw" style="--c:#f87171;--cb:rgba(248,113,113,.16)" onclick="selectGame('draw')">
+        <div class="gt-badge">🎨</div><div class="gt-name">Kalambury</div><div class="gt-desc">Rysuj i zgaduj hasła</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-row" data-game="truths" onclick="selectGame('truths')">
-        <div class="gr-emoji">🕵️</div>
-        <div class="gr-text"><div class="gr-name">2 prawdy 1 kłamstwo</div><div class="gr-desc">Zgadnij, co jest kłamstwem</div></div>
-        <div class="gr-check">✓</div>
+      <div class="game-tile" data-game="truths" style="--c:#a78bfa;--cb:rgba(167,139,250,.16)" onclick="selectGame('truths')">
+        <div class="gt-badge">🕵️</div><div class="gt-name">2 prawdy 1 kłamstwo</div><div class="gt-desc">Wykryj kłamstwo</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-row" data-game="assoc" onclick="selectGame('assoc')">
-        <div class="gr-emoji">😂</div>
-        <div class="gr-text"><div class="gr-name">Najgorsze skojarzenia</div><div class="gr-desc">Wpisz i wybierz najśmieszniejszą</div></div>
-        <div class="gr-check">✓</div>
+      <div class="game-tile" data-game="assoc" style="--c:#fb923c;--cb:rgba(251,146,60,.16)" onclick="selectGame('assoc')">
+        <div class="gt-badge">😂</div><div class="gt-name">Skojarzenia</div><div class="gt-desc">Najśmieszniejsza wygrywa</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-row" data-game="who" onclick="selectGame('who')">
-        <div class="gr-emoji">🙋</div>
-        <div class="gr-text"><div class="gr-name">Kto z nas?</div><div class="gr-desc">Głosuj, kto najprędzej to zrobi</div></div>
-        <div class="gr-check">✓</div>
+      <div class="game-tile" data-game="who" style="--c:#22d3ee;--cb:rgba(34,211,238,.16)" onclick="selectGame('who')">
+        <div class="gt-badge">🙋</div><div class="gt-name">Kto z nas?</div><div class="gt-desc">Głosuj na gracza</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-row" data-game="dance" onclick="selectGame('dance')">
-        <div class="gr-emoji">🕺</div>
-        <div class="gr-text"><div class="gr-name">Tańczereczki</div><div class="gr-desc">Tańcz do muzyki i wykryj impostora</div></div>
-        <div class="gr-check">✓</div>
+      <div class="game-tile" data-game="dance" style="--c:#e879f9;--cb:rgba(232,121,249,.16)" onclick="selectGame('dance')">
+        <div class="gt-badge">🕺</div><div class="gt-name">Tańczereczki</div><div class="gt-desc">Tańcz i wykryj impostora</div><div class="gt-check">✓</div>
       </div>
     </div>
 
@@ -2240,6 +2224,127 @@ const DANCE_SONGS = [
   {id:"jofNR_WkoCE",t:"Fun. – We Are Young"},
   {id:"CvBfHwUxHIk",t:"Rihanna – Umbrella"},
   {id:"nCkpzqqog4k",t:"Sam Smith – I’m Not the Only One"},
+  // —— POLSKIE HITY (120) — 31 realnych z YouTube + reszta z podkładem zastępczym ——
+  {id:"n2hJA78YuWw",t:"Sławomir – Miłość w Zakopanem"},
+  {id:"zTz312FopH4",t:"Zenek Martyniuk – Ostatni raz"},
+  {id:"lkY35bx9OVQ",t:"Zenek Martyniuk – Zabiorę Ciebie"},
+  {id:"cxtnot8lY4U",t:"Akcent – Przez Twe oczy zielone"},
+  {id:"JvxG3zl_WhU",t:"Weekend – Ona tańczy dla mnie"},
+  {id:"Snm1wr5PVd8",t:"Bayer Full – Majteczki w kropeczki"},
+  {id:"of7jeRSBLPw",t:"Lady Pank – Mniej niż zero"},
+  {id:"1n0MupX-7AM",t:"Perfect – Autobiografia"},
+  {id:"YdE2CRrmXek",t:"Maanam – Boskie Buenos"},
+  {id:"_4_p3FM88jA",t:"Budka Suflera – Takie tango"},
+  {id:"SCIvOsw0O-M",t:"Wilki – Baśka"},
+  {id:"qCIyK3ec4kE",t:"Myslovitz – Długość dźwięku samotności"},
+  {id:"gHUDbpI8Ulk",t:"Republika – Biała flaga"},
+  {id:"xRHeEQM_Kjw",t:"Kombi – Słodkiego miłego życia"},
+  {id:"f5hooj3qKM4",t:"Hey – Moja i Twoja nadzieja"},
+  {id:"a4h5FyTDX9c",t:"Doda – Nie daj się"},
+  {id:"87Q5PEjmrCU",t:"Sylwia Grzeszczak – Małe rzeczy"},
+  {id:"7vKpv-z1ut4",t:"Feel – A gdy jest już ciemno"},
+  {id:"5rwDHfZBDWw",t:"Enej – Radio Hello"},
+  {id:"X2XWBcd5jn0",t:"Dawid Podsiadło – Małomiasteczkowy"},
+  {id:"Wg4A_d9F7xk",t:"Dawid Podsiadło – Trójkąty i kwadraty"},
+  {id:"oCZugu1ea18",t:"Podsiadło, Zawiałow, Vito Bambino – I Ciebie też bardzo"},
+  {id:"S7sN-cFhwuk",t:"sanah – Szampan"},
+  {id:"FWDXwrgdm9w",t:"Kwiat Jabłoni – Dziś późno pójdę spać"},
+  {id:"NWkDIK-bFCc",t:"Maryla Rodowicz – Kolorowe jarmarki"},
+  {id:"wTAibxp37vE",t:"Mata – Patointeligencja"},
+  {id:"vwu-RaCjRvg",t:"Bajm – Józek, nie daruję Ci tej nocy"},
+  {id:"G7OgVpWQs5s",t:"Lombard – Przeżyj to sam"},
+  {id:"MYYArJM-Bqk",t:"Ich Troje – A wszystko to (bo Ciebie kocham)"},
+  {id:"KFzaTt5Dbzg",t:"Krzysztof Krawczyk – Parostatek"},
+  {id:"wQvUOCbjsiY",t:"Blue Café – Do nieba"},
+  {id:"",t:"Czerwone Gitary – Nie spoczniemy"},
+  {id:"",t:"Czerwone Gitary – Biały krzyż"},
+  {id:"",t:"Anna Jantar – Nic nie może wiecznie trwać"},
+  {id:"",t:"Anna Jantar – Tyle słońca w całym mieście"},
+  {id:"",t:"Zbigniew Wodecki – Chałupy Welcome to"},
+  {id:"",t:"Zbigniew Wodecki – Lubię wracać tam gdzie byłem"},
+  {id:"",t:"Czesław Niemen – Dziwny jest ten świat"},
+  {id:"",t:"Czesław Niemen – Sen o Warszawie"},
+  {id:"",t:"Marek Grechuta – Dni których nie znamy"},
+  {id:"",t:"Skaldowie – Nie widzę Ciebie w swych marzeniach"},
+  {id:"",t:"Andrzej Zaucha – Byłaś serca biciem"},
+  {id:"",t:"Maryla Rodowicz – Małgośka"},
+  {id:"",t:"Maryla Rodowicz – Sing-Sing"},
+  {id:"",t:"Maryla Rodowicz – Remedium"},
+  {id:"",t:"Irena Jarocka – Odpłyniesz wielkim autem"},
+  {id:"",t:"Seweryn Krajewski – Uciekaj moje serce"},
+  {id:"",t:"Krzysztof Krawczyk – Bo jesteś ty"},
+  {id:"",t:"Lady Pank – Zamki na piasku"},
+  {id:"",t:"Lady Pank – Zawsze tam gdzie ty"},
+  {id:"",t:"Lady Pank – Kryzysowa narzeczona"},
+  {id:"",t:"Perfect – Nie płacz Ewka"},
+  {id:"",t:"Perfect – Chcemy być sobą"},
+  {id:"",t:"Maanam – Lucciola"},
+  {id:"",t:"Maanam – Kocham cię kochanie moje"},
+  {id:"",t:"Maanam – Cykady na Cykladach"},
+  {id:"",t:"Republika – Mamona"},
+  {id:"",t:"Republika – Telefony"},
+  {id:"",t:"Budka Suflera – Jolka, Jolka pamiętasz"},
+  {id:"",t:"Budka Suflera – Jest taki samotny dom"},
+  {id:"",t:"Kombi – Nie ma zysku"},
+  {id:"",t:"Kult – Arahja"},
+  {id:"",t:"Kult – Baranek"},
+  {id:"",t:"Kult – Polska"},
+  {id:"",t:"Dżem – Whisky"},
+  {id:"",t:"Dżem – List do M."},
+  {id:"",t:"Dżem – Naiwne pytania"},
+  {id:"",t:"TSA – Mass media"},
+  {id:"",t:"Oddział Zamknięty – Andzia"},
+  {id:"",t:"T.Love – Warszawa"},
+  {id:"",t:"T.Love – King"},
+  {id:"",t:"Bajm – Biała armia"},
+  {id:"",t:"Bajm – Płomień z nieba"},
+  {id:"",t:"Aya RL – Jak łza"},
+  {id:"",t:"Wilki – Beskidzka"},
+  {id:"",t:"Hey – Zazdrość"},
+  {id:"",t:"Hey – Teksański"},
+  {id:"",t:"Myslovitz – Kraków"},
+  {id:"",t:"Myslovitz – Sprzedawcy marzeń"},
+  {id:"",t:"Ich Troje – Powiedz"},
+  {id:"",t:"Kayah i Bregović – Prawy do lewego"},
+  {id:"",t:"Kayah – Śpij kochanie śpij"},
+  {id:"",t:"Edyta Górniak – To nie ja"},
+  {id:"",t:"Edyta Górniak – Dumka na dwa serca"},
+  {id:"",t:"Varius Manx – Zanim zrozumiesz"},
+  {id:"",t:"Varius Manx – Orła cień"},
+  {id:"",t:"Golec uOrkiestra – Ściernisko"},
+  {id:"",t:"Golec uOrkiestra – Lornetka"},
+  {id:"",t:"De Mono – Póki na to czas"},
+  {id:"",t:"Big Cyc – Makumba"},
+  {id:"",t:"Elektryczne Gitary – Kiler"},
+  {id:"",t:"Boys – Jesteś szalona"},
+  {id:"",t:"Boys – Wolność"},
+  {id:"",t:"Top Girls – Mam tę moc"},
+  {id:"",t:"Akcent – Przekorny los"},
+  {id:"",t:"Akcent – Życie to są chwile"},
+  {id:"",t:"Shazza – Bierz co chcesz"},
+  {id:"",t:"Milano – Ona jest taka cudowna"},
+  {id:"",t:"Paktofonika – Jestem Bogiem"},
+  {id:"",t:"Taco Hemingway – Następna stacja"},
+  {id:"",t:"Quebonafide – Half Dead"},
+  {id:"",t:"Young Leosia – Szklanki"},
+  {id:"",t:"Bedoes – Reflektor"},
+  {id:"",t:"Mata – Kiss cam"},
+  {id:"",t:"sanah – No sory"},
+  {id:"",t:"sanah – Ale jazz!"},
+  {id:"",t:"sanah – Kolońska i szlugi"},
+  {id:"",t:"Dawid Podsiadło – Nieznajomy"},
+  {id:"",t:"Dawid Podsiadło – Mori"},
+  {id:"",t:"Vito Bambino – Chodź tu"},
+  {id:"",t:"Kwiat Jabłoni – Wolność"},
+  {id:"",t:"Daria Zawiałow – Za krótki sen"},
+  {id:"",t:"Krzysztof Zalewski – Zabawa"},
+  {id:"",t:"Krzysztof Zalewski – Miłość, miłość"},
+  {id:"",t:"Roksana Węgiel – Obiecuję"},
+  {id:"",t:"Margaret – Cool Me Down"},
+  {id:"",t:"Cleo i Donatan – My Słowianie"},
+  {id:"",t:"Cleo – Za krokiem krok"},
+  {id:"",t:"Sarsa – Naucz mnie"},
+  {id:"",t:"Brodka – Znów wędrujemy"},
 ];
 // Awaryjne, generowane w przeglądarce podkłady (gdy YouTube zawiedzie).
 const DANCE_TRACKS = [
