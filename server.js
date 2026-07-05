@@ -41,7 +41,8 @@ const ROUND_OPTIONS       = [3, 5, 10, 999];   // 999 = "bez limitu"
 const MAX_CATEGORIES      = 12;
 const MAX_CUSTOM_CAT_LEN  = 24;
 const POINT_STEP          = 5;                  // each net downvote lowers points by 5
-const ARCADE_GAME_TYPES   = ['quiz','bluff','draw','truths','assoc','who'];
+const ARCADE_GAME_TYPES   = ['quiz','bluff','draw','truths','assoc','who','dance'];
+const DANCE_TRACK_COUNT   = 12;   // must match DANCE_TRACKS length on the client
 
 // ─── ARCADE GAMES DATA ──────────────────────────────────────────────────────
 // Poziom ŁATWY – dla każdego, bardzo proste.
@@ -908,6 +909,9 @@ const ASSOC_VOTE_MS   = 35_000;
 const ASSOC_REVEAL_MS = 9_000;
 const WHO_VOTE_MS     = 25_000;
 const WHO_REVEAL_MS   = 8_000;
+const DANCE_MAX_MS    = 75_000;   // max czas tańca zanim i tak przechodzimy do głosowania
+const DANCE_VOTE_MS   = 25_000;
+const DANCE_REVEAL_MS = 10_000;
 
 const ARCADE_SETTING_OPTIONS = {
   quiz:   { key: 'questions', label: 'Liczba pytań',       values: [5, 10, 15] },
@@ -916,6 +920,7 @@ const ARCADE_SETTING_OPTIONS = {
   truths: { key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 8] },
   assoc:  { key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 8] },
   who:    { key: 'rounds',    label: 'Liczba rund',        values: [7, 12, 20] },
+  dance:  { key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 8] },
 };
 
 const ASSOC_PROMPTS = [
@@ -1643,6 +1648,101 @@ function whoMaybeAdvanceVote(code) {
   if (have >= need && need > 0) whoReveal(code);
 }
 
+// ── TAŃCZERECZKI (silent-disco impostor) ─────────────────────────────────────
+function danceReadyNeed(lobby) {
+  const connected = lobby.players.filter(p => p.connected).length;
+  return Math.max(2, Math.ceil(connected * 0.8));   // 80% lobby, min. 2
+}
+function danceStart(code) {
+  const lobby = lobbies[code];
+  lobby.players.forEach(p => { p.score = 0; });
+  lobby.qIndex = -1;
+  danceBeginRound(code);
+}
+function danceBeginRound(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.qIndex += 1;
+  if (lobby.qIndex >= lobby.settings.rounds) return danceFinish(code);
+  const connected = lobby.players.filter(p => p.connected);
+  if (connected.length < 2) return danceFinish(code);
+  // Pick the impostor + two distinct tracks (main for everyone, odd one for impostor).
+  lobby.impostorId = connected[Math.floor(Math.random() * connected.length)].playerId;
+  const mainTrack = Math.floor(Math.random() * DANCE_TRACK_COUNT);
+  let impTrack = Math.floor(Math.random() * (DANCE_TRACK_COUNT - 1));
+  if (impTrack >= mainTrack) impTrack += 1;
+  lobby.mainTrack = mainTrack; lobby.impTrack = impTrack;
+  lobby.phase = 'dancing'; lobby.ready = {}; lobby.votes = {};
+  lobby.endsAt = Date.now() + DANCE_MAX_MS;
+  lobby.players.forEach(p => {
+    const amImp = p.playerId === lobby.impostorId;
+    io.to(p.socketId).emit('danceStart', {
+      round: lobby.qIndex, total: lobby.settings.rounds,
+      trackIndex: amImp ? impTrack : mainTrack, amImpostor: amImp,
+      players: arcadePlayers(lobby), endsAt: lobby.endsAt,
+      readyNeed: danceReadyNeed(lobby),
+    });
+  });
+  lobby.timer = setTimeout(() => danceToVoting(code), DANCE_MAX_MS);
+}
+function danceToVoting(code) {
+  const lobby = lobbies[code];
+  if (lobby.phase !== 'dancing') return;
+  clearGameTimer(lobby);
+  lobby.phase = 'voting'; lobby.endsAt = Date.now() + DANCE_VOTE_MS;
+  lobby.players.forEach(p => {
+    io.to(p.socketId).emit('danceVote', {
+      round: lobby.qIndex, total: lobby.settings.rounds,
+      players: arcadePlayers(lobby), picked: lobby.votes[p.playerId] || null, endsAt: lobby.endsAt,
+    });
+  });
+  lobby.timer = setTimeout(() => danceReveal(code), DANCE_VOTE_MS);
+}
+function danceReveal(code) {
+  const lobby = lobbies[code];
+  if (lobby.phase !== 'dancing' && lobby.phase !== 'voting') return;
+  clearGameTimer(lobby);
+  lobby.phase = 'reveal';
+  const counts = {};
+  Object.values(lobby.votes || {}).forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+  const impId = lobby.impostorId;
+  // Detectors: +150 for correctly fingering the impostor.
+  lobby.players.forEach(p => { if (lobby.votes[p.playerId] === impId) p.score += 150; });
+  // Impostor: +100 for every voter who did NOT catch them.
+  const impostor = lobby.players.find(p => p.playerId === impId);
+  const missed = Object.entries(lobby.votes || {}).filter(([voter, tgt]) => voter !== impId && tgt !== impId).length;
+  if (impostor) impostor.score += 100 * missed;
+  const max = Math.max(0, ...Object.values(counts));
+  const caught = max > 0 && (counts[impId] || 0) === max &&
+    Object.values(counts).filter(c => c === max).length === 1;   // impostor uniquely most-voted
+  const rows = lobby.players
+    .map(p => ({ nickname: p.nickname, votes: counts[p.playerId] || 0, impostor: p.playerId === impId }))
+    .sort((a, b) => b.votes - a.votes);
+  io.to(code).emit('danceReveal', {
+    impostorNick: impostor ? impostor.nickname : '???', caught,
+    mainTrack: lobby.mainTrack, impTrack: lobby.impTrack, rows,
+    scoreboard: scoreboardOf(lobby), last: lobby.qIndex >= lobby.settings.rounds - 1,
+  });
+  lobby.timer = setTimeout(() => lobby.qIndex >= lobby.settings.rounds - 1 ? danceFinish(code) : danceBeginRound(code), DANCE_REVEAL_MS);
+}
+function danceFinish(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.phase = 'finished';
+  io.to(code).emit('arcadeFinished', { game: 'dance', scoreboard: scoreboardOf(lobby) });
+}
+function danceMaybeAdvanceReady(code) {
+  const lobby = lobbies[code];
+  const have = lobby.players.filter(p => p.connected && lobby.ready[p.playerId]).length;
+  if (have >= danceReadyNeed(lobby)) danceToVoting(code);
+}
+function danceMaybeAdvanceVote(code) {
+  const lobby = lobbies[code];
+  const need = lobby.players.filter(p => p.connected).length;
+  const have = lobby.players.filter(p => p.connected && lobby.votes[p.playerId]).length;
+  if (have >= need && need > 0) danceReveal(code);
+}
+
 // Keep an arcade game moving after a player leaves/disconnects mid-round.
 function arcadeAfterDepart(code, pid) {
   const lobby = lobbies[code]; if (!lobby) return;
@@ -1663,6 +1763,10 @@ function arcadeAfterDepart(code, pid) {
     else if (lobby.phase === 'voting') assocMaybeAdvanceVote(code);
   } else if (lobby.game === 'who') {
     if (lobby.phase === 'voting') whoMaybeAdvanceVote(code);
+  } else if (lobby.game === 'dance') {
+    if (pid === lobby.impostorId && (lobby.phase === 'dancing' || lobby.phase === 'voting')) danceReveal(code);
+    else if (lobby.phase === 'dancing') danceMaybeAdvanceReady(code);
+    else if (lobby.phase === 'voting') danceMaybeAdvanceVote(code);
   }
 }
 
@@ -1702,6 +1806,11 @@ function arcadeRejoinSnapshot(lobby, pid, isAdmin, code) {
   } else if (lobby.game === 'who') {
     if (lobby.phase === 'voting')   return { ...base, index: lobby.qIndex, total: lobby.prompts.length, prompt: lobby.prompts[lobby.qIndex], players: arcadePlayers(lobby), picked: lobby.votes[pid] || null, endsAt: lobby.endsAt };
     if (lobby.phase === 'reveal')   return { ...base, prompt: lobby.prompts[lobby.qIndex] };
+  } else if (lobby.game === 'dance') {
+    const amImp = pid === lobby.impostorId;
+    if (lobby.phase === 'dancing')  return { ...base, round: lobby.qIndex, total: lobby.settings.rounds, trackIndex: amImp ? lobby.impTrack : lobby.mainTrack, amImpostor: amImp, players: arcadePlayers(lobby), endsAt: lobby.endsAt, readyNeed: danceReadyNeed(lobby), youReady: !!lobby.ready[pid] };
+    if (lobby.phase === 'voting')   return { ...base, round: lobby.qIndex, total: lobby.settings.rounds, players: arcadePlayers(lobby), picked: lobby.votes[pid] || null, endsAt: lobby.endsAt };
+    if (lobby.phase === 'reveal')   return { ...base, round: lobby.qIndex, total: lobby.settings.rounds };
   }
   return base;
 }
@@ -2064,12 +2173,14 @@ io.on('connection', socket => {
     const code = socket.lobbyCode, lobby = lobbies[code];
     if (!isArcade(lobby) || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
     if (lobby.players.length < 2) return socket.emit('error', 'Potrzeba minimum 2 graczy!');
+    if (lobby.game === 'dance' && lobby.players.length < 3) return socket.emit('error', 'Tańczereczki: potrzeba minimum 3 graczy!');
     if (lobby.game === 'quiz')        quizStart(code);
     else if (lobby.game === 'bluff')  bluffStart(code);
     else if (lobby.game === 'draw')   drawStart(code);
     else if (lobby.game === 'truths') truthsStart(code);
     else if (lobby.game === 'assoc')  assocStart(code);
     else if (lobby.game === 'who')    whoStart(code);
+    else if (lobby.game === 'dance')  danceStart(code);
     broadcastPublicLobbies();
   });
 
@@ -2278,6 +2389,27 @@ io.on('connection', socket => {
     if (!Array.isArray(lobby.customPrompts) || index < 0 || index >= lobby.customPrompts.length) return;
     lobby.customPrompts.splice(index, 1);
     broadcastArcadeLobby(code);
+  });
+
+  // TAŃCZERECZKI
+  socket.on('danceReady', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'dance' || lobby.phase !== 'dancing' || !socket.playerId) return;
+    lobby.ready[socket.playerId] = true;
+    const have = lobby.players.filter(p => p.connected && lobby.ready[p.playerId]).length;
+    io.to(code).emit('danceReadyProgress', { have, need: danceReadyNeed(lobby) });
+    danceMaybeAdvanceReady(code);
+  });
+  socket.on('danceVote', ({ targetId }) => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'dance' || lobby.phase !== 'voting' || !socket.playerId) return;
+    if (targetId === socket.playerId) return;                        // can't vote yourself
+    if (!lobby.players.some(p => p.playerId === targetId)) return;
+    lobby.votes[socket.playerId] = targetId;
+    const need = lobby.players.filter(p => p.connected).length;
+    const have = lobby.players.filter(p => p.connected && lobby.votes[p.playerId]).length;
+    io.to(code).emit('danceVoteProgress', { have, need });
+    danceMaybeAdvanceVote(code);
   });
 
   // ── LEAVE LOBBY (voluntary exit) ─────────────────────────────────────────────

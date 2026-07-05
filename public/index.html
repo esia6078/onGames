@@ -177,6 +177,9 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .reveal-timer{width:120px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;margin-top:4px}
 .reveal-timer-bar{height:100%;background:linear-gradient(90deg,#d946ef,#fbbf24);border-radius:2px;animation:timerBar 3s linear forwards}
 @keyframes timerBar{from{width:100%}to{width:0%}}
+.dance-stage{display:flex;gap:6px;justify-content:center;align-items:flex-end;font-size:3rem;min-height:70px}
+.dance-emoji{display:inline-block;animation:danceBounce .5s ease-in-out infinite alternate}
+@keyframes danceBounce{from{transform:translateY(0) rotate(-8deg)}to{transform:translateY(-14px) rotate(8deg)}}
 
 /* Word reveal GRID (new – shows all assignments) */
 .reveal-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:720px;padding:0 16px}
@@ -364,6 +367,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
       <div class="game-row" data-game="who" onclick="selectGame('who')">
         <div class="gr-emoji">🙋</div>
         <div class="gr-text"><div class="gr-name">Kto z nas?</div><div class="gr-desc">Głosuj, kto najprędzej to zrobi</div></div>
+        <div class="gr-check">✓</div>
+      </div>
+      <div class="game-row" data-game="dance" onclick="selectGame('dance')">
+        <div class="gr-emoji">🕺</div>
+        <div class="gr-text"><div class="gr-name">Tańczereczki</div><div class="gr-desc">Tańcz do muzyki i wykryj impostora</div></div>
         <div class="gr-check">✓</div>
       </div>
     </div>
@@ -816,6 +824,45 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <p class="waiting-text">Kolejna runda za chwilę...</p>
 </div>
 
+<!-- ══════════════════════════════════════ TAŃCZERECZKI ══ -->
+<div class="screen" id="screen-dance">
+  <p class="section-title" id="dc-counter"></p>
+  <!-- Krok 1: odsłona przycisku włączenia muzyki (potrzebny gest użytkownika) -->
+  <div id="dc-pre" style="display:flex;flex-direction:column;gap:14px;align-items:center;width:100%">
+    <div style="font-size:3rem">🎧</div>
+    <div class="logo" style="font-size:1.3rem;text-align:center">Zakładaj słuchawki!</div>
+    <p class="vis-hint" style="text-align:center;margin:0">Za chwilę poleci Twoja muzyka. Tańcz do niej i obserwuj innych.</p>
+    <button class="btn-green" id="dc-play-btn" onclick="danceBeginDancing()">🎵 Włącz muzykę i tańcz!</button>
+  </div>
+  <!-- Krok 2: taniec -->
+  <div id="dc-live" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%">
+    <div class="dance-stage"><span class="dance-emoji">🕺</span><span class="dance-emoji" style="animation-delay:.25s">💃</span><span class="dance-emoji" style="animation-delay:.5s">🕺</span></div>
+    <div class="card" id="dc-role" style="text-align:center;font-weight:700"></div>
+    <div class="timer" id="dc-timer"></div>
+    <button class="btn-main" id="dc-ready-btn" onclick="danceReady()">✅ Gotowy do głosowania</button>
+    <div id="dc-ready-done" class="assign-submitted-badge" style="display:none">✅ Gotowy! Czekam na resztę...</div>
+    <p class="waiting-text" id="dc-ready-progress"></p>
+  </div>
+</div>
+<div class="screen" id="screen-dance-vote">
+  <p class="section-title" id="dv-counter"></p>
+  <div style="font-size:2rem">🔎</div>
+  <div class="logo" style="font-size:1.25rem;text-align:center">Kto był impostorem?</div>
+  <p class="vis-hint" style="text-align:center;margin:0">Kto tańczył do innej muzyki?</p>
+  <div class="timer" id="dv-timer"></div>
+  <div id="dv-options" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+  <p class="waiting-text" id="dv-progress"></p>
+</div>
+<div class="screen" id="screen-dance-reveal">
+  <div style="font-size:2.4rem" id="dr2-emoji">🕵️</div>
+  <div class="logo" style="font-size:1.3rem" id="dr2-headline">Impostor to...</div>
+  <div class="card" id="dr2-impostor" style="text-align:center;font-weight:700;font-size:1.15rem"></div>
+  <div class="card" id="dr2-tracks" style="text-align:center;font-size:.9rem"></div>
+  <div id="dr2-list" style="width:100%;display:flex;flex-direction:column;gap:8px"></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px"><p class="section-title">Ranking</p><div class="scoreboard" id="dr2-scoreboard"></div></div>
+  <p class="waiting-text">Kolejna runda za chwilę...</p>
+</div>
+
 <!-- ══════════════════════════════════════ ARCADE: KONIEC ══ -->
 <div class="screen" id="screen-arcade-finished">
   <div style="font-size:3rem">🏆</div>
@@ -869,13 +916,13 @@ function showToast(html) {
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
 }
 // Screens that top-align + scroll (must be defined before any showScreen call).
-const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished', 'screen-truths-tell', 'screen-truths-guess', 'screen-truths-reveal', 'screen-assoc-write', 'screen-assoc-vote', 'screen-assoc-reveal', 'screen-who-vote', 'screen-who-reveal']);
+const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished', 'screen-truths-tell', 'screen-truths-guess', 'screen-truths-reveal', 'screen-assoc-write', 'screen-assoc-vote', 'screen-assoc-reveal', 'screen-who-vote', 'screen-who-reveal', 'screen-dance', 'screen-dance-vote', 'screen-dance-reveal']);
 const NO_LEAVE_SCREENS = new Set(['screen-home','screen-reconnecting','screen-lobby-admin','screen-lobby-player','screen-pm-lobby','screen-arcade-lobby']);
 
 // Attempt rejoin on load
 let reconnectTimer = null;
 function endReconnect() { if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; } }
-function backToHome() { endReconnect(); clearSession(); showScreen('screen-home'); socket.emit('browsePublic'); }
+function backToHome() { endReconnect(); if (typeof danceStopTrack === 'function') danceStopTrack(); clearSession(); showScreen('screen-home'); socket.emit('browsePublic'); }
 
 const savedSession = getSession();
 if (savedSession && savedSession.code) {
@@ -899,7 +946,7 @@ const GAME_UI = {
   czolko:{e:'🎯',n:'Czółko'}, panstwa:{e:'🌍',n:'Państwa-Miasta'},
   quiz:{e:'🧠',n:'Quiz wiedzy'}, bluff:{e:'🤥',n:'Zmyślacz'}, draw:{e:'🎨',n:'Kalambury'},
   truths:{e:'🕵️',n:'2 prawdy 1 kłamstwo'}, assoc:{e:'😂',n:'Najgorsze skojarzenia'},
-  who:{e:'🙋',n:'Kto z nas?'},
+  who:{e:'🙋',n:'Kto z nas?'}, dance:{e:'🕺',n:'Tańczereczki'},
 };
 // Short how-to shown in every lobby.
 const GAME_HOWTO = {
@@ -911,6 +958,7 @@ const GAME_HOWTO = {
   truths:  'Po kolei każdy podaje o sobie 2 prawdy i 1 kłamstwo. Reszta zgaduje, które zdanie to kłamstwo. Punkty za trafienie i za nabranie innych.',
   assoc:   'Do zdania z luką wpisz najśmieszniejszą odpowiedź. Potem wszyscy głosują na najlepszą (nie na swoją). Punkty za każdy głos.',
   who:     'W każdej rundzie widzicie hasło "Kto z nas...?" i głosujecie na gracza, który najbardziej pasuje. Śmieszny finał: kto dostał najwięcej głosów. Punkty za każdy oddany na Ciebie głos.',
+  dance:   'Każdy dostaje muzykę na słuchawki i tańczy do niej na środku. Jedna osoba (impostor) ma INNĄ piosenkę! Obserwujcie się nawzajem. Gdy 80% kliknie „Gotowy” (albo skończy się czas) — głosujecie, kto był impostorem. Punkty dla tych, którzy go wykryją, i dla impostora, który się nie wyda. Najlepiej ze słuchawkami i min. 3 graczami!',
 };
 function selectGame(g) {
   selectedGame = g;
@@ -1417,9 +1465,9 @@ socket.on('gameEnded', ({ scoreboard }) => {
 });
 
 // ─── ARCADE GAMES (Quiz / Zmyślacz / Kalambury) ───────────────────────────────
-const ARCADE_GAMES = new Set(['quiz','bluff','draw','truths','assoc','who']);
-const ARCADE_META  = { quiz:{emoji:'🧠',title:'Quiz wiedzy'}, bluff:{emoji:'🤥',title:'Zmyślacz'}, draw:{emoji:'🎨',title:'Kalambury'}, truths:{emoji:'🕵️',title:'2 prawdy 1 kłamstwo'}, assoc:{emoji:'😂',title:'Najgorsze skojarzenia'}, who:{emoji:'🙋',title:'Kto z nas?'} };
-const ARCADE_MID_SCREENS = ['screen-quiz','screen-quiz-reveal','screen-bluff-write','screen-bluff-guess','screen-bluff-reveal','screen-draw','screen-draw-reveal','screen-truths-tell','screen-truths-guess','screen-truths-reveal','screen-assoc-write','screen-assoc-vote','screen-assoc-reveal','screen-who-vote','screen-who-reveal'];
+const ARCADE_GAMES = new Set(['quiz','bluff','draw','truths','assoc','who','dance']);
+const ARCADE_META  = { quiz:{emoji:'🧠',title:'Quiz wiedzy'}, bluff:{emoji:'🤥',title:'Zmyślacz'}, draw:{emoji:'🎨',title:'Kalambury'}, truths:{emoji:'🕵️',title:'2 prawdy 1 kłamstwo'}, assoc:{emoji:'😂',title:'Najgorsze skojarzenia'}, who:{emoji:'🙋',title:'Kto z nas?'}, dance:{emoji:'🕺',title:'Tańczereczki'} };
+const ARCADE_MID_SCREENS = ['screen-quiz','screen-quiz-reveal','screen-bluff-write','screen-bluff-guess','screen-bluff-reveal','screen-draw','screen-draw-reveal','screen-truths-tell','screen-truths-guess','screen-truths-reveal','screen-assoc-write','screen-assoc-vote','screen-assoc-reveal','screen-who-vote','screen-who-reveal','screen-dance','screen-dance-vote','screen-dance-reveal'];
 let arcGame = null, arcSettings = {}, arcSettingOptions = null, quizCur = null, quizAnswered = false, bluffSubmitted = false, bluffPicked = null;
 
 function startCountdown(elId, endsAt) {
@@ -1534,8 +1582,9 @@ socket.on('arcadeLobby', (o) => {
   const cur = document.querySelector('.screen.active')?.id;
   if (!ARCADE_MID_SCREENS.includes(cur)) showScreen('screen-arcade-lobby');
 });
-socket.on('arcadeReturnLobby', () => showScreen('screen-arcade-lobby'));
+socket.on('arcadeReturnLobby', () => { if (typeof danceStopTrack === 'function') danceStopTrack(); showScreen('screen-arcade-lobby'); });
 socket.on('arcadeFinished', ({ scoreboard }) => {
+  if (typeof danceStopTrack === 'function') danceStopTrack();
   renderArcadeScoreboard('arc-final-scoreboard', scoreboard);
   document.getElementById('arc-btn-again').style.display = isAdmin ? 'block' : 'none';
   document.getElementById('arc-again-wait').style.display = isAdmin ? 'none' : 'block';
@@ -2019,6 +2068,152 @@ socket.on('whoReveal', (d) => {
   showScreen('screen-who-reveal');
 });
 
+// ── TAŃCZERECZKI ──────────────────────────────────────────────────────────────
+// Utwory są SYNTETYZOWANE w przeglądarce (Web Audio) — brak plików, działa offline.
+// Każdy ma inny nastrój i tempo, żeby impostor był widoczny po ruchu. Kolejność
+// i długość musi się zgadzać z DANCE_TRACK_COUNT na serwerze.
+const DANCE_TRACKS = [
+  { emoji:'🪩', name:'Disco',      bpm:120, wave:'sawtooth', root:110.0, seq:[0,7,12,7,3,7,12,10] },
+  { emoji:'🎧', name:'House',      bpm:126, wave:'square',   root:98.0,  seq:[0,0,12,0,5,5,12,7] },
+  { emoji:'🤠', name:'Country',    bpm:96,  wave:'triangle', root:130.8, seq:[0,4,7,4,0,4,7,9] },
+  { emoji:'🎸', name:'Rock',       bpm:140, wave:'sawtooth', root:82.4,  seq:[0,0,3,5,0,0,7,5] },
+  { emoji:'🌴', name:'Reggae',     bpm:74,  wave:'triangle', root:110.0, seq:[0,7,3,7,0,7,3,10] },
+  { emoji:'🕌', name:'Orient',     bpm:104, wave:'square',   root:146.8, seq:[0,1,4,5,7,5,4,1] },
+  { emoji:'🎺', name:'Salsa',      bpm:110, wave:'sawtooth', root:123.5, seq:[0,3,7,10,7,3,0,3] },
+  { emoji:'🤖', name:'Techno',     bpm:132, wave:'square',   root:65.4,  seq:[0,0,0,12,0,0,0,7] },
+  { emoji:'🎻', name:'Walczyk',    bpm:88,  wave:'triangle', root:196.0, seq:[0,4,7,0,4,7,0,4] },
+  { emoji:'🔥', name:'Trap',       bpm:70,  wave:'sawtooth', root:55.0,  seq:[0,0,3,0,0,3,5,3] },
+  { emoji:'🌊', name:'Chillout',   bpm:80,  wave:'sine',     root:146.8, seq:[0,5,7,9,7,5,4,2] },
+  { emoji:'🎉', name:'Polka',      bpm:118, wave:'square',   root:174.6, seq:[0,7,0,7,4,7,4,0] },
+];
+let danceAudioCtx = null;
+let danceLoop = null;   // { timer, ctx, master, t, stepDur, nextTime, stepIdx }
+function danceGetCtx() {
+  if (!danceAudioCtx) { try { danceAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+  if (danceAudioCtx.state === 'suspended') danceAudioCtx.resume();
+  return danceAudioCtx;
+}
+function danceTone(ctx, freq, time, dur, wave, master, vol) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = wave; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, time);
+  g.gain.exponentialRampToValueAtTime(vol, time + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+  o.connect(g); g.connect(master); o.start(time); o.stop(time + dur + 0.02);
+}
+function danceKick(ctx, time, master) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(150, time); o.frequency.exponentialRampToValueAtTime(50, time + 0.12);
+  g.gain.setValueAtTime(0.9, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
+  o.connect(g); g.connect(master); o.start(time); o.stop(time + 0.16);
+}
+function danceStartTrack(idx) {
+  danceStopTrack();
+  const ctx = danceGetCtx(); if (!ctx) return;
+  const t = DANCE_TRACKS[idx] || DANCE_TRACKS[0];
+  const stepDur = (60 / t.bpm) / 2;                 // ósemki
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(0.0001, ctx.currentTime);
+  master.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.6);
+  master.connect(ctx.destination);
+  danceLoop = { ctx, master, t, stepDur, nextTime: ctx.currentTime + 0.12, stepIdx: 0, timer: null };
+  danceLoop.timer = setInterval(danceSchedule, 25);
+  danceSchedule();
+}
+function danceSchedule() {
+  const L = danceLoop; if (!L) return;
+  while (L.nextTime < L.ctx.currentTime + 0.18) {
+    const i = L.stepIdx, t = L.t;
+    if (i % 2 === 0) danceKick(L.ctx, L.nextTime, L.master);
+    const freq = t.root * Math.pow(2, t.seq[i] / 12);
+    danceTone(L.ctx, freq, L.nextTime, L.stepDur * 0.9, t.wave, L.master, 0.28);
+    if (i % 2 === 1) danceTone(L.ctx, freq * 2, L.nextTime, L.stepDur * 0.5, 'triangle', L.master, 0.14);
+    L.stepIdx = (L.stepIdx + 1) % t.seq.length;
+    L.nextTime += L.stepDur;
+  }
+}
+function danceStopTrack() {
+  if (!danceLoop) return;
+  clearInterval(danceLoop.timer);
+  try { danceLoop.master.gain.exponentialRampToValueAtTime(0.0001, danceLoop.ctx.currentTime + 0.2); danceLoop.master.disconnect(); } catch (e) {}
+  danceLoop = null;
+}
+let danceCur = null, danceReadyDone = false, dancePicked = null;
+function renderDanceStart(d) {
+  danceCur = d; danceReadyDone = !!d.youReady; dancePicked = null;
+  document.getElementById('dc-counter').textContent = `Runda ${d.round + 1} / ${d.total}`;
+  document.getElementById('dc-role').innerHTML = d.amImpostor
+    ? '🤫 Masz <b>INNĄ</b> piosenkę — jesteś impostorem!<br>Udawaj, że tańczysz jak reszta.'
+    : '🎧 Tańcz do swojej muzyki i obserwuj innych.';
+  // Krok 1 (gest użytkownika) vs krok 2 (już tańczy — np. po powrocie do gry)
+  const live = danceLoop || d.youReady;
+  document.getElementById('dc-pre').style.display  = live ? 'none' : 'flex';
+  document.getElementById('dc-live').style.display = live ? 'flex' : 'none';
+  document.getElementById('dc-ready-btn').style.display  = danceReadyDone ? 'none' : 'block';
+  document.getElementById('dc-ready-done').style.display = danceReadyDone ? 'block' : 'none';
+  document.getElementById('dc-ready-progress').textContent = '';
+  if (live && !danceLoop) danceStartTrack(d.trackIndex);
+  startCountdown('dc-timer', d.endsAt);
+  showScreen('screen-dance');
+}
+function danceBeginDancing() {
+  if (!danceCur) return;
+  danceStartTrack(danceCur.trackIndex);
+  document.getElementById('dc-pre').style.display  = 'none';
+  document.getElementById('dc-live').style.display = 'flex';
+}
+function danceReady() {
+  if (danceReadyDone) return; danceReadyDone = true;
+  socket.emit('danceReady');
+  document.getElementById('dc-ready-btn').style.display  = 'none';
+  document.getElementById('dc-ready-done').style.display = 'block';
+}
+socket.on('danceStart', renderDanceStart);
+socket.on('danceReadyProgress', ({ have, need }) => { const el = document.getElementById('dc-ready-progress'); if (el) el.textContent = `Gotowych: ${have}/${need}`; });
+function renderDanceVote(d) {
+  danceStopTrack();
+  dancePicked = d.picked || null;
+  document.getElementById('dv-counter').textContent = `Runda ${d.round + 1} / ${d.total}`;
+  const box = document.getElementById('dv-options'); box.innerHTML = '';
+  d.players.forEach(p => {
+    const me = p.id === myId;
+    const b = document.createElement('button');
+    b.className = 'bluff-opt' + (dancePicked === p.id ? ' picked' : '');
+    b.textContent = p.nickname + (me ? ' (Ty)' : '') + (p.connected ? '' : ' 🔌');
+    if (me || dancePicked) b.disabled = true;         // nie na siebie
+    else b.onclick = () => danceChoose(p.id, b);
+    box.appendChild(b);
+  });
+  document.getElementById('dv-progress').textContent = '';
+  startCountdown('dv-timer', d.endsAt);
+  showScreen('screen-dance-vote');
+}
+function danceChoose(id, btn) {
+  if (dancePicked) return; dancePicked = id;
+  socket.emit('danceVote', { targetId: id });
+  document.querySelectorAll('#dv-options .bluff-opt').forEach(b => b.disabled = true);
+  btn.classList.add('picked');
+}
+socket.on('danceVote', renderDanceVote);
+socket.on('danceVoteProgress', ({ have, need }) => { const el = document.getElementById('dv-progress'); if (el && !dancePicked) el.textContent = `Zagłosowało: ${have}/${need}`; });
+socket.on('danceReveal', (d) => {
+  danceStopTrack();
+  document.getElementById('dr2-emoji').textContent    = d.caught ? '🎉' : '🕵️';
+  document.getElementById('dr2-headline').textContent = d.caught ? 'Impostor złapany!' : 'Impostor uciekł!';
+  document.getElementById('dr2-impostor').innerHTML   = `Impostorem był… <b>${escAttr(d.impostorNick)}</b> ${d.caught ? '😅' : '😎'}`;
+  const mt = DANCE_TRACKS[d.mainTrack], it = DANCE_TRACKS[d.impTrack];
+  document.getElementById('dr2-tracks').innerHTML = mt && it
+    ? `Wszyscy: ${mt.emoji} ${escAttr(mt.name)} • Impostor: ${it.emoji} ${escAttr(it.name)}` : '';
+  const box = document.getElementById('dr2-list'); box.innerHTML = '';
+  d.rows.forEach(r => {
+    const row = document.createElement('div'); row.className = 'bluff-reveal-row' + (r.impostor ? ' real' : '');
+    row.innerHTML = `<div class="brr-text">${r.impostor ? '🎭 ' : ''}${escAttr(r.nickname)}</div><div class="brr-meta">${r.votes} gł.</div>`;
+    box.appendChild(row);
+  });
+  renderArcadeScoreboard('dr2-scoreboard', d.scoreboard);
+  showScreen('screen-dance-reveal');
+});
+
 // ── ARCADE REJOIN ─────────────────────────────────────────────────────────────
 socket.on('arcadeRejoin', (s) => {
   endReconnect();
@@ -2066,6 +2261,10 @@ socket.on('arcadeRejoin', (s) => {
   } else if (s.game === 'who') {
     if (s.phase === 'voting') renderWhoVote(s);
     else if (s.phase === 'reveal') { document.getElementById('wr-prompt').textContent = s.prompt; document.getElementById('wr-list').innerHTML = ''; renderArcadeScoreboard('wr-scoreboard', s.scoreboard); showScreen('screen-who-reveal'); }
+  } else if (s.game === 'dance') {
+    if (s.phase === 'dancing') renderDanceStart(s);
+    else if (s.phase === 'voting') renderDanceVote(s);
+    else if (s.phase === 'reveal') { danceStopTrack(); document.getElementById('dr2-list').innerHTML = ''; document.getElementById('dr2-tracks').innerHTML = ''; document.getElementById('dr2-impostor').textContent = ''; renderArcadeScoreboard('dr2-scoreboard', s.scoreboard); showScreen('screen-dance-reveal'); }
   }
 });
 
