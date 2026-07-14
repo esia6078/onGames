@@ -4,8 +4,11 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
+// Klient jest serwowany z tego samego serwera, więc socket.io łączy się na tę
+// samą domenę. Jeśli ustawisz ALLOWED_ORIGINS – ograniczamy do nich; w innym
+// wypadku pozwalamy na dowolne (same-origin i tak działa poza produkcją).
 const io = new Server(server, {
-  cors: { origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3321', 'http://localhost:3322', 'http://localhost:3323'] }
+  cors: { origin: process.env.ALLOWED_ORIGINS?.split(',') || '*' }
 });
 
 app.use(express.json());
