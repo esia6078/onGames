@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const compression = require('compression');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,8 +12,18 @@ const io = new Server(server, {
   cors: { origin: process.env.ALLOWED_ORIGINS?.split(',') || '*' }
 });
 
+// Gzip/deflate wszystkich odpowiedzi HTTP — index.html spada z ~160 KB do ~30 KB.
+app.use(compression());
 app.use(express.json());
-app.use(express.static('public'));
+// Statyczne pliki: HTML zawsze świeży (często się zmienia), reszta z ETag/304.
+app.use(express.static('public', {
+  etag: true,
+  lastModified: true,
+  maxAge: '1h',
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
 
 // Security headers
 app.use((req, res, next) => {
