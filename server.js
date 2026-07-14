@@ -4,10 +4,20 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: { origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3321', 'http://localhost:3322', 'http://localhost:3323'] }
+});
 
 app.use(express.json());
 app.use(express.static('public'));
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
 
 // ─── OpenAI client (optional – needed only for Państwa-Miasta AI validation) ──
 // The module is optional: the game must run fine even when it isn't installed
@@ -21,6 +31,31 @@ if (process.env.OPENAI_API_KEY) {
   } catch (err) {
     console.warn('OpenAI module unavailable – AI validation disabled:', err.message);
   }
+}
+
+// ─── SECURITY & VALIDATION ────────────────────────────────────────────────────
+const playerRateLimit = new Map();
+function checkRateLimit(socketId, eventName, cooldownMs = 300) {
+  const key = `${socketId}:${eventName}`;
+  const now = Date.now();
+  const lastTime = playerRateLimit.get(key);
+  if (lastTime && now - lastTime < cooldownMs) return false;
+  playerRateLimit.set(key, now);
+  if (playerRateLimit.size > 10000) playerRateLimit.clear();
+  return true;
+}
+
+function sanitizeNick(nick) {
+  return String(nick || '').trim().slice(0, 16).replace(/[<>&"']/g, '');
+}
+
+function validateNumber(val, min = 0, max = Infinity) {
+  return Number.isInteger(val) && val >= min && val <= max;
+}
+
+function validateGameType(game) {
+  const valid = ['czolko','panstwa','monopoly', ...ARCADE_GAME_TYPES];
+  return valid.includes(game) ? game : 'czolko';
 }
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -2167,12 +2202,14 @@ io.on('connection', socket => {
 
   // CREATE LOBBY
   socket.on('createLobby', ({ nickname, playerId, game, visibility, password }) => {
+    if (!checkRateLimit(socket.id, 'createLobby', 500)) return socket.emit('error', 'Za szybko! Czekaj chwilę.');
+
     const pid      = playerId || generateId();
     const code     = generateCode();
-    const valid    = ['czolko','panstwa','monopoly', ...ARCADE_GAME_TYPES];
-    const gameType = valid.includes(game) ? game : 'czolko';
+    const gameType = validateGameType(game);
+    const safeNick = sanitizeNick(nickname) || 'Anonimowy';
 
-    const basePlayer = { playerId: pid, socketId: socket.id, nickname, connected: true, disconnectTimer: null, word: null, score: 0 };
+    const basePlayer = { playerId: pid, socketId: socket.id, nickname: safeNick, connected: true, disconnectTimer: null, word: null, score: 0 };
 
     if (gameType === 'czolko') {
       lobbies[code] = { game: 'czolko', admin: pid, players: [basePlayer], phase: 'waiting', assignments: [], assignTimeout: null, winner: null, endVotes: {}, endVoteTimeout: null };
@@ -2212,6 +2249,8 @@ io.on('connection', socket => {
 
   // JOIN LOBBY
   socket.on('joinLobby', ({ code, nickname, playerId, password }) => {
+    if (!checkRateLimit(socket.id, 'joinLobby', 500)) return socket.emit('error', 'Za szybko! Czekaj chwilę.');
+
     code = (typeof code === 'string' ? code : '').trim().toUpperCase();
     const lobby = lobbies[code];
     if (!lobby)                                              return socket.emit('error', 'Nie ma takiego lobby!');
@@ -2221,7 +2260,8 @@ io.on('connection', socket => {
     if (lobby.game === 'monopoly' && lobby.players.length >= 8) return socket.emit('error', 'Lobby jest pełne (max 8 graczy)!');
 
     const pid = playerId || generateId();
-    lobby.players.push({ playerId: pid, socketId: socket.id, nickname, connected: true, disconnectTimer: null, word: null, score: 0 });
+    const safeNick = sanitizeNick(nickname) || 'Anonimowy';
+    lobby.players.push({ playerId: pid, socketId: socket.id, nickname: safeNick, connected: true, disconnectTimer: null, word: null, score: 0 });
     socket.join(code);
     socket.leave('lobby-browser');
     socket.lobbyCode = code;
@@ -2530,7 +2570,7 @@ io.on('connection', socket => {
     const code = socket.lobbyCode, lobby = lobbies[code];
     if (!isArcade(lobby) || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
     if (lobby.players.length < 2) return socket.emit('error', 'Potrzeba minimum 2 graczy!');
-    if (lobby.game === 'dance' && lobby.players.length < 3) return socket.emit('error', 'Tańczereczki: potrzeba minimum 3 graczy!');
+    if (lobby.game === 'dance' && lobby.players.length < 3) return socket.emit('error', 'Tańcereczki: potrzeba minimum 3 graczy!');
     if (lobby.game === 'quiz')        quizStart(code);
     else if (lobby.game === 'bluff')  bluffStart(code);
     else if (lobby.game === 'draw')   drawStart(code);
@@ -2796,11 +2836,13 @@ io.on('connection', socket => {
     monoStart(code);
   });
   socket.on('monoRoll', () => {
+    if (!checkRateLimit(socket.id, 'monoRoll', 400)) return;
     const code = socket.lobbyCode, lobby = lobbies[code];
     if (!monoIsCurrent(lobby) || lobby.mono.phase!=='preroll') return;
     monoRoll(code);
   });
   socket.on('monoBuy', () => {
+    if (!checkRateLimit(socket.id, 'monoBuy', 400)) return;
     const code = socket.lobbyCode, lobby = lobbies[code]; if (!monoIsCurrent(lobby)) return;
     const m = lobby.mono; if (m.phase!=='buy' || !m.pending || m.pending.type!=='buy') return;
     const pid = socket.playerId, p = monoP(lobby, pid), pos = m.pending.pos, s = MONO_BOARD[pos];
@@ -2815,6 +2857,8 @@ io.on('connection', socket => {
     m.pending = null; m.phase = 'action'; monoBroadcast(code);
   });
   socket.on('monoBuild', ({ pos }) => {
+    if (!checkRateLimit(socket.id, 'monoBuild', 400)) return;
+    if (!validateNumber(pos, 0, 39)) return;
     const code = socket.lobbyCode, lobby = lobbies[code]; if (!monoIsCurrent(lobby)) return;
     const m = lobby.mono; if (!['preroll','action'].includes(m.phase)) return;
     const s = MONO_BOARD[pos]; if (!s || s.t!=='prop') return;
@@ -2828,6 +2872,8 @@ io.on('connection', socket => {
     monoBroadcast(code);
   });
   socket.on('monoSellHouse', ({ pos }) => {
+    if (!checkRateLimit(socket.id, 'monoSellHouse', 400)) return;
+    if (!validateNumber(pos, 0, 39)) return;
     const code = socket.lobbyCode, lobby = lobbies[code]; if (!monoIsCurrent(lobby)) return;
     const m = lobby.mono; if (!['preroll','action','debt'].includes(m.phase)) return;
     const s = MONO_BOARD[pos]; if (!s || s.t!=='prop') return;
@@ -2865,13 +2911,16 @@ io.on('connection', socket => {
   });
   // Handel — dowolny gracz może zaproponować wymianę innemu (w każdej chwili).
   socket.on('monoProposeTrade', ({ to, giveProps, giveMoney, getProps, getMoney }) => {
+    if (!checkRateLimit(socket.id, 'monoProposeTrade', 400)) return;
     const code = socket.lobbyCode, lobby = lobbies[code];
     if (!lobby || lobby.game!=='monopoly' || lobby.phase!=='playing') return;
     const m = lobby.mono; const from = socket.playerId;
     if (m.trade) return socket.emit('error', 'Trwa już inna wymiana — poczekaj.');
     if (!m.pl[from] || m.pl[from].bankrupt || !m.pl[to] || m.pl[to].bankrupt || from===to) return;
-    giveProps = (giveProps||[]).map(Number); getProps = (getProps||[]).map(Number);
+    giveProps = (Array.isArray(giveProps)?giveProps:[]).map(Number).filter(p => validateNumber(p,0,39));
+    getProps = (Array.isArray(getProps)?getProps:[]).map(Number).filter(p => validateNumber(p,0,39));
     giveMoney = Math.max(0, Math.floor(giveMoney||0)); getMoney = Math.max(0, Math.floor(getMoney||0));
+    if (giveMoney > 10000 || getMoney > 10000) return;
     if (giveProps.length+getProps.length===0 && giveMoney===0 && getMoney===0) return;
     if (!giveProps.every(pos => lobby.owner[pos]===from && monoPropTradeable(lobby,pos))) return socket.emit('error', 'Nie możesz oddać tych pól (domy?).');
     if (!getProps.every(pos => lobby.owner[pos]===to && monoPropTradeable(lobby,pos)))   return socket.emit('error', 'Te pola nie należą do gracza.');
