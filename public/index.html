@@ -9,23 +9,47 @@
 <script src="/socket.io/socket.io.js"></script>
 <style>
 /* ────────────────────────────────────────────────────────── BASE ── */
+:root{
+  --bg:#060515;
+  --ink:#f4f3ff;
+  --muted:#a5a3c7;
+  --faint:#6f6d92;
+  --brand1:#ff4ecd;   /* magenta */
+  --brand2:#8b5cf6;   /* violet  */
+  --brand3:#38bdf8;   /* cyan    */
+  --card-bg:rgba(255,255,255,.055);
+  --card-brd:rgba(255,255,255,.11);
+  --radius:20px;
+  --glow:0 8px 40px rgba(139,92,246,.28);
+}
 *{box-sizing:border-box;margin:0;padding:0}
 /* Small headroom so a focused field isn't flush against the keyboard.
    Large values here make iOS Safari yank the page toward the top while
    typing, so keep them modest. */
 html{scroll-padding-bottom:24px;scroll-padding-top:12px}
-body{font-family:'Poppins',sans-serif;background:#07071a;color:#eee;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;overflow-x:hidden}
+body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 /* Tall, input-heavy screens scroll from the top instead of being centred,
    so every field (and the keyboard's headroom) stays reachable. */
 body.scroll-top{align-items:flex-start}
 
-/* Animated gradient background */
-body::before{content:'';position:fixed;inset:0;background:
-  radial-gradient(ellipse at 15% 40%,rgba(120,0,200,.18) 0%,transparent 55%),
-  radial-gradient(ellipse at 85% 15%,rgba(0,80,200,.18) 0%,transparent 55%),
-  radial-gradient(ellipse at 50% 85%,rgba(0,160,100,.12) 0%,transparent 55%);
-  animation:bgPulse 9s ease-in-out infinite alternate;z-index:-1}
-@keyframes bgPulse{0%{transform:scale(1) rotate(0deg)}100%{transform:scale(1.08) rotate(2deg)}}
+/* Animated aurora background — layered colour blobs that slowly drift */
+body::before{content:'';position:fixed;inset:-20%;background:
+  radial-gradient(38% 44% at 12% 28%,rgba(255,78,205,.28) 0%,transparent 60%),
+  radial-gradient(42% 46% at 88% 12%,rgba(56,189,248,.24) 0%,transparent 60%),
+  radial-gradient(50% 50% at 78% 88%,rgba(139,92,246,.26) 0%,transparent 62%),
+  radial-gradient(40% 40% at 20% 92%,rgba(16,185,129,.16) 0%,transparent 60%);
+  filter:blur(14px);animation:auroraDrift 16s ease-in-out infinite alternate;z-index:-2}
+/* Fine grid texture over the aurora for a premium, structured feel */
+body::after{content:'';position:fixed;inset:0;background-image:
+  linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
+  background-size:44px 44px;mask:radial-gradient(circle at 50% 40%,#000 30%,transparent 85%);z-index:-1;pointer-events:none}
+@keyframes auroraDrift{
+  0%{transform:scale(1) translate(0,0) rotate(0deg)}
+  50%{transform:scale(1.12) translate(2%,-1.5%) rotate(1.5deg)}
+  100%{transform:scale(1.06) translate(-2%,2%) rotate(-1.5deg)}
+}
+@media (prefers-reduced-motion:reduce){body::before{animation:none}}
 
 /* ──────────────────────────────────────────────────── SCREENS ── */
 .screen{display:none;flex-direction:column;align-items:center;gap:18px;width:90%;max-width:500px;padding:24px 0}
@@ -36,49 +60,64 @@ body::before{content:'';position:fixed;inset:0;background:
 #screen-pm-round{padding-bottom:min(65vh,480px)}
 
 /* ──────────────────────────────────────────────────── TYPOGRAPHY ── */
-.logo{font-size:2.8rem;font-weight:800;background:linear-gradient(135deg,#d946ef,#818cf8,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center;line-height:1.1}
-.logo-sub{font-size:.82rem;color:#6b7280;letter-spacing:3px;text-transform:uppercase}
-.section-title{font-size:.72rem;color:#6b7280;text-transform:uppercase;letter-spacing:2px;text-align:center}
-.error{color:#f87171;font-size:.85rem;text-align:center;min-height:1.2em}
-.waiting-text{color:#9ca3af;font-size:.9rem;text-align:center}
+.logo{font-size:3.1rem;font-weight:800;letter-spacing:-1px;background:linear-gradient(120deg,var(--brand1),var(--brand2) 45%,var(--brand3));background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center;line-height:1.05;animation:logoShine 6s linear infinite;filter:drop-shadow(0 4px 24px rgba(139,92,246,.35))}
+@keyframes logoShine{to{background-position:200% center}}
+.logo-sub{font-size:.82rem;color:var(--muted);letter-spacing:3px;text-transform:uppercase;font-weight:600}
+.section-title{font-size:.72rem;color:var(--faint);text-transform:uppercase;letter-spacing:2px;text-align:center;font-weight:600}
+.error{color:#fb7185;font-size:.85rem;text-align:center;min-height:1.2em}
+.waiting-text{color:var(--muted);font-size:.9rem;text-align:center}
 
 /* ──────────────────────────────────────────────────── CARD / GLASS ── */
-.card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:22px;width:100%;backdrop-filter:blur(12px)}
+.card{position:relative;background:var(--card-bg);border:1px solid var(--card-brd);border-radius:var(--radius);padding:24px;width:100%;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 12px 48px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08)}
+/* Subtle top highlight sheen on cards */
+.card::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,rgba(255,255,255,.16),transparent 40%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 
 /* ──────────────────────────────────────────────────── INPUTS ── */
-input,textarea{width:100%;padding:13px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.13);font-size:1rem;background:rgba(255,255,255,.06);color:#eee;font-family:'Poppins',sans-serif;transition:border .2s,box-shadow .2s;scroll-margin-bottom:24px;scroll-margin-top:24px}
-input:focus,textarea:focus{outline:none;border-color:#818cf8;box-shadow:0 0 0 3px rgba(129,140,248,.15)}
-input::placeholder,textarea::placeholder{color:#4b5563}
+input,textarea{width:100%;padding:14px 16px;border-radius:13px;border:1px solid rgba(255,255,255,.13);font-size:1rem;background:rgba(255,255,255,.05);color:var(--ink);font-family:'Poppins',sans-serif;transition:border .2s,box-shadow .2s,background .2s;scroll-margin-bottom:24px;scroll-margin-top:24px}
+input:focus,textarea:focus{outline:none;border-color:var(--brand2);background:rgba(255,255,255,.08);box-shadow:0 0 0 3px rgba(139,92,246,.22)}
+input::placeholder,textarea::placeholder{color:var(--faint)}
 
 /* ──────────────────────────────────────────────────── BUTTONS ── */
-button{width:100%;padding:13px;border-radius:12px;border:none;font-size:.95rem;cursor:pointer;font-weight:600;font-family:'Poppins',sans-serif;transition:all .18s;position:relative;overflow:hidden}
-button:active{transform:scale(.97)}
-button:focus-visible{outline:2px solid #818cf8;outline-offset:2px}
-button:disabled{opacity:.45;cursor:not-allowed}
-.btn-main  {background:linear-gradient(135deg,#d946ef,#818cf8);color:#fff;box-shadow:0 4px 20px rgba(139,92,246,.3)}
-.btn-sec   {background:linear-gradient(135deg,#38bdf8,#0284c7);color:#fff;box-shadow:0 4px 16px rgba(56,189,248,.25)}
-.btn-green {background:linear-gradient(135deg,#34d399,#059669);color:#fff;box-shadow:0 4px 16px rgba(52,211,153,.3)}
-.btn-stop  {background:linear-gradient(135deg,#f87171,#dc2626);color:#fff;box-shadow:0 4px 16px rgba(248,113,113,.3)}
-.btn-ghost {background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.13);color:#ccc}
+button{width:100%;padding:14px;border-radius:13px;border:none;font-size:.97rem;cursor:pointer;font-weight:700;font-family:'Poppins',sans-serif;transition:transform .16s,box-shadow .2s,filter .2s;position:relative;overflow:hidden;letter-spacing:.2px}
+/* Glossy sweep on top of gradient buttons */
+button::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.22),transparent 45%);opacity:.7;pointer-events:none}
+.btn-ghost::after{display:none}
+button:hover{transform:translateY(-2px);filter:brightness(1.06)}
+button:active{transform:translateY(0) scale(.98)}
+button:focus-visible{outline:2px solid var(--brand3);outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
+.btn-main  {background:linear-gradient(135deg,var(--brand1),var(--brand2));color:#fff;box-shadow:0 6px 24px rgba(255,78,205,.32)}
+.btn-sec   {background:linear-gradient(135deg,var(--brand3),#0284c7);color:#fff;box-shadow:0 6px 22px rgba(56,189,248,.3)}
+.btn-green {background:linear-gradient(135deg,#34d399,#059669);color:#fff;box-shadow:0 6px 22px rgba(52,211,153,.32)}
+.btn-stop  {background:linear-gradient(135deg,#fb7185,#dc2626);color:#fff;box-shadow:0 6px 22px rgba(248,113,113,.32)}
+.btn-ghost {background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#e6e5f5;box-shadow:none}
+.btn-ghost:hover{background:rgba(255,255,255,.11)}
 
 /* ──────────────────────────────────────────────── LOBBY CODE BOX ── */
-.code-box{background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:14px 36px;border-radius:18px;font-size:2.4rem;font-weight:800;letter-spacing:10px;text-align:center;box-shadow:0 8px 32px rgba(124,58,237,.4);cursor:pointer;transition:transform .15s,box-shadow .15s;user-select:all}
-.code-box:hover{transform:translateY(-2px);box-shadow:0 12px 36px rgba(124,58,237,.5)}
-.code-hint{font-size:.78rem;color:#9ca3af;text-align:center}
+.code-box{background:linear-gradient(135deg,var(--brand2),#4f46e5);padding:16px 36px;border-radius:18px;font-size:2.5rem;font-weight:800;letter-spacing:10px;text-align:center;box-shadow:0 10px 36px rgba(124,58,237,.45),inset 0 1px 0 rgba(255,255,255,.2);cursor:pointer;transition:transform .15s,box-shadow .15s;user-select:all}
+.code-box:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(124,58,237,.55),inset 0 1px 0 rgba(255,255,255,.2)}
+.code-hint{font-size:.78rem;color:var(--muted);text-align:center}
 
 /* Game list (home) */
 /* Kafelki gier — 2 kolumny, każda gra w swoim kolorze dla czytelności */
-.game-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
-.game-tile{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:16px 10px 13px;border-radius:16px;border:2px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);cursor:pointer;transition:transform .12s,border-color .15s,background .15s;user-select:none}
-.game-tile:active{transform:scale(.97)}
-.game-tile .gt-badge{width:52px;height:52px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:1.7rem;background:var(--cb);border:1px solid var(--c)}
-.game-tile .gt-name{font-weight:700;font-size:.9rem;line-height:1.12}
-.game-tile .gt-desc{font-size:.68rem;color:#9ca3af;line-height:1.18}
-.game-tile .gt-check{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,.15);color:transparent;font-size:.6rem;font-weight:800;display:flex;align-items:center;justify-content:center}
-.game-tile .gt-info{position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;border:1px solid rgba(147,197,253,.5);background:rgba(59,130,246,.16);color:#93c5fd;font-size:.72rem;font-weight:800;font-style:italic;font-family:Georgia,serif;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2}
+.game-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}
+.game-tile{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;padding:18px 12px 15px;border-radius:18px;border:1.5px solid rgba(255,255,255,.08);background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(255,255,255,.02));cursor:pointer;transition:transform .18s cubic-bezier(.2,.7,.3,1),border-color .18s,background .18s,box-shadow .25s;user-select:none;overflow:hidden}
+/* Colour glow that blooms from the game's own colour on hover/select */
+.game-tile::before{content:'';position:absolute;inset:0;background:radial-gradient(70% 60% at 50% 0%,var(--cb),transparent 70%);opacity:0;transition:opacity .25s;pointer-events:none}
+.game-tile:hover{transform:translateY(-3px);border-color:var(--c);box-shadow:0 12px 30px -8px var(--cb)}
+.game-tile:hover::before{opacity:1}
+.game-tile:active{transform:translateY(-1px) scale(.98)}
+.game-tile .gt-badge{width:56px;height:56px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-size:1.85rem;background:var(--cb);border:1px solid var(--c);box-shadow:0 4px 16px -4px var(--cb);transition:transform .18s}
+.game-tile:hover .gt-badge{transform:scale(1.08) rotate(-4deg)}
+.game-tile .gt-name{font-weight:700;font-size:.92rem;line-height:1.12}
+.game-tile .gt-desc{font-size:.68rem;color:var(--muted);line-height:1.18}
+.game-tile .gt-check{position:absolute;top:9px;right:9px;width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,.15);color:transparent;font-size:.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;transition:all .18s}
+.game-tile .gt-info{position:absolute;top:7px;left:7px;width:21px;height:21px;border-radius:50%;border:1px solid rgba(147,197,253,.5);background:rgba(59,130,246,.16);color:#bfdbfe;font-size:.74rem;font-weight:800;font-style:italic;font-family:Georgia,serif;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;transition:transform .15s,background .15s}
+.game-tile .gt-info:hover{background:rgba(59,130,246,.32)}
 .game-tile .gt-info:active{transform:scale(.9)}
-.game-tile.selected{border-color:var(--c);background:var(--cb)}
-.game-tile.selected .gt-badge{box-shadow:0 0 0 3px var(--cb)}
+.game-tile.selected{border-color:var(--c);background:var(--cb);box-shadow:0 10px 30px -10px var(--cb)}
+.game-tile.selected::before{opacity:1}
+.game-tile.selected .gt-badge{box-shadow:0 0 0 3px var(--cb),0 6px 20px -4px var(--c)}
 .game-tile.selected .gt-check{background:var(--c);border-color:var(--c);color:#0b1020}
 
 /* Visibility (public/private) segmented toggle */
@@ -146,7 +185,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
 /* ──────────────────────────────────────────────── PLAYER LIST ── */
 .players-list{display:flex;flex-direction:column;gap:8px;width:100%}
-.player-item{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:11px;padding:11px 14px;display:flex;align-items:center;gap:11px;transition:background .15s}
+.player-item{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:13px;padding:12px 14px;display:flex;align-items:center;gap:11px;transition:background .15s,transform .15s}
+.player-item:hover{background:rgba(255,255,255,.08)}
 .player-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;flex-shrink:0}
 .player-item-name{font-weight:600;flex:1}
 .player-item-badge{font-size:.68rem;color:#fbbf24;background:rgba(251,191,36,.12);padding:2px 8px;border-radius:20px}
@@ -410,7 +450,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <div class="screen active" id="screen-home">
   <div style="font-size:2.5rem;text-align:center">🎮</div>
   <div class="logo">Gry towarzyskie</div>
-  <div class="logo-sub">9 gier • grajcie razem na telefonach 🎉</div>
+  <div class="logo-sub">10 gier • grajcie razem na telefonach 🎉</div>
 
   <div class="card" style="display:flex;flex-direction:column;gap:14px">
     <input id="nickname" placeholder="✏️ Twój nick" maxlength="16">
