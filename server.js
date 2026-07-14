@@ -2570,7 +2570,7 @@ io.on('connection', socket => {
     const code = socket.lobbyCode, lobby = lobbies[code];
     if (!isArcade(lobby) || lobby.admin !== socket.playerId || lobby.phase !== 'waiting') return;
     if (lobby.players.length < 2) return socket.emit('error', 'Potrzeba minimum 2 graczy!');
-    if (lobby.game === 'dance' && lobby.players.length < 3) return socket.emit('error', 'Tańczereczki: potrzeba minimum 3 graczy!');
+    if (lobby.game === 'dance' && lobby.players.length < 3) return socket.emit('error', 'Tańcereczki: potrzeba minimum 3 graczy!');
     if (lobby.game === 'quiz')        quizStart(code);
     else if (lobby.game === 'bluff')  bluffStart(code);
     else if (lobby.game === 'draw')   drawStart(code);

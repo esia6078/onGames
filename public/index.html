@@ -441,8 +441,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
       <div class="game-tile" data-game="who" style="--c:#22d3ee;--cb:rgba(34,211,238,.16)" onclick="selectGame('who')" role="button" aria-label="Kto z nas — Głosuj na gracza"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('who')" aria-label="Instrukcja: Kto z nas">i</div>
         <div class="gt-badge">🙋</div><div class="gt-name">Kto z nas?</div><div class="gt-desc">Głosuj na gracza</div><div class="gt-check">✓</div>
       </div>
-      <div class="game-tile" data-game="dance" style="--c:#e879f9;--cb:rgba(232,121,249,.16)" onclick="selectGame('dance')" role="button" aria-label="Tańczereczki — Tańcz i wykryj impostora"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('dance')" aria-label="Instrukcja: Tańczereczki">i</div>
-        <div class="gt-badge">🕺</div><div class="gt-name">Tańczereczki</div><div class="gt-desc">Tańcz i wykryj impostora</div><div class="gt-check">✓</div>
+      <div class="game-tile" data-game="dance" style="--c:#e879f9;--cb:rgba(232,121,249,.16)" onclick="selectGame('dance')" role="button" aria-label="Tańcereczki — Tańcz i wykryj impostora"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('dance')" aria-label="Instrukcja: Tańcereczki">i</div>
+        <div class="gt-badge">🕺</div><div class="gt-name">Tańcereczki</div><div class="gt-desc">Tańcz i wykryj impostora</div><div class="gt-check">✓</div>
       </div>
       <div class="game-tile" data-game="monopoly" style="--c:#4ade80;--cb:rgba(74,222,128,.16)" onclick="selectGame('monopoly')" role="button" aria-label="Monopoly — Kupuj, buduj, zbankrutuj innych"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('monopoly')" aria-label="Instrukcja: Monopoly">i</div>
         <div class="gt-badge">🎩</div><div class="gt-name">Monopoly</div><div class="gt-desc">Kupuj, buduj, zbankrutuj innych</div><div class="gt-check">✓</div>
@@ -1110,7 +1110,7 @@ const GAME_UI = {
   czolko:{e:'🎯',n:'Czółko'}, panstwa:{e:'🌍',n:'Państwa-Miasta'},
   quiz:{e:'🧠',n:'Quiz wiedzy'}, bluff:{e:'🤥',n:'Zmyślacz'}, draw:{e:'🎨',n:'Kalambury'},
   truths:{e:'🕵️',n:'2 prawdy 1 kłamstwo'}, assoc:{e:'😂',n:'Najgorsze skojarzenia'},
-  who:{e:'🙋',n:'Kto z nas?'}, dance:{e:'🕺',n:'Tańczereczki'}, monopoly:{e:'🎩',n:'Monopoly'},
+  who:{e:'🙋',n:'Kto z nas?'}, dance:{e:'🕺',n:'Tańcereczki'}, monopoly:{e:'🎩',n:'Monopoly'},
 };
 // Short how-to shown in every lobby.
 const GAME_HOWTO = {
@@ -1648,7 +1648,7 @@ socket.on('gameEnded', ({ scoreboard }) => {
 
 // ─── ARCADE GAMES (Quiz / Zmyślacz / Kalambury) ───────────────────────────────
 const ARCADE_GAMES = new Set(['quiz','bluff','draw','truths','assoc','who','dance']);
-const ARCADE_META  = { quiz:{emoji:'🧠',title:'Quiz wiedzy'}, bluff:{emoji:'🤥',title:'Zmyślacz'}, draw:{emoji:'🎨',title:'Kalambury'}, truths:{emoji:'🕵️',title:'2 prawdy 1 kłamstwo'}, assoc:{emoji:'😂',title:'Najgorsze skojarzenia'}, who:{emoji:'🙋',title:'Kto z nas?'}, dance:{emoji:'🕺',title:'Tańczereczki'} };
+const ARCADE_META  = { quiz:{emoji:'🧠',title:'Quiz wiedzy'}, bluff:{emoji:'🤥',title:'Zmyślacz'}, draw:{emoji:'🎨',title:'Kalambury'}, truths:{emoji:'🕵️',title:'2 prawdy 1 kłamstwo'}, assoc:{emoji:'😂',title:'Najgorsze skojarzenia'}, who:{emoji:'🙋',title:'Kto z nas?'}, dance:{emoji:'🕺',title:'Tańcereczki'} };
 const ARCADE_MID_SCREENS = ['screen-quiz','screen-quiz-reveal','screen-bluff-write','screen-bluff-guess','screen-bluff-reveal','screen-draw','screen-draw-reveal','screen-truths-tell','screen-truths-guess','screen-truths-reveal','screen-assoc-write','screen-assoc-vote','screen-assoc-reveal','screen-who-vote','screen-who-reveal','screen-dance-ready','screen-dance','screen-dance-vote','screen-dance-reveal'];
 let arcGame = null, arcSettings = {}, arcSettingOptions = null, quizCur = null, quizAnswered = false, bluffSubmitted = false, bluffPicked = null;
 
