@@ -90,7 +90,7 @@ const ROUND_OPTIONS       = [3, 5, 10, 999];   // 999 = "bez limitu"
 const MAX_CATEGORIES      = 12;
 const MAX_CUSTOM_CAT_LEN  = 24;
 const POINT_STEP          = 5;                  // each net downvote lowers points by 5
-const ARCADE_GAME_TYPES   = ['quiz','bluff','draw','truths','assoc','who','dance'];
+const ARCADE_GAME_TYPES   = ['quiz','bluff','draw','truths','assoc','who','dance','grabmic'];
 const DANCE_TRACK_COUNT   = 269;  // must match DANCE_SONGS length on the client
 
 // ─── ARCADE GAMES DATA ──────────────────────────────────────────────────────
@@ -962,6 +962,10 @@ const DANCE_DURATIONS    = [60_000, 120_000, 180_000];  // 1 / 2 / 3 min tańca 
 const DANCE_READY_MAXWAIT = 180_000; // start i tak po tym czasie, gdyby ktoś nie klikał
 const DANCE_VOTE_MS   = 25_000;
 const DANCE_REVEAL_MS = 10_000;
+const GRABMIC_GRAB_MS   = 30_000;   // okno na złapanie mikrofonu
+const GRABMIC_SING_MAX  = 150_000;  // awaryjny limit śpiewania
+const GRABMIC_JUDGE_MS  = 25_000;   // czas na werdykt reszty
+const GRABMIC_REVEAL_MS = 5_000;
 
 const ARCADE_SETTING_OPTIONS = {
   quiz:   { key: 'questions', label: 'Liczba pytań',       values: [5, 10, 15] },
@@ -971,7 +975,34 @@ const ARCADE_SETTING_OPTIONS = {
   assoc:  { key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 8] },
   who:    { key: 'rounds',    label: 'Liczba rund',        values: [7, 12, 20] },
   dance:  { key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 8] },
+  grabmic:{ key: 'rounds',    label: 'Liczba rund',        values: [3, 5, 10] },
 };
+
+// ── GRAB THE MIC — słowa/tematy do zaśpiewania (100 PL + 100 EN) ──────────────
+const GRABMIC_WORDS_PL = [
+  'miłość','noc','słońce','deszcz','serce','taniec','wolność','marzenia','gwiazdy','ogień',
+  'morze','droga','czas','lato','zima','wiatr','anioł','róża','łzy','uśmiech',
+  'przyjaźń','tęsknota','pocałunek','wspomnienie','nadzieja','szczęście','samotność','podróż','dom','mama',
+  'dziecko','przyjaciel','pieniądze','impreza','weekend','wakacje','kawa','czekolada','telefon','muzyka',
+  'gitara','perkusja','koncert','scena','mikrofon','radio','disco','rock','rap','ballada',
+  'księżyc','niebo','chmury','burza','śnieg','kwiaty','las','rzeka','góry','plaża',
+  'miasto','ulica','światła','samochód','pociąg','samolot','lot','skrzydła','sen','poranek',
+  'wieczór','północ','świt','zachód','wschód','pożegnanie','powrót','spotkanie','randka','wesele',
+  'zdrada','kłamstwo','prawda','tajemnica','obietnica','przysięga','walka','zwycięstwo','porażka','odwaga',
+  'strach','gniew','radość','smutek','spokój','szaleństwo','pasja','ogień','lód','burza',
+];
+const GRABMIC_WORDS_EN = [
+  'love','night','sun','rain','heart','dance','freedom','dream','stars','fire',
+  'sea','road','time','summer','winter','wind','angel','rose','tears','smile',
+  'friend','baby','kiss','memory','hope','happy','lonely','journey','home','mama',
+  'child','money','party','weekend','holiday','coffee','sugar','phone','music','radio',
+  'guitar','drums','concert','stage','mic','disco','rock','rap','soul','blues',
+  'moon','sky','clouds','storm','snow','flowers','forest','river','mountains','beach',
+  'city','street','lights','car','train','plane','fly','wings','sleep','morning',
+  'evening','midnight','dawn','sunset','sunrise','goodbye','back','meet','date','wedding',
+  'lie','truth','secret','promise','fight','win','lose','brave','fear','anger',
+  'joy','sad','peace','crazy','wild','young','gold','diamond','crown','king',
+];
 
 const ASSOC_PROMPTS = [
   'Najgorszy prezent pod choinkę to ___.',
@@ -1698,6 +1729,103 @@ function whoMaybeAdvanceVote(code) {
   if (have >= need && need > 0) whoReveal(code);
 }
 
+// ── GRAB THE MIC ─────────────────────────────────────────────────────────────
+// Temat → kto pierwszy „złapie mikrofon”, śpiewa na żywo → klika „skończyłem” →
+// reszta głosuje czy zaliczają. Jeśli tak, śpiewak dostaje punkty.
+function grabmicNick(lobby, pid) {
+  const p = lobby.players.find(x => x.playerId === pid);
+  return p ? p.nickname : '?';
+}
+function grabmicStart(code) {
+  const lobby = lobbies[code];
+  lobby.players.forEach(p => { p.score = 0; });
+  const n = Math.min(lobby.settings.rounds, GRABMIC_WORDS_PL.length + GRABMIC_WORDS_EN.length);
+  lobby.words = shuffle([...GRABMIC_WORDS_PL, ...GRABMIC_WORDS_EN]).slice(0, n);
+  lobby.qIndex = -1;
+  grabmicBeginRound(code);
+}
+function grabmicBeginRound(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.qIndex += 1;
+  if (lobby.qIndex >= lobby.words.length) return grabmicFinish(code);
+  lobby.phase = 'grab'; lobby.singerId = null; lobby.votes = {};
+  lobby.endsAt = Date.now() + GRABMIC_GRAB_MS;
+  io.to(code).emit('grabmicGrab', {
+    index: lobby.qIndex, total: lobby.words.length,
+    word: lobby.words[lobby.qIndex], players: arcadePlayers(lobby), endsAt: lobby.endsAt,
+  });
+  lobby.timer = setTimeout(() => grabmicReveal(code), GRABMIC_GRAB_MS);   // nikt nie złapał → pusta runda
+}
+function grabmicGrabbed(code, pid) {
+  const lobby = lobbies[code];
+  if (!lobby || lobby.phase !== 'grab' || lobby.singerId) return;
+  const p = lobby.players.find(x => x.playerId === pid && x.connected);
+  if (!p) return;
+  clearGameTimer(lobby);
+  lobby.singerId = pid; lobby.phase = 'singing';
+  lobby.endsAt = Date.now() + GRABMIC_SING_MAX;
+  io.to(code).emit('grabmicSinging', {
+    index: lobby.qIndex, total: lobby.words.length, word: lobby.words[lobby.qIndex],
+    singerId: pid, singerNick: p.nickname, endsAt: lobby.endsAt,
+  });
+  lobby.timer = setTimeout(() => grabmicToJudging(code), GRABMIC_SING_MAX);
+}
+function grabmicToJudging(code) {
+  const lobby = lobbies[code];
+  if (!lobby || lobby.phase !== 'singing') return;
+  clearGameTimer(lobby);
+  lobby.phase = 'judging'; lobby.votes = {};
+  lobby.endsAt = Date.now() + GRABMIC_JUDGE_MS;
+  io.to(code).emit('grabmicJudge', {
+    index: lobby.qIndex, total: lobby.words.length, word: lobby.words[lobby.qIndex],
+    singerId: lobby.singerId, singerNick: grabmicNick(lobby, lobby.singerId), endsAt: lobby.endsAt,
+  });
+  lobby.timer = setTimeout(() => grabmicReveal(code), GRABMIC_JUDGE_MS);
+}
+function grabmicJudges(lobby) {   // kto może głosować = połączeni oprócz śpiewaka
+  return lobby.players.filter(p => p.connected && p.playerId !== lobby.singerId);
+}
+function grabmicMaybeAdvanceVote(code) {
+  const lobby = lobbies[code];
+  if (!lobby || lobby.phase !== 'judging') return;
+  const judges = grabmicJudges(lobby);
+  const have = judges.filter(p => lobby.votes[p.playerId]).length;
+  if (judges.length > 0 && have >= judges.length) grabmicReveal(code);
+}
+function grabmicReveal(code) {
+  const lobby = lobbies[code];
+  if (!lobby || (lobby.phase !== 'grab' && lobby.phase !== 'singing' && lobby.phase !== 'judging')) return;
+  clearGameTimer(lobby);
+  const hadSinger = !!lobby.singerId;
+  let yes = 0, no = 0, approved = false;
+  if (hadSinger) {
+    Object.values(lobby.votes || {}).forEach(v => { if (v === 'yes') yes++; else if (v === 'no') no++; });
+    approved = yes >= no;                       // remis → zaliczamy (kredyt zaufania)
+    if (approved) {
+      const p = lobby.players.find(x => x.playerId === lobby.singerId);
+      if (p) p.score += 100;
+    }
+  }
+  lobby.phase = 'reveal';
+  io.to(code).emit('grabmicReveal', {
+    word: lobby.words[lobby.qIndex],
+    singerNick: hadSinger ? grabmicNick(lobby, lobby.singerId) : null,
+    approved, yes, no, noSinger: !hadSinger,
+    scoreboard: scoreboardOf(lobby), last: lobby.qIndex >= lobby.words.length - 1,
+  });
+  lobby.timer = setTimeout(
+    () => lobby.qIndex >= lobby.words.length - 1 ? grabmicFinish(code) : grabmicBeginRound(code),
+    GRABMIC_REVEAL_MS
+  );
+}
+function grabmicFinish(code) {
+  const lobby = lobbies[code];
+  clearGameTimer(lobby);
+  lobby.phase = 'finished';
+  io.to(code).emit('arcadeFinished', { game: 'grabmic', scoreboard: scoreboardOf(lobby) });
+}
+
 // ── TAŃCZERECZKI (silent-disco impostor) ─────────────────────────────────────
 function danceReadyNeed(lobby) {
   const connected = lobby.players.filter(p => p.connected).length;
@@ -1839,6 +1967,10 @@ function arcadeAfterDepart(code, pid) {
     else if (lobby.phase === 'voting') assocMaybeAdvanceVote(code);
   } else if (lobby.game === 'who') {
     if (lobby.phase === 'voting') whoMaybeAdvanceVote(code);
+  } else if (lobby.game === 'grabmic') {
+    // Śpiewak wyszedł w trakcie występu/werdyktu → zamknij rundę.
+    if ((lobby.phase === 'singing' || lobby.phase === 'judging') && pid === lobby.singerId) grabmicReveal(code);
+    else if (lobby.phase === 'judging') grabmicMaybeAdvanceVote(code);
   } else if (lobby.game === 'dance') {
     if (pid === lobby.impostorId && (lobby.phase === 'dancing' || lobby.phase === 'voting')) danceReveal(code);
     else if (lobby.phase === 'ready') danceMaybeAdvanceReady(code);   // ktoś wyszedł → próg 80% mógł zostać osiągnięty
@@ -1883,6 +2015,12 @@ function arcadeRejoinSnapshot(lobby, pid, isAdmin, code) {
   } else if (lobby.game === 'who') {
     if (lobby.phase === 'voting')   return { ...base, index: lobby.qIndex, total: lobby.prompts.length, prompt: lobby.prompts[lobby.qIndex], players: arcadePlayers(lobby), picked: lobby.votes[pid] || null, endsAt: lobby.endsAt };
     if (lobby.phase === 'reveal')   return { ...base, prompt: lobby.prompts[lobby.qIndex] };
+  } else if (lobby.game === 'grabmic') {
+    const w = lobby.words[lobby.qIndex];
+    if (lobby.phase === 'grab')     return { ...base, index: lobby.qIndex, total: lobby.words.length, word: w, players: arcadePlayers(lobby), endsAt: lobby.endsAt };
+    if (lobby.phase === 'singing')  return { ...base, index: lobby.qIndex, total: lobby.words.length, word: w, singerId: lobby.singerId, singerNick: grabmicNick(lobby, lobby.singerId), amSinger: pid === lobby.singerId, endsAt: lobby.endsAt };
+    if (lobby.phase === 'judging')  return { ...base, index: lobby.qIndex, total: lobby.words.length, word: w, singerId: lobby.singerId, singerNick: grabmicNick(lobby, lobby.singerId), amSinger: pid === lobby.singerId, picked: lobby.votes[pid] || null, endsAt: lobby.endsAt };
+    if (lobby.phase === 'reveal')   return { ...base, word: w };
   } else if (lobby.game === 'dance') {
     const amImp = pid === lobby.impostorId;
     if (lobby.phase === 'ready')    return { ...base, players: arcadePlayers(lobby), need: danceReadyNeed(lobby), endsAt: lobby.endsAt, youReady: !!lobby.ready[pid] };
@@ -2592,6 +2730,7 @@ io.on('connection', socket => {
     else if (lobby.game === 'assoc')  assocStart(code);
     else if (lobby.game === 'who')    whoStart(code);
     else if (lobby.game === 'dance')  danceStart(code);
+    else if (lobby.game === 'grabmic') grabmicStart(code);
     broadcastPublicLobbies();
   });
 
@@ -2778,6 +2917,32 @@ io.on('connection', socket => {
     const have = lobby.players.filter(p => p.connected && lobby.votes[p.playerId]).length;
     io.to(code).emit('whoVoteProgress', { have, need });
     whoMaybeAdvanceVote(code);
+  });
+
+  // GRAB THE MIC
+  socket.on('grabMicGrab', () => {
+    if (!checkRateLimit(socket.id, 'grabMicGrab', 300)) return;
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'grabmic' || lobby.phase !== 'grab' || !socket.playerId) return;
+    grabmicGrabbed(code, socket.playerId);
+  });
+  socket.on('grabMicDone', () => {
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'grabmic' || lobby.phase !== 'singing') return;
+    if (lobby.singerId !== socket.playerId) return;
+    grabmicToJudging(code);
+  });
+  socket.on('grabMicVote', ({ verdict }) => {
+    if (!checkRateLimit(socket.id, 'grabMicVote', 250)) return;
+    const code = socket.lobbyCode, lobby = lobbies[code];
+    if (!lobby || lobby.game !== 'grabmic' || lobby.phase !== 'judging' || !socket.playerId) return;
+    if (socket.playerId === lobby.singerId) return;                 // śpiewak nie ocenia siebie
+    if (verdict !== 'yes' && verdict !== 'no') return;
+    lobby.votes[socket.playerId] = verdict;
+    const judges = grabmicJudges(lobby);
+    const have = judges.filter(p => lobby.votes[p.playerId]).length;
+    io.to(code).emit('grabMicJudgeProgress', { have, need: judges.length });
+    grabmicMaybeAdvanceVote(code);
   });
   // Admin adds a custom "Kto z nas...?" prompt (used in this lobby's game).
   socket.on('whoAddPrompt', ({ text }) => {

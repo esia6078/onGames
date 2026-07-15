@@ -400,6 +400,15 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 .info-title{font-size:1.3rem;font-weight:800}
 .info-body{font-size:.94rem;line-height:1.55;color:#d1d5db;text-align:left}
 
+/* ══════════════════════════════════════════ GRAB THE MIC ══ */
+.gm-word{font-size:2.6rem;font-weight:800;text-align:center;background:linear-gradient(135deg,#fb7185,#f472b6,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.1;word-break:break-word;filter:drop-shadow(0 4px 18px rgba(251,113,133,.35))}
+.gm-mic-big{font-size:3.4rem;line-height:1;animation:gmMicPulse 1.1s ease-in-out infinite}
+@keyframes gmMicPulse{0%,100%{transform:scale(1) rotate(-5deg)}50%{transform:scale(1.14) rotate(5deg)}}
+.gm-grab-btn{font-size:1.15rem;padding:20px;animation:gmGrabPulse 1.3s ease-in-out infinite}
+@keyframes gmGrabPulse{0%,100%{box-shadow:0 6px 24px rgba(251,113,133,.4)}50%{box-shadow:0 10px 40px rgba(251,113,133,.75)}}
+#gm-judge-actions button{font-size:1.05rem;padding:18px}
+@media (prefers-reduced-motion:reduce){.gm-mic-big,.gm-grab-btn{animation:none}}
+
 /* ══════════════════════════════════════════ LIVE FX ══ */
 /* Floating game emojis drifting up the screen behind everything */
 #fx-emojis{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
@@ -524,7 +533,7 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 <div class="screen active" id="screen-home">
   <div style="font-size:2.5rem;text-align:center">🎮</div>
   <div class="logo">Gry towarzyskie</div>
-  <div class="logo-sub">10 gier • grajcie razem na telefonach 🎉</div>
+  <div class="logo-sub">11 gier • grajcie razem na telefonach 🎉</div>
 
   <div class="card" style="display:flex;flex-direction:column;gap:14px">
     <input id="nickname" placeholder="✏️ Twój nick" maxlength="16">
@@ -560,6 +569,9 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
       </div>
       <div class="game-tile" data-game="monopoly" style="--c:#4ade80;--cb:rgba(74,222,128,.16)" onclick="selectGame('monopoly')" role="button" aria-label="Monopoly — Kupuj, buduj, zbankrutuj innych"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('monopoly')" aria-label="Instrukcja: Monopoly">i</div>
         <div class="gt-badge">🎩</div><div class="gt-name">Monopoly</div><div class="gt-desc">Kupuj, buduj, zbankrutuj innych</div><div class="gt-check">✓</div>
+      </div>
+      <div class="game-tile" data-game="grabmic" style="--c:#fb7185;--cb:rgba(251,113,133,.16)" onclick="selectGame('grabmic')" role="button" aria-label="Grab the Mic — Złap mikrofon i śpiewaj"><div class="gt-info" onclick="event.stopPropagation();openInfoFor('grabmic')" aria-label="Instrukcja: Grab the Mic">i</div>
+        <div class="gt-badge">🎤</div><div class="gt-name">Grab the Mic</div><div class="gt-desc">Złap mikrofon i śpiewaj</div><div class="gt-check">✓</div>
       </div>
     </div>
 
@@ -1020,6 +1032,50 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
   <p class="waiting-text">Kolejna runda za chwilę...</p>
 </div>
 
+<!-- ══════════════════════════════════════ GRAB THE MIC ══ -->
+<!-- Łapanie mikrofonu: kto pierwszy klika, ten śpiewa -->
+<div class="screen" id="screen-gm-grab">
+  <p class="section-title" id="gm-counter"></p>
+  <div class="logo" style="font-size:1.2rem;text-align:center">Grab the Mic 🎤</div>
+  <p class="waiting-text">Zaśpiewaj piosenkę z tym słowem:</p>
+  <div class="gm-word" id="gm-grab-word"></div>
+  <div class="timer" id="gm-grab-timer"></div>
+  <button class="btn-main gm-grab-btn" id="gm-grab-btn" onclick="grabMicGrab()">🎤 Złap mikrofon!</button>
+  <p class="waiting-text" id="gm-grab-hint">Kto pierwszy, ten śpiewa 🔥</p>
+</div>
+<!-- Występ na żywo -->
+<div class="screen" id="screen-gm-sing">
+  <p class="section-title" id="gm-sing-counter"></p>
+  <div class="gm-mic-big">🎤</div>
+  <div class="logo" style="font-size:1.3rem;text-align:center" id="gm-sing-title"></div>
+  <p class="waiting-text">Słowo:</p>
+  <div class="gm-word" id="gm-sing-word"></div>
+  <button class="btn-green" id="gm-done-btn" onclick="grabMicDone()" style="display:none">✅ Skończyłem śpiewać</button>
+  <p class="waiting-text" id="gm-sing-wait" style="display:none">🎧 Słuchajcie występu...</p>
+</div>
+<!-- Werdykt reszty -->
+<div class="screen" id="screen-gm-judge">
+  <p class="section-title" id="gm-judge-counter"></p>
+  <div class="gm-mic-big" style="animation:none">🤔</div>
+  <div class="logo" style="font-size:1.25rem;text-align:center" id="gm-judge-title"></div>
+  <div class="card" id="gm-judge-word" style="text-align:center;font-weight:700;font-size:1.1rem"></div>
+  <div class="timer" id="gm-judge-timer"></div>
+  <div id="gm-judge-actions" style="display:flex;gap:10px;width:100%">
+    <button class="btn-green" id="gm-vote-yes" onclick="grabMicVote('yes')">👍 Zaliczam!</button>
+    <button class="btn-stop" id="gm-vote-no" onclick="grabMicVote('no')">👎 Nie</button>
+  </div>
+  <p class="waiting-text" id="gm-judge-wait" style="display:none">⏳ Reszta ocenia Twój występ...</p>
+  <p class="waiting-text" id="gm-judge-progress"></p>
+</div>
+<!-- Wynik rundy -->
+<div class="screen" id="screen-gm-reveal">
+  <div class="gm-mic-big" id="gm-reveal-emoji" style="animation:none">🎤</div>
+  <div class="logo" style="font-size:1.35rem" id="gm-reveal-verdict"></div>
+  <div class="card" id="gm-reveal-info" style="text-align:center;font-weight:700"></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px"><p class="section-title">Ranking</p><div class="scoreboard" id="gm-scoreboard"></div></div>
+  <p class="waiting-text">Kolejna runda za chwilę...</p>
+</div>
+
 <!-- ══════════════════════════════════════ TAŃCZERECZKI ══ -->
 <!-- Brama „Gotowy” PRZED startem gry — klik odblokowuje dźwięk, a gdy 80% jest gotowych, muzyka rusza wszystkim równocześnie -->
 <div class="screen" id="screen-dance-ready">
@@ -1192,7 +1248,7 @@ function showToast(html, top) {
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
 }
 // Screens that top-align + scroll (must be defined before any showScreen call).
-const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished', 'screen-truths-tell', 'screen-truths-guess', 'screen-truths-reveal', 'screen-assoc-write', 'screen-assoc-vote', 'screen-assoc-reveal', 'screen-who-vote', 'screen-who-reveal', 'screen-dance-ready', 'screen-dance', 'screen-dance-vote', 'screen-dance-reveal', 'screen-mono', 'screen-mono-lobby', 'screen-mono-finished']);
+const SCROLL_TOP_SCREENS = new Set(['screen-pm-round', 'screen-pm-review', 'screen-game', 'screen-draw', 'screen-bluff-write', 'screen-bluff-guess', 'screen-quiz', 'screen-quiz-reveal', 'screen-bluff-reveal', 'screen-arcade-lobby', 'screen-arcade-finished', 'screen-truths-tell', 'screen-truths-guess', 'screen-truths-reveal', 'screen-assoc-write', 'screen-assoc-vote', 'screen-assoc-reveal', 'screen-who-vote', 'screen-who-reveal', 'screen-gm-grab', 'screen-gm-sing', 'screen-gm-judge', 'screen-gm-reveal', 'screen-dance-ready', 'screen-dance', 'screen-dance-vote', 'screen-dance-reveal', 'screen-mono', 'screen-mono-lobby', 'screen-mono-finished']);
 const NO_LEAVE_SCREENS = new Set(['screen-home','screen-reconnecting','screen-lobby-admin','screen-lobby-player','screen-pm-lobby','screen-arcade-lobby','screen-mono-lobby','screen-mono-finished']);
 // The per-game info "i" shows everywhere except the home/reconnecting screens.
 const INFO_HIDE_SCREENS = new Set(['screen-home','screen-reconnecting']);
@@ -1225,6 +1281,7 @@ const GAME_UI = {
   quiz:{e:'🧠',n:'Quiz wiedzy'}, bluff:{e:'🤥',n:'Zmyślacz'}, draw:{e:'🎨',n:'Kalambury'},
   truths:{e:'🕵️',n:'2 prawdy 1 kłamstwo'}, assoc:{e:'😂',n:'Najgorsze skojarzenia'},
   who:{e:'🙋',n:'Kto z nas?'}, dance:{e:'🕺',n:'Tańcereczki'}, monopoly:{e:'🎩',n:'Monopoly'},
+  grabmic:{e:'🎤',n:'Grab the Mic'},
 };
 // Short how-to shown in every lobby.
 const GAME_HOWTO = {
@@ -1238,6 +1295,7 @@ const GAME_HOWTO = {
   who:     'W każdej rundzie widzicie hasło "Kto z nas...?" i głosujecie na gracza, który najbardziej pasuje. Śmieszny finał: kto dostał najwięcej głosów. Punkty za każdy oddany na Ciebie głos.',
   monopoly:'Klasyczne Monopoly. Rzucaj kostką, kupuj ulice, dworce i media. Zbierz cały kolor, żeby budować domy i hotele — wtedy czynsz rośnie. Płać czynsz, podatki i karty Szansy/Kasy. Kto zbankrutuje, odpada. Wygrywa ostatni gracz z pieniędzmi!',
   dance:   'Każdy dostaje muzykę na słuchawki i tańczy do niej na środku. Jedna osoba (impostor) ma INNĄ piosenkę! Obserwujcie się nawzajem. Gdy 80% kliknie „Gotowy” (albo skończy się czas) — głosujecie, kto był impostorem. Punkty dla tych, którzy go wykryją, i dla impostora, który się nie wyda. Najlepiej ze słuchawkami i min. 3 graczami!',
+  grabmic: 'Pojawia się słowo/temat. Kto pierwszy kliknie „Złap mikrofon”, śpiewa na żywo piosenkę z tym słowem! Gdy skończy, klika „Skończyłem”, a reszta głosuje 👍/👎 czy zaliczają występ. Za zaliczony występ śpiewak dostaje punkty. Wygrywa, kto uzbiera najwięcej po wszystkich rundach. Grajcie na głos, w jednym pokoju!',
 };
 function selectGame(g) {
   selectedGame = g;
@@ -1762,8 +1820,8 @@ socket.on('gameEnded', ({ scoreboard }) => {
 
 // ─── ARCADE GAMES (Quiz / Zmyślacz / Kalambury) ───────────────────────────────
 const ARCADE_GAMES = new Set(['quiz','bluff','draw','truths','assoc','who','dance']);
-const ARCADE_META  = { quiz:{emoji:'🧠',title:'Quiz wiedzy'}, bluff:{emoji:'🤥',title:'Zmyślacz'}, draw:{emoji:'🎨',title:'Kalambury'}, truths:{emoji:'🕵️',title:'2 prawdy 1 kłamstwo'}, assoc:{emoji:'😂',title:'Najgorsze skojarzenia'}, who:{emoji:'🙋',title:'Kto z nas?'}, dance:{emoji:'🕺',title:'Tańcereczki'} };
-const ARCADE_MID_SCREENS = ['screen-quiz','screen-quiz-reveal','screen-bluff-write','screen-bluff-guess','screen-bluff-reveal','screen-draw','screen-draw-reveal','screen-truths-tell','screen-truths-guess','screen-truths-reveal','screen-assoc-write','screen-assoc-vote','screen-assoc-reveal','screen-who-vote','screen-who-reveal','screen-dance-ready','screen-dance','screen-dance-vote','screen-dance-reveal'];
+const ARCADE_META  = { quiz:{emoji:'🧠',title:'Quiz wiedzy'}, bluff:{emoji:'🤥',title:'Zmyślacz'}, draw:{emoji:'🎨',title:'Kalambury'}, truths:{emoji:'🕵️',title:'2 prawdy 1 kłamstwo'}, assoc:{emoji:'😂',title:'Najgorsze skojarzenia'}, who:{emoji:'🙋',title:'Kto z nas?'}, dance:{emoji:'🕺',title:'Tańcereczki'}, grabmic:{emoji:'🎤',title:'Grab the Mic'} };
+const ARCADE_MID_SCREENS = ['screen-quiz','screen-quiz-reveal','screen-bluff-write','screen-bluff-guess','screen-bluff-reveal','screen-draw','screen-draw-reveal','screen-truths-tell','screen-truths-guess','screen-truths-reveal','screen-assoc-write','screen-assoc-vote','screen-assoc-reveal','screen-who-vote','screen-who-reveal','screen-gm-grab','screen-gm-sing','screen-gm-judge','screen-gm-reveal','screen-dance-ready','screen-dance','screen-dance-vote','screen-dance-reveal'];
 let arcGame = null, arcSettings = {}, arcSettingOptions = null, quizCur = null, quizAnswered = false, bluffSubmitted = false, bluffPicked = null;
 
 function startCountdown(elId, endsAt) {
@@ -2377,6 +2435,83 @@ socket.on('whoReveal', (d) => {
   });
   renderArcadeScoreboard('wr-scoreboard', d.scoreboard);
   showScreen('screen-who-reveal');
+});
+
+// ── GRAB THE MIC ──────────────────────────────────────────────────────────────
+let gmGrabbing = false, gmVoted = false;
+function renderGmGrab(d) {
+  gmGrabbing = false;
+  document.getElementById('gm-counter').textContent = `Runda ${d.index+1} / ${d.total}`;
+  document.getElementById('gm-grab-word').textContent = d.word;
+  const btn = document.getElementById('gm-grab-btn');
+  btn.disabled = false; btn.textContent = '🎤 Złap mikrofon!';
+  document.getElementById('gm-grab-hint').textContent = 'Kto pierwszy, ten śpiewa 🔥';
+  startCountdown('gm-grab-timer', d.endsAt);
+  showScreen('screen-gm-grab');
+}
+function grabMicGrab() {
+  if (gmGrabbing) return; gmGrabbing = true;
+  const btn = document.getElementById('gm-grab-btn');
+  btn.disabled = true; btn.textContent = '🎤 Łapiesz...';
+  document.getElementById('gm-grab-hint').textContent = 'Zobaczmy, czy byłeś pierwszy...';
+  socket.emit('grabMicGrab');
+}
+function renderGmSing(d) {
+  const amSinger = ('amSinger' in d) ? d.amSinger : (d.singerId === myId);
+  document.getElementById('gm-sing-counter').textContent = `Runda ${d.index+1} / ${d.total}`;
+  document.getElementById('gm-sing-word').textContent = d.word;
+  document.getElementById('gm-sing-title').textContent = amSinger ? '🎤 Twoja kolej — śpiewaj!' : `🎤 ${d.singerNick} śpiewa!`;
+  const doneBtn = document.getElementById('gm-done-btn');
+  doneBtn.style.display = amSinger ? 'block' : 'none';
+  doneBtn.disabled = false;
+  document.getElementById('gm-sing-wait').style.display = amSinger ? 'none' : 'block';
+  document.getElementById('gm-sing-wait').textContent = `🎧 Słuchajcie — ${d.singerNick} śpiewa!`;
+  showScreen('screen-gm-sing');
+}
+function grabMicDone() {
+  document.getElementById('gm-done-btn').disabled = true;
+  socket.emit('grabMicDone');
+}
+function renderGmJudge(d) {
+  const amSinger = ('amSinger' in d) ? d.amSinger : (d.singerId === myId);
+  gmVoted = !!d.picked;
+  document.getElementById('gm-judge-counter').textContent = `Runda ${d.index+1} / ${d.total}`;
+  document.getElementById('gm-judge-title').textContent = amSinger ? 'Twój występ jest oceniany' : `Zaliczacie występ?`;
+  document.getElementById('gm-judge-word').textContent = `${d.singerNick} śpiewał: „${d.word}”`;
+  document.getElementById('gm-judge-actions').style.display = amSinger ? 'none' : 'flex';
+  document.getElementById('gm-judge-wait').style.display = amSinger ? 'block' : 'none';
+  const yes = document.getElementById('gm-vote-yes'), no = document.getElementById('gm-vote-no');
+  yes.disabled = no.disabled = gmVoted;
+  yes.classList.toggle('picked', d.picked === 'yes');
+  no.classList.toggle('picked', d.picked === 'no');
+  document.getElementById('gm-judge-progress').textContent = '';
+  startCountdown('gm-judge-timer', d.endsAt);
+  showScreen('screen-gm-judge');
+}
+function grabMicVote(v) {
+  if (gmVoted) return; gmVoted = true;
+  socket.emit('grabMicVote', { verdict: v });
+  document.getElementById('gm-vote-yes').disabled = true;
+  document.getElementById('gm-vote-no').disabled = true;
+  document.getElementById('gm-vote-' + v).classList.add('picked');
+}
+socket.on('grabmicGrab', renderGmGrab);
+socket.on('grabmicSinging', renderGmSing);
+socket.on('grabmicJudge', renderGmJudge);
+socket.on('grabMicJudgeProgress', ({ have, need }) => {
+  const el = document.getElementById('gm-judge-progress');
+  if (el && !gmVoted) el.textContent = `Oceniło: ${have}/${need}`;
+});
+socket.on('grabmicReveal', (d) => {
+  const emoji = d.noSinger ? '🤷' : (d.approved ? '🎉' : '😅');
+  document.getElementById('gm-reveal-emoji').textContent = emoji;
+  document.getElementById('gm-reveal-verdict').textContent =
+    d.noSinger ? 'Nikt nie zaśpiewał!' : (d.approved ? 'Zaliczone! 🏆' : 'Nie zaliczone 😬');
+  document.getElementById('gm-reveal-info').textContent =
+    d.noSinger ? `Słowo: „${d.word}” — runda przepada.`
+               : `${d.singerNick} śpiewał „${d.word}” • 👍 ${d.yes} : ${d.no} 👎`;
+  renderArcadeScoreboard('gm-scoreboard', d.scoreboard);
+  showScreen('screen-gm-reveal');
 });
 
 // ── TAŃCZERECZKI ──────────────────────────────────────────────────────────────
@@ -3260,6 +3395,11 @@ socket.on('arcadeRejoin', (s) => {
   } else if (s.game === 'who') {
     if (s.phase === 'voting') renderWhoVote(s);
     else if (s.phase === 'reveal') { document.getElementById('wr-prompt').textContent = s.prompt; document.getElementById('wr-list').innerHTML = ''; renderArcadeScoreboard('wr-scoreboard', s.scoreboard); showScreen('screen-who-reveal'); }
+  } else if (s.game === 'grabmic') {
+    if (s.phase === 'grab') renderGmGrab(s);
+    else if (s.phase === 'singing') renderGmSing(s);
+    else if (s.phase === 'judging') renderGmJudge(s);
+    else if (s.phase === 'reveal') { document.getElementById('gm-reveal-verdict').textContent = 'Wynik rundy'; document.getElementById('gm-reveal-info').textContent = `Słowo: „${s.word}”`; renderArcadeScoreboard('gm-scoreboard', s.scoreboard); showScreen('screen-gm-reveal'); }
   } else if (s.game === 'dance') {
     if (s.phase === 'ready') renderDanceReady(s);
     else if (s.phase === 'dancing') renderDanceStart(s);
