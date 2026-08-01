@@ -17,7 +17,7 @@
   --brand1:#ff4ecd;   /* magenta */
   --brand2:#8b5cf6;   /* violet  */
   --brand3:#38bdf8;   /* cyan    */
-  --card-bg:rgba(255,255,255,.055);
+  --card-bg:rgba(28,24,52,.55);
   --card-brd:rgba(255,255,255,.11);
   --radius:20px;
   --glow:0 8px 40px rgba(139,92,246,.28);
@@ -32,24 +32,13 @@ body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--ink);min-
    so every field (and the keyboard's headroom) stays reachable. */
 body.scroll-top{align-items:flex-start}
 
-/* Animated aurora background — layered colour blobs that slowly drift */
-body::before{content:'';position:fixed;inset:-20%;background:
-  radial-gradient(38% 44% at 12% 28%,rgba(255,78,205,.28) 0%,transparent 60%),
-  radial-gradient(42% 46% at 88% 12%,rgba(56,189,248,.24) 0%,transparent 60%),
-  radial-gradient(50% 50% at 78% 88%,rgba(139,92,246,.26) 0%,transparent 62%),
-  radial-gradient(40% 40% at 20% 92%,rgba(16,185,129,.16) 0%,transparent 60%);
-  filter:blur(14px);animation:auroraDrift 16s ease-in-out infinite alternate;z-index:-2}
-/* Fine grid texture over the aurora for a premium, structured feel */
-body::after{content:'';position:fixed;inset:0;background-image:
-  linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
-  linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
-  background-size:44px 44px;mask:radial-gradient(circle at 50% 40%,#000 30%,transparent 85%);z-index:-1;pointer-events:none}
-@keyframes auroraDrift{
-  0%{transform:scale(1) translate(0,0) rotate(0deg)}
-  50%{transform:scale(1.12) translate(2%,-1.5%) rotate(1.5deg)}
-  100%{transform:scale(1.06) translate(-2%,2%) rotate(-1.5deg)}
-}
-@media (prefers-reduced-motion:reduce){body::before{animation:none}}
+/* Static aurora background — layered colour blobs painted once (zero per-frame cost) */
+body::before{content:'';position:fixed;inset:0;background:
+  radial-gradient(45% 40% at 12% 26%,rgba(255,78,205,.22) 0%,transparent 60%),
+  radial-gradient(48% 42% at 88% 12%,rgba(56,189,248,.20) 0%,transparent 60%),
+  radial-gradient(55% 48% at 80% 88%,rgba(139,92,246,.22) 0%,transparent 62%),
+  radial-gradient(45% 40% at 18% 92%,rgba(16,185,129,.14) 0%,transparent 60%);
+  z-index:-1}
 
 /* ──────────────────────────────────────────────────── SCREENS ── */
 .screen{display:none;flex-direction:column;align-items:center;gap:18px;width:90%;max-width:500px;padding:24px 0}
@@ -60,15 +49,14 @@ body::after{content:'';position:fixed;inset:0;background-image:
 #screen-pm-round{padding-bottom:min(65vh,480px)}
 
 /* ──────────────────────────────────────────────────── TYPOGRAPHY ── */
-.logo{font-size:3.1rem;font-weight:800;letter-spacing:-1px;background:linear-gradient(120deg,var(--brand1),var(--brand2) 45%,var(--brand3));background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center;line-height:1.05;animation:logoShine 6s linear infinite;filter:drop-shadow(0 4px 24px rgba(139,92,246,.35))}
-@keyframes logoShine{to{background-position:200% center}}
+.logo{font-size:3.1rem;font-weight:800;letter-spacing:-1px;background:linear-gradient(120deg,var(--brand1),var(--brand2) 45%,var(--brand3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center;line-height:1.05}
 .logo-sub{font-size:.82rem;color:var(--muted);letter-spacing:3px;text-transform:uppercase;font-weight:600}
 .section-title{font-size:.72rem;color:var(--faint);text-transform:uppercase;letter-spacing:2px;text-align:center;font-weight:600}
 .error{color:#fb7185;font-size:.85rem;text-align:center;min-height:1.2em}
 .waiting-text{color:var(--muted);font-size:.9rem;text-align:center}
 
 /* ──────────────────────────────────────────────────── CARD / GLASS ── */
-.card{position:relative;background:var(--card-bg);border:1px solid var(--card-brd);border-radius:var(--radius);padding:24px;width:100%;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 12px 48px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08)}
+.card{position:relative;background:var(--card-bg);border:1px solid var(--card-brd);border-radius:var(--radius);padding:24px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08)}
 /* Subtle top highlight sheen on cards */
 .card::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,rgba(255,255,255,.16),transparent 40%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 
@@ -208,7 +196,7 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 .pending-chip{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:4px 12px;font-size:.8rem;color:#d1d5db}
 
 /* ──────────────────────────────────────────────── WORD REVEAL ── */
-.word-reveal{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:16px;backdrop-filter:blur(10px);animation:fadeIn .3s ease}
+.word-reveal{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:16px;animation:fadeIn .3s ease}
 .word-reveal.hidden{display:none}
 @keyframes fadeIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
 .reveal-word{font-size:3.2rem;font-weight:800;background:linear-gradient(135deg,#fbbf24,#f9a8d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center}
@@ -352,7 +340,7 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 .howto b{color:#fbbf24}
 
 /* Fixed in-game "leave to menu" button */
-#leave-btn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:10px;z-index:150;width:auto;padding:7px 12px;font-size:.78rem;font-weight:700;color:#fca5a5;background:rgba(20,20,40,.72);border:1px solid rgba(248,113,113,.4);border-radius:10px;backdrop-filter:blur(6px)}
+#leave-btn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:10px;z-index:150;width:auto;padding:7px 12px;font-size:.78rem;font-weight:700;color:#fca5a5;background:rgba(24,22,44,.92);border:1px solid rgba(248,113,113,.4);border-radius:10px}
 
 /* End-of-game vote (Czółko) */
 .endvote-picker{display:flex;gap:10px;width:100%}
@@ -376,7 +364,7 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 .toast-wrap.toast-top{top:calc(env(safe-area-inset-top,0px) + 12px);bottom:auto}
 .field-error{border-color:#f87171 !important;box-shadow:0 0 0 3px rgba(248,113,113,.25);animation:shakeX .32s}
 @keyframes shakeX{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
-.toast{background:rgba(20,20,40,.92);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:10px 14px;font-size:.82rem;color:#e5e7eb;box-shadow:0 6px 24px rgba(0,0,0,.4);backdrop-filter:blur(8px);animation:toastIn .2s ease;text-align:center}
+.toast{background:rgba(24,22,44,.96);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:10px 14px;font-size:.82rem;color:#e5e7eb;box-shadow:0 6px 24px rgba(0,0,0,.4);animation:toastIn .2s ease;text-align:center}
 .toast b{color:#fff}
 .toast .t-up{color:#34d399;font-weight:700}
 .toast .t-down{color:#f87171;font-weight:700}
@@ -390,10 +378,10 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 /* Rounds picker reuses .cat-chip styling from the category picker */
 
 /* ──────────────────────────────────────────────── MODAL ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(8px);animation:fadeIn .2s ease;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.86);display:flex;align-items:center;justify-content:center;z-index:200;animation:fadeIn .2s ease;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 .modal-overlay.hidden{display:none}
 .modal-overlay:not(.hidden){animation:fadeIn .2s ease}
-#info-btn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:10px;z-index:150;width:34px;height:34px;padding:0;font-size:1.05rem;font-weight:800;font-style:italic;font-family:Georgia,'Times New Roman',serif;color:#93c5fd;background:rgba(20,20,40,.72);border:1px solid rgba(96,165,250,.5);border-radius:50%;backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;cursor:pointer}
+#info-btn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:10px;z-index:150;width:34px;height:34px;padding:0;font-size:1.05rem;font-weight:800;font-style:italic;font-family:Georgia,'Times New Roman',serif;color:#93c5fd;background:rgba(24,22,44,.92);border:1px solid rgba(96,165,250,.5);border-radius:50%;display:none;align-items:center;justify-content:center;cursor:pointer}
 .info-card{position:relative;max-width:370px;width:100%;display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center}
 .info-x{position:absolute;top:-8px;right:-8px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);color:#fff;font-size:1rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 .info-emoji{font-size:2.6rem;line-height:1}
@@ -402,10 +390,10 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 
 /* ══════════════════════════════════════════ GRAB THE MIC ══ */
 .gm-word{font-size:2.6rem;font-weight:800;text-align:center;background:linear-gradient(135deg,#fb7185,#f472b6,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.1;word-break:break-word;filter:drop-shadow(0 4px 18px rgba(251,113,133,.35))}
-.gm-mic-big{font-size:3.4rem;line-height:1;animation:gmMicPulse 1.1s ease-in-out infinite}
-@keyframes gmMicPulse{0%,100%{transform:scale(1) rotate(-5deg)}50%{transform:scale(1.14) rotate(5deg)}}
-.gm-grab-btn{font-size:1.15rem;padding:20px;animation:gmGrabPulse 1.3s ease-in-out infinite}
-@keyframes gmGrabPulse{0%,100%{box-shadow:0 6px 24px rgba(251,113,133,.4)}50%{box-shadow:0 10px 40px rgba(251,113,133,.75)}}
+.gm-mic-big{font-size:3.4rem;line-height:1;animation:gmMicPulse 1.2s ease-in-out infinite;will-change:transform}
+@keyframes gmMicPulse{0%,100%{transform:scale(1) rotate(-5deg)}50%{transform:scale(1.12) rotate(5deg)}}
+.gm-grab-btn{font-size:1.15rem;padding:20px;box-shadow:0 8px 32px rgba(251,113,133,.55);animation:gmGrabPulse 1.4s ease-in-out infinite;will-change:transform}
+@keyframes gmGrabPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
 #gm-judge-actions button{font-size:1.05rem;padding:18px}
 @media (prefers-reduced-motion:reduce){.gm-mic-big,.gm-grab-btn{animation:none}}
 
@@ -425,28 +413,9 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 #game-picker .game-tile:nth-child(10){animation-delay:.58s}
 @media (prefers-reduced-motion:reduce){#game-picker .game-tile{animation:none}}
 
-/* Idle life: badges gently bob, each offset so the grid feels alive */
-@keyframes badgeBob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-4px) rotate(2deg)}}
-.game-tile .gt-badge{animation:badgeBob 3.6s ease-in-out infinite}
-.game-tile:nth-child(2n) .gt-badge{animation-duration:4.2s;animation-delay:.4s}
-.game-tile:nth-child(3n) .gt-badge{animation-duration:3.2s;animation-delay:.8s}
-.game-tile:hover .gt-badge{animation-play-state:paused}
-@media (prefers-reduced-motion:reduce){.game-tile .gt-badge{animation:none}}
-
-/* Selected tile: pulsing coloured halo so the choice feels "alive" */
-@keyframes haloPulse{0%,100%{box-shadow:0 10px 30px -10px var(--cb),0 0 0 0 var(--cb)}50%{box-shadow:0 10px 34px -8px var(--cb),0 0 0 6px transparent}}
-.game-tile.selected{animation:haloPulse 2s ease-in-out infinite}
+/* One-shot badge pop when a tile becomes selected (runs once, no idle cost) */
 .game-tile.selected .gt-badge{animation:badgePop .5s cubic-bezier(.34,1.56,.64,1)}
 @keyframes badgePop{0%{transform:scale(1)}50%{transform:scale(1.22) rotate(6deg)}100%{transform:scale(1)}}
-
-/* Logo gently floats */
-@keyframes logoBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-.logo{animation:logoShine 6s linear infinite,logoBob 4.5s ease-in-out infinite}
-
-/* Main CTA breathes so it invites a tap */
-@keyframes ctaBreathe{0%,100%{box-shadow:0 6px 24px rgba(255,78,205,.32)}50%{box-shadow:0 10px 34px rgba(255,78,205,.55)}}
-#screen-home .btn-main{animation:ctaBreathe 2.6s ease-in-out infinite}
-@media (prefers-reduced-motion:reduce){.logo{animation:logoShine 6s linear infinite}#screen-home .btn-main{animation:none}}
 </style>
 </head>
 <body>
