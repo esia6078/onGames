@@ -410,18 +410,6 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 @media (prefers-reduced-motion:reduce){.gm-mic-big,.gm-grab-btn{animation:none}}
 
 /* ══════════════════════════════════════════ LIVE FX ══ */
-/* Floating game emojis drifting up the screen behind everything */
-#fx-emojis{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
-.fx-e{position:absolute;bottom:-10vh;font-size:2rem;opacity:0;filter:drop-shadow(0 4px 10px rgba(0,0,0,.4));will-change:transform,opacity;animation:fxFloat linear infinite}
-@keyframes fxFloat{
-  0%{transform:translateY(0) rotate(0deg) scale(.7);opacity:0}
-  10%{opacity:.5}
-  50%{opacity:.5}
-  90%{opacity:.35}
-  100%{transform:translateY(-118vh) rotate(220deg) scale(1.05);opacity:0}
-}
-@media (prefers-reduced-motion:reduce){#fx-emojis{display:none}}
-
 /* Springy pop-in for the home game tiles (staggered) */
 @keyframes tilePop{0%{opacity:0;transform:translateY(18px) scale(.86)}60%{opacity:1;transform:translateY(-4px) scale(1.03)}100%{opacity:1;transform:translateY(0) scale(1)}}
 #game-picker .game-tile{animation:tilePop .5s cubic-bezier(.34,1.56,.64,1) backwards}
@@ -462,29 +450,6 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 </style>
 </head>
 <body>
-
-<!-- ══════════════════════════════════════ LIVE BACKGROUND FX ══ -->
-<div id="fx-emojis" aria-hidden="true"></div>
-<script>
-(function(){
-  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var pool=['🎮','🎲','🎯','🎨','🧠','🕺','🎩','🤥','🌍','🙋','🕵️','😂','🎉','⭐','🏆','🃏'];
-  var box=document.getElementById('fx-emojis');
-  if(!box) return;
-  var N = window.innerWidth < 600 ? 12 : 18;
-  for(var i=0;i<N;i++){
-    var e=document.createElement('div');
-    e.className='fx-e';
-    e.textContent=pool[Math.floor(Math.random()*pool.length)];
-    var dur=14+Math.random()*16;           // 14–30s rise
-    e.style.left=(Math.random()*100)+'vw';
-    e.style.fontSize=(1.3+Math.random()*2.1).toFixed(2)+'rem';
-    e.style.animationDuration=dur.toFixed(1)+'s';
-    e.style.animationDelay=(-Math.random()*dur).toFixed(1)+'s';  // pre-spread across screen
-    box.appendChild(e);
-  }
-})();
-</script>
 
 <!-- ══════════════════════════════════════ TOAST NOTIFICATIONS ══ -->
 <div class="toast-wrap" id="toast-wrap"></div>
